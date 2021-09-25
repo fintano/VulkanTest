@@ -1,6 +1,11 @@
 #define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
+
+
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
 #include <stdexcept>	
@@ -11,6 +16,7 @@
 #include <set>
 #include <fstream>
 #include <array>
+#include <chrono>
 
 static std::vector<char> readFile(const std::string& filename);
 
@@ -101,6 +107,12 @@ private:
 		}
 	};
 
+	struct UniformBufferObject {
+		alignas(16) glm::mat4 model;
+		alignas(16) glm::mat4 view;
+		alignas(16) glm::mat4 proj;
+	};
+	
 	const std::vector<Vertex> vertices = {
 		{{-0.5f, -0.5f},{1.f, 0.f, 0.f}},
 		{{0.5f, -0.5f,},{0.f, 1.f, 0.f}},
@@ -133,11 +145,15 @@ private:
 		createSwapchain();
 		createImageViews();
 		createRenderPass();
+		createDescriptorSetLayout();
 		createGraphicsPipeline();
 		createFrameBuffers();
 		createCommandPool();
 		createVertexBuffer();
 		createIndexBuffer();
+		createUniformBuffers();
+		createDescriptorPool();
+		createDescriptorSets();
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -508,6 +524,8 @@ private:
 		createRenderPass();
 		createGraphicsPipeline();
 		createFrameBuffers();
+		createUniformBuffers();
+		createDescriptorPool();
 		createCommandBuffers();
 	}
 
@@ -637,7 +655,26 @@ private:
 		{
 			throw std::runtime_error("failed to create render pass.");
 		}
+	}
 
+	void createDescriptorSetLayout()
+	{
+		VkDescriptorSetLayoutBinding uboLayoutbinding{};
+		uboLayoutbinding.binding = 0;
+		uboLayoutbinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboLayoutbinding.descriptorCount = 1;
+		uboLayoutbinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		uboLayoutbinding.pImmutableSamplers = nullptr; // imageSampling.
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 1;
+		layoutInfo.pBindings = &uboLayoutbinding;
+
+		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create descriptor set layout.");
+		}
 	}
 
 	void createGraphicsPipeline()
@@ -703,7 +740,7 @@ private:
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 
 		VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -728,7 +765,8 @@ private:
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0;
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 
 		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
@@ -865,6 +903,78 @@ private:
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 	}
 
+	// 여기서는 생성만하기 때문에 vkMapMemory가 없다. 유니폼버퍼에는 매프레임 데이터를 넣어줘야하기 때문에 함수를 따로 작성한다. 
+	void createUniformBuffers()
+	{
+		VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+		uniformBuffers.resize(swapChainImages.size());
+		uniformBufferMemory.resize(swapChainImages.size());
+
+		for (size_t i = 0; i < swapChainImages.size(); i++)
+		{
+			createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBufferMemory[i]);
+		}
+	}
+
+	void createDescriptorPool()
+	{
+		VkDescriptorPoolSize poolSize{};
+		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSize.descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+
+		VkDescriptorPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = 1;
+		poolInfo.pPoolSizes = &poolSize;
+		poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size());
+
+		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create descriptor pool!");
+		}
+	}
+
+	void createDescriptorSets()
+	{
+		// DescriptorSet을 Pool을 통해서 할당하고,
+		std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = descriptorPool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+		allocInfo.pSetLayouts = layouts.data();
+
+		descriptorSets.resize(swapChainImages.size());
+		if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate descriptor sets!");
+		}
+
+		// 할당된 DescriptorSet에 유니폼 버퍼를 넣는다.
+		for (size_t i = 0; i < swapChainImages.size(); i++)
+		{
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = uniformBuffers[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range = sizeof(UniformBufferObject);
+
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = descriptorSets[i];
+			descriptorWrite.dstBinding = 0; // layout (binding = 0)
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrite.descriptorCount = 1; // how many descriptor you update
+			descriptorWrite.pBufferInfo = &bufferInfo;
+			descriptorWrite.pImageInfo = nullptr;
+			descriptorWrite.pTexelBufferView = nullptr;
+
+			vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+		}
+	}
+
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
 	{
 		VkBufferCreateInfo bufferInfo{};
@@ -986,6 +1096,7 @@ private:
 				VkDeviceSize offsets[]{ 0 };
 				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 				vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 				vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
@@ -1057,6 +1168,8 @@ private:
 
 		imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
+		updateUniformBuffer(imageIndex);
+
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		// Color attachment에 쓰기 직전 스테이지까지 기다리다가 세마포어가 시그널되면 (ImageIndex를 얻으면) 렌더패쓰를 진행한다. 
@@ -1106,9 +1219,29 @@ private:
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
+	void updateUniformBuffer(uint32_t currentImage)
+	{
+		static auto startTime = std::chrono::high_resolution_clock::now();
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+		UniformBufferObject ubo{};
+		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+		ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 0.f, 1.f));
+		ubo.proj = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.f, 10.f);
+		ubo.proj[1][1] *= -1;
+
+		void* data;
+		vkMapMemory(device, uniformBufferMemory[currentImage], 0, sizeof(ubo), 0, &data);
+		memcpy(data, &ubo, sizeof(ubo));
+		vkUnmapMemory(device, uniformBufferMemory[currentImage]);
+	}
+
 	void cleanUp()
 	{
 		cleanUpSwapchain();
+
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 		vkDestroyBuffer(device, vertexBuffer, nullptr);
 		vkFreeMemory(device, vertexBufferMemory, nullptr);
 		vkDestroyBuffer(device, indexBuffer, nullptr);
@@ -1149,6 +1282,12 @@ private:
 			vkDestroyImageView(device, imageView, nullptr);
 		}
 		vkDestroySwapchainKHR(device, swapChain, nullptr);
+		for (size_t i = 0; i < swapChainImages.size(); i++)
+		{
+			vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+			vkFreeMemory(device, uniformBufferMemory[i], nullptr);
+		}
+		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
@@ -1179,6 +1318,7 @@ private:
 	VkExtent2D swapChainExtent;
 	std::vector<VkImageView> swapChainImageViews;
 	VkRenderPass renderPass;
+	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFrameBuffers;
@@ -1188,6 +1328,10 @@ private:
 	VkDeviceMemory vertexBufferMemory;
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
+	std::vector<VkBuffer> uniformBuffers;
+	std::vector<VkDeviceMemory> uniformBufferMemory;
+	VkDescriptorPool descriptorPool;
+	std::vector<VkDescriptorSet> descriptorSets;
 
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
