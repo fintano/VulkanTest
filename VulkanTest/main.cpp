@@ -1471,6 +1471,7 @@ private:
 	{
 		vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
+		/** 1 - 2 사이 ImageAvailableSemaphore, 2-3 사이 renderFinishedSemaphore 맞나? */
 		/** 1. Acquire an image from the swap chain */ 
 		uint32_t imageIndex;
 		VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -1484,14 +1485,13 @@ private:
 			throw std::runtime_error("failed to acquire next image!");
 		}
 
+		updateUniformBuffer(imageIndex);
+
 		if (imagesInFlight[imageIndex] != VK_NULL_HANDLE)
 		{
 			vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
 		}
-
 		imagesInFlight[imageIndex] = inFlightFences[currentFrame];
-
-		updateUniformBuffer(imageIndex);
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1533,6 +1533,7 @@ private:
 		result = vkQueuePresentKHR(presentQueue, &presentInfo);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frameBufferResized)
 		{
+			frameBufferResized = false;
 			recreateSwapChain();
 		}
 		else if (result != VK_SUCCESS)
@@ -1551,7 +1552,7 @@ private:
 		UniformBufferObject ubo{};
 		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
 		ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 0.f, 1.f));
-		ubo.proj = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.f, 10.f);
+		ubo.proj = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 10.f);
 		ubo.proj[1][1] *= -1;
 
 		void* data;
