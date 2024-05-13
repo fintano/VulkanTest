@@ -31,6 +31,7 @@ public:
 	glm::vec3 Up;
 	glm::vec3 Right;
 	glm::vec3 WorldUp;
+	glm::vec3 EyeCenter = glm::vec3(0.f, 0.f, 0.f);
 	// euler Angles
 	float Yaw;
 	float Pitch;
@@ -39,14 +40,19 @@ public:
 	float MouseSensitivity;
 	float Zoom;
 
+	bool bOffsetInitialized = false;
+	float preXOffset = 0.f;
+	float preYOffset = 0.f;
+
 	// constructor with vectors
-	Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(1.0f, 0.0f, 0.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+	Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 1.0f, 0.0f)), Right(1.f, 0.f, 0.f), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
 	{
 		Position = position;
 		WorldUp = up;
 		Yaw = yaw;
 		Pitch = pitch;
-		updateCameraVectors();
+		Up = WorldUp;
+		updateCameraVectors(0.f, 0.f);
 	}
 	// constructor with scalar values
 	Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 1.0f, 0.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
@@ -55,13 +61,14 @@ public:
 		WorldUp = glm::vec3(upX, upY, upZ);
 		Yaw = yaw;
 		Pitch = pitch;
-		updateCameraVectors();
+		Up = WorldUp;
+		updateCameraVectors(0.f, 0.f);
 	}
 
 	// returns the view matrix calculated using Euler Angles and the LookAt Matrix
 	glm::mat4 GetViewMatrix()
 	{
-		return glm::lookAt(Position, Position + Front, Up);
+		return glm::lookAt(Position, EyeCenter, Up);
 	}
 
 	// processes input received from any keyboard-like input system. Accepts input parameter in the form of camera defined ENUM (to abstract it from windowing systems)
@@ -84,20 +91,34 @@ public:
 		xoffset *= MouseSensitivity;
 		yoffset *= MouseSensitivity;
 
+		if (!bOffsetInitialized)
+		{
+			preXOffset = xoffset;
+			preYOffset = yoffset;
+
+			bOffsetInitialized = true;
+		}
+
+		float deltaXOffset = xoffset - preXOffset;
+		float deltaYOffset = yoffset - preYOffset;
+
+		preXOffset = xoffset;
+		preYOffset = yoffset;
+
 		Yaw += xoffset;
 		Pitch += yoffset;
 
 		// make sure that when pitch is out of bounds, screen doesn't get flipped
-		if (constrainPitch)
+		/*if (constrainPitch)
 		{
 			if (Pitch > 89.0f)
 				Pitch = 89.0f;
 			if (Pitch < -89.0f)
 				Pitch = -89.0f;
-		}
+		}*/
 
 		// update Front, Right and Up Vectors using the updated Euler angles
-		updateCameraVectors();
+		updateCameraVectors(deltaXOffset, deltaYOffset);
 	}
 
 	// processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
@@ -112,17 +133,26 @@ public:
 
 private:
 	// calculates the front vector from the Camera's (updated) Euler Angles
-	void updateCameraVectors()
+	void updateCameraVectors(float xOffset, float yOffset)
 	{
 		// calculate the new Front vector
-		glm::vec3 front;
-		front.x = cos(glm::radians(Pitch)) * sin(glm::radians(Yaw));
-		front.y = cos(glm::radians(Pitch)) * cos(glm::radians(Yaw));
-		front.z = sin(glm::radians(Pitch)); 
-		Front = glm::normalize(front);
-		// also re-calculate the Right and Up vector
-		Right = glm::normalize(glm::cross(Front, WorldUp));  // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
-		Up = glm::normalize(glm::cross(Right, Front));
+		//glm::vec3 front;
+		//front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
+		//front.y = sin(glm::radians(Pitch));
+		//front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
+		//Front = glm::normalize(front);
+		//// also re-calculate the Right and Up vector
+		//Right = glm::normalize(glm::cross(Front, WorldUp));  // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
+		//Up = glm::normalize(glm::cross(Right, Front));
+
+		auto view_transform = glm::mat4(1.f); 
+		view_transform = glm::rotate(view_transform, glm::radians(yOffset * -1), glm::vec3(1.0f, 0.0f, 0.0f));
+		view_transform = glm::rotate(view_transform, glm::radians(xOffset * -1), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		Position = view_transform * glm::vec4(Position, 1.f);
+		Front = glm::normalize(EyeCenter - Position);
+		Right = glm::normalize(glm::cross(Front, WorldUp));
+		Up = glm::normalize(glm::cross(Right, Front));		
 	}
 };
 #endif

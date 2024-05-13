@@ -137,7 +137,7 @@ class HelloTriangleApplication {
 public:
 	
 	HelloTriangleApplication()
-		: camera({ 5.f, 5.f, 5.f }, { 0.f,0.f,1.f })
+		: camera({ 5.f, 0.f, 0.f }, { 0.f,0.f,1.f })
 	{
 		
 	}
@@ -161,6 +161,8 @@ private:
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		glfwSetCursorPosCallback(window, mouseCallback);
 	}
 
 	void initVulkan()
@@ -1693,9 +1695,9 @@ private:
 
 				// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
 				// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
-				//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_LightSource);
-				//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets_LightSource[i], 0, nullptr);
-				//vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_LightSource);
+				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets_LightSource[i], 0, nullptr);
+				vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -1736,7 +1738,7 @@ private:
 		while (!glfwWindowShouldClose(window))
 		{
 			glfwPollEvents();
-			//processInput();
+			processInput();
 			drawFrame();
 		}
 
@@ -1757,6 +1759,10 @@ private:
 			camera.ProcessKeyboard(Camera_Movement::LEFT, deltaTime);
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 			camera.ProcessKeyboard(Camera_Movement::RIGHT, deltaTime);
+		//if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+			//camera.ProcessKeyboard(Camera_Movement::UP, deltaTime);
+		//if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+			//camera.ProcessKeyboard(Camera_Movement::DOWN, deltaTime);
 	}
 
 	void drawFrame()
@@ -1842,11 +1848,11 @@ private:
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		glm::mat4 viewMat = camera.GetViewMatrix();
-		glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 10.f);
+		glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
 		persMat[1][1] *= -1;
 
 		UniformBufferObject ubo{};
-		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+		ubo.model = glm::mat4(1.0f);//glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
 		ubo.view = viewMat;
 		ubo.proj = persMat;
 
@@ -1855,13 +1861,13 @@ private:
 		memcpy(data, &ubo, sizeof(ubo));
 		vkUnmapMemory(device, uniformBufferMemory[currentImage]);
 
-		/*ubo.model = glm::mat4(1.0f);
+		ubo.model = glm::mat4(1.0f);
 		ubo.view = viewMat;
 		ubo.proj = persMat;
 
 		vkMapMemory(device, uniformBufferMemory_LightSource[currentImage], 0, sizeof(ubo), 0, &data);
 		memcpy(data, &ubo, sizeof(ubo));
-		vkUnmapMemory(device, uniformBufferMemory_LightSource[currentImage]);*/
+		vkUnmapMemory(device, uniformBufferMemory_LightSource[currentImage]);
 	}
 
 	void cleanUp()
@@ -1940,6 +1946,12 @@ private:
 	{
 		auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
 		app->frameBufferResized = true;
+	}
+
+	static void mouseCallback(GLFWwindow* window, double xpos, double ypos)
+	{
+		auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+		app->camera.ProcessMouseMovement(xpos, ypos);
 	}
 
 private:
