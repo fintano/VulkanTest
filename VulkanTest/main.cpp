@@ -137,7 +137,7 @@ class HelloTriangleApplication {
 public:
 	
 	HelloTriangleApplication()
-		: camera({ 5.f, 0.f, 0.f }, { 0.f,0.f,1.f })
+		: camera({ 0.f, 0.f, -5.f }, { 0.f,1.f,0.f })
 	{
 		
 	}

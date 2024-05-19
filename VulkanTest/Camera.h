@@ -45,17 +45,19 @@ public:
 	float preYOffset = 0.f;
 
 	// constructor with vectors
-	Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 1.0f, 0.0f)), Right(1.f, 0.f, 0.f), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+	Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 0.0f, 1.0f)), Right(1.f, 0.f, 0.f), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
 	{
 		Position = position;
 		WorldUp = up;
 		Yaw = yaw;
 		Pitch = pitch;
 		Up = WorldUp;
+		Front = glm::normalize(EyeCenter - position);
+		Right = glm::normalize(glm::cross(Front, Up));
 		updateCameraVectors(0.f, 0.f);
 	}
 	// constructor with scalar values
-	Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 1.0f, 0.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
+	Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, 1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
 	{
 		Position = glm::vec3(posX, posY, posZ);
 		WorldUp = glm::vec3(upX, upY, upZ);
@@ -135,24 +137,16 @@ private:
 	// calculates the front vector from the Camera's (updated) Euler Angles
 	void updateCameraVectors(float xOffset, float yOffset)
 	{
-		// calculate the new Front vector
-		//glm::vec3 front;
-		//front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
-		//front.y = sin(glm::radians(Pitch));
-		//front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
-		//Front = glm::normalize(front);
-		//// also re-calculate the Right and Up vector
-		//Right = glm::normalize(glm::cross(Front, WorldUp));  // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
-		//Up = glm::normalize(glm::cross(Right, Front));
-
 		auto view_transform = glm::mat4(1.f); 
-		view_transform = glm::rotate(view_transform, glm::radians(yOffset * -1), glm::vec3(1.0f, 0.0f, 0.0f));
-		view_transform = glm::rotate(view_transform, glm::radians(xOffset * -1), glm::vec3(0.0f, 0.0f, 1.0f));
+		view_transform = glm::rotate(view_transform, glm::radians(xOffset), Up);
+		view_transform = glm::rotate(view_transform, glm::radians(yOffset), Right);
 
 		Position = view_transform * glm::vec4(Position, 1.f);
-		Front = glm::normalize(EyeCenter - Position);
-		Right = glm::normalize(glm::cross(Front, WorldUp));
-		Up = glm::normalize(glm::cross(Right, Front));		
+		Front = glm::normalize(EyeCenter - Position);	
+		Up = view_transform * glm::vec4(Up, 0.f);
+
+		// Consider a right-handed coordinate system of vulkan.
+		Right = glm::normalize(glm::cross(Up, Front));
 	}
 };
 #endif
