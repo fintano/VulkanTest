@@ -79,6 +79,11 @@ struct UniformBufferObject {
 	alignas(16) glm::mat4 proj;
 };
 
+struct ColorUBO {
+	alignas(16) glm::vec3 objectColor;
+	alignas(16) glm::vec3 lightColor;
+};
+
 struct Vertex
 {
 	glm::vec3 pos;
@@ -177,12 +182,13 @@ private:
 		createRenderPass();
 		createDescriptorSetLayout();
 
-		auto vertShaderCode = readFile("shaders/vert.spv");
-		auto vertShaderCode2 = readFile("shaders/vert2.spv");
-		auto fragShaderCode = readFile("shaders/frag.spv");
+		auto vertShaderCode = readFile("shaders/shadervert.spv");
+		auto vertLightShaderCode = readFile("shaders/lightShadervert.spv");
+		auto fragShaderCode = readFile("shaders/shaderfrag.spv");
+		auto fragLightShaderCode = readFile("shaders/lightShaderfrag.spv");
 
 		createGraphicsPipeline(vertShaderCode, fragShaderCode, graphicsPipeline);
-		createGraphicsPipeline(vertShaderCode2, fragShaderCode, graphicsPipeline_LightSource);
+		createGraphicsPipeline(vertLightShaderCode, fragLightShaderCode, graphicsPipeline_LightSource);
 		createCommandPool();
 		createColorResources();
 		createDepthResources();
@@ -193,11 +199,17 @@ private:
 		loadModel();
 		createVertexBuffer();
 		createIndexBuffer();
-		createUniformBuffers(uniformBuffers, uniformBufferMemory);
-		createUniformBuffers(uniformBuffers_LightSource, uniformBufferMemory_LightSource);
+		
+		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(UniformBufferObject));
+		createUniformBuffers(uniformBuffers_LightSource, uniformBufferMemory_LightSource, sizeof(UniformBufferObject));
+		createUniformBuffers(colorUniformBuffer_LightSource, colorUniformBufferMemory_LightSource, sizeof(ColorUBO));\
+
 		createDescriptorPool();
+
 		createDescriptorSets(uniformBuffers, descriptorSets);
 		createDescriptorSets(uniformBuffers_LightSource, descriptorSets_LightSource);
+		createDescriptorSetsLightSource(colorUniformBuffer_LightSource, descriptorSets_LightSource);
+
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -595,11 +607,17 @@ private:
 		createColorResources();
 		createDepthResources();
 		createFrameBuffers();
-		createUniformBuffers(uniformBuffers, uniformBufferMemory);
-		createUniformBuffers(uniformBuffers_LightSource, uniformBufferMemory_LightSource);
+		
+		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(UniformBufferObject));
+		createUniformBuffers(uniformBuffers_LightSource, uniformBufferMemory_LightSource, sizeof(UniformBufferObject));
+		createUniformBuffers(colorUniformBuffer_LightSource, colorUniformBufferMemory_LightSource, sizeof(ColorUBO)); \
+		
 		createDescriptorPool();
+		
 		createDescriptorSets(uniformBuffers, descriptorSets);
 		createDescriptorSets(uniformBuffers_LightSource, descriptorSets_LightSource);
+		createDescriptorSetsLightSource(colorUniformBuffer_LightSource, descriptorSets_LightSource);
+
 		createCommandBuffers();
 	}
 
@@ -804,7 +822,14 @@ private:
 		samplerLayoutbinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		samplerLayoutbinding.pImmutableSamplers = nullptr;
 
-		std::array< VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutbinding ,samplerLayoutbinding };
+		VkDescriptorSetLayoutBinding lightColorLayoutbinding{};
+		lightColorLayoutbinding.binding = 2;
+		lightColorLayoutbinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		lightColorLayoutbinding.descriptorCount = 1;
+		lightColorLayoutbinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		lightColorLayoutbinding.pImmutableSamplers = nullptr;
+
+		std::array< VkDescriptorSetLayoutBinding, 3> bindings = { uboLayoutbinding ,samplerLayoutbinding,lightColorLayoutbinding };
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1458,10 +1483,8 @@ private:
 	}
 
 	// 여기서는 생성만하기 때문에 vkMapMemory가 없다. 유니폼버퍼에는 매프레임 데이터를 넣어줘야하기 때문에 함수를 따로 작성한다. 
-	void createUniformBuffers(std::vector<VkBuffer>& outUniformBuffers, std::vector<VkDeviceMemory>& outUniformBufferMemory)
+	void createUniformBuffers(std::vector<VkBuffer>& outUniformBuffers, std::vector<VkDeviceMemory>& outUniformBufferMemory, VkDeviceSize bufferSize)
 	{
-		VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
 		outUniformBuffers.resize(swapChainImages.size());
 		outUniformBufferMemory.resize(swapChainImages.size());
 
@@ -1548,6 +1571,36 @@ private:
 
 			/** in fragment shader, 
 			 * layout(binding = 1) uniform sampler2D texSampler;
+			 */
+
+			vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		}
+	}
+
+	void createDescriptorSetsLightSource(const std::vector<VkBuffer>& inUniformBuffers, std::vector<VkDescriptorSet>& outDescriptorSets)
+	{
+		// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
+		for (size_t i = 0; i < swapChainImages.size(); i++)
+		{
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = inUniformBuffers[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range = sizeof(ColorUBO);
+
+			std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[0].dstSet = outDescriptorSets[i];
+			descriptorWrites[0].dstBinding = 2; // layout (binding = 0)
+			descriptorWrites[0].dstArrayElement = 0;
+			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrites[0].descriptorCount = 1; // how many descriptor you update
+			descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+			/** in frag shader,
+			 * layout(binding = 2) uniform ColorUBO {
+					vec3 objectColor;
+					vec3 lightColor;
+				} colorUbo;
 			 */
 
 			vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -1861,13 +1914,23 @@ private:
 		memcpy(data, &ubo, sizeof(ubo));
 		vkUnmapMemory(device, uniformBufferMemory[currentImage]);
 
-		ubo.model = glm::mat4(1.0f);
+		/** Light Source */
+
+		ubo.model = glm::translate(glm::mat4(1.f), glm::vec3(1.2f, 1.0f, 2.0f));
 		ubo.view = viewMat;
 		ubo.proj = persMat;
 
 		vkMapMemory(device, uniformBufferMemory_LightSource[currentImage], 0, sizeof(ubo), 0, &data);
 		memcpy(data, &ubo, sizeof(ubo));
 		vkUnmapMemory(device, uniformBufferMemory_LightSource[currentImage]);
+
+		ColorUBO colorUbo;
+		colorUbo.objectColor = glm::vec3(1.0f, 0.5f, 0.31f);
+		colorUbo.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		vkMapMemory(device, colorUniformBufferMemory_LightSource[currentImage], 0, sizeof(colorUbo), 0, &data);
+		memcpy(data, &colorUbo, sizeof(colorUbo));
+		vkUnmapMemory(device, colorUniformBufferMemory_LightSource[currentImage]);
 	}
 
 	void cleanUp()
@@ -1988,8 +2051,12 @@ private:
 
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkBuffer> uniformBuffers_LightSource;
+
 	std::vector<VkDeviceMemory> uniformBufferMemory;
 	std::vector<VkDeviceMemory> uniformBufferMemory_LightSource;
+
+	std::vector<VkBuffer> colorUniformBuffer_LightSource;
+	std::vector<VkDeviceMemory> colorUniformBufferMemory_LightSource;
 
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;

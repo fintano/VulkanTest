@@ -32,6 +32,12 @@
     <None Include="shaders\shader2.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\lightShader.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\lightShader.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
