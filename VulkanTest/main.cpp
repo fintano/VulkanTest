@@ -183,12 +183,12 @@ private:
 		createDescriptorSetLayout();
 
 		auto vertShaderCode = readFile("shaders/shadervert.spv");
-		auto vertLightShaderCode = readFile("shaders/lightShadervert.spv");
+		auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
 		auto fragShaderCode = readFile("shaders/shaderfrag.spv");
-		auto fragLightShaderCode = readFile("shaders/lightShaderfrag.spv");
+		auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
 
 		createGraphicsPipeline(vertShaderCode, fragShaderCode, graphicsPipeline);
-		createGraphicsPipeline(vertLightShaderCode, fragLightShaderCode, graphicsPipeline_LightSource);
+		createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, graphicsPipelineObject);
 		createCommandPool();
 		createColorResources();
 		createDepthResources();
@@ -201,14 +201,14 @@ private:
 		createIndexBuffer();
 		
 		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(UniformBufferObject));
-		createUniformBuffers(uniformBuffers_LightSource, uniformBufferMemory_LightSource, sizeof(UniformBufferObject));
-		createUniformBuffers(colorUniformBuffer_LightSource, colorUniformBufferMemory_LightSource, sizeof(ColorUBO));\
+		createUniformBuffers(uniformBuffersObject, uniformBufferMemoryObject, sizeof(UniformBufferObject));
+		createUniformBuffers(colorUniformBufferObject, colorUniformBufferMemoryObject, sizeof(ColorUBO));
 
 		createDescriptorPool();
 
 		createDescriptorSets(uniformBuffers, descriptorSets);
-		createDescriptorSets(uniformBuffers_LightSource, descriptorSets_LightSource);
-		createDescriptorSetsLightSource(colorUniformBuffer_LightSource, descriptorSets_LightSource);
+		createDescriptorSets(uniformBuffersObject, descriptorSetsObject);
+		createDescriptorSetsObject(colorUniformBufferObject, descriptorSetsObject);
 
 		createCommandBuffers();
 		createSyncObjects();
@@ -609,14 +609,14 @@ private:
 		createFrameBuffers();
 		
 		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(UniformBufferObject));
-		createUniformBuffers(uniformBuffers_LightSource, uniformBufferMemory_LightSource, sizeof(UniformBufferObject));
-		createUniformBuffers(colorUniformBuffer_LightSource, colorUniformBufferMemory_LightSource, sizeof(ColorUBO)); \
+		createUniformBuffers(uniformBuffersObject, uniformBufferMemoryObject, sizeof(UniformBufferObject));
+		createUniformBuffers(colorUniformBufferObject, colorUniformBufferMemoryObject, sizeof(ColorUBO)); \
 		
 		createDescriptorPool();
 		
 		createDescriptorSets(uniformBuffers, descriptorSets);
-		createDescriptorSets(uniformBuffers_LightSource, descriptorSets_LightSource);
-		createDescriptorSetsLightSource(colorUniformBuffer_LightSource, descriptorSets_LightSource);
+		createDescriptorSets(uniformBuffersObject, descriptorSetsObject);
+		createDescriptorSetsObject(colorUniformBufferObject, descriptorSetsObject);
 
 		createCommandBuffers();
 	}
@@ -1577,7 +1577,7 @@ private:
 		}
 	}
 
-	void createDescriptorSetsLightSource(const std::vector<VkBuffer>& inUniformBuffers, std::vector<VkDescriptorSet>& outDescriptorSets)
+	void createDescriptorSetsObject(const std::vector<VkBuffer>& inUniformBuffers, std::vector<VkDescriptorSet>& outDescriptorSets)
 	{
 		// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
 		for (size_t i = 0; i < swapChainImages.size(); i++)
@@ -1748,8 +1748,8 @@ private:
 
 				// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
 				// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
-				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_LightSource);
-				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets_LightSource[i], 0, nullptr);
+				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
+				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSetsObject[i], 0, nullptr);
 				vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
@@ -1904,8 +1904,13 @@ private:
 		glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
 		persMat[1][1] *= -1;
 
+		/** Light Source */
+
+		const glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+
 		UniformBufferObject ubo{};
-		ubo.model = glm::mat4(1.0f);//glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+		ubo.model = glm::translate(glm::mat4(1.f), lightPos);
+		ubo.model = glm::scale(ubo.model, glm::vec3(0.2f));
 		ubo.view = viewMat;
 		ubo.proj = persMat;
 
@@ -1914,23 +1919,23 @@ private:
 		memcpy(data, &ubo, sizeof(ubo));
 		vkUnmapMemory(device, uniformBufferMemory[currentImage]);
 
-		/** Light Source */
+		/** Object */
 
-		ubo.model = glm::translate(glm::mat4(1.f), glm::vec3(1.2f, 1.0f, 2.0f));
+		ubo.model = glm::mat4(1.f);
 		ubo.view = viewMat;
 		ubo.proj = persMat;
 
-		vkMapMemory(device, uniformBufferMemory_LightSource[currentImage], 0, sizeof(ubo), 0, &data);
+		vkMapMemory(device, uniformBufferMemoryObject[currentImage], 0, sizeof(ubo), 0, &data);
 		memcpy(data, &ubo, sizeof(ubo));
-		vkUnmapMemory(device, uniformBufferMemory_LightSource[currentImage]);
+		vkUnmapMemory(device, uniformBufferMemoryObject[currentImage]);
 
 		ColorUBO colorUbo;
 		colorUbo.objectColor = glm::vec3(1.0f, 0.5f, 0.31f);
 		colorUbo.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 
-		vkMapMemory(device, colorUniformBufferMemory_LightSource[currentImage], 0, sizeof(colorUbo), 0, &data);
+		vkMapMemory(device, colorUniformBufferMemoryObject[currentImage], 0, sizeof(colorUbo), 0, &data);
 		memcpy(data, &colorUbo, sizeof(colorUbo));
-		vkUnmapMemory(device, colorUniformBufferMemory_LightSource[currentImage]);
+		vkUnmapMemory(device, colorUniformBufferMemoryObject[currentImage]);
 	}
 
 	void cleanUp()
@@ -1981,7 +1986,7 @@ private:
 		}
 		vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		vkDestroyPipeline(device, graphicsPipeline, nullptr);
-		vkDestroyPipeline(device, graphicsPipeline_LightSource, nullptr);
+		vkDestroyPipeline(device, graphicsPipelineObject, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyRenderPass(device, renderPass, nullptr);
 		for (auto imageView : swapChainImageViews)
@@ -1993,8 +1998,8 @@ private:
 		{
 			vkDestroyBuffer(device, uniformBuffers[i], nullptr);
 			vkFreeMemory(device, uniformBufferMemory[i], nullptr);
-			vkDestroyBuffer(device, uniformBuffers_LightSource[i], nullptr);
-			vkFreeMemory(device, uniformBufferMemory_LightSource[i], nullptr);
+			vkDestroyBuffer(device, uniformBuffersObject[i], nullptr);
+			vkFreeMemory(device, uniformBufferMemoryObject[i], nullptr);
 		}
 		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 	}
@@ -2036,7 +2041,7 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
-	VkPipeline graphicsPipeline_LightSource;
+	VkPipeline graphicsPipelineObject;
 	std::vector<VkFramebuffer> swapChainFrameBuffers;
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
@@ -2050,17 +2055,17 @@ private:
 	VkDeviceMemory indexBufferMemory;
 
 	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkBuffer> uniformBuffers_LightSource;
+	std::vector<VkBuffer> uniformBuffersObject;
 
 	std::vector<VkDeviceMemory> uniformBufferMemory;
-	std::vector<VkDeviceMemory> uniformBufferMemory_LightSource;
+	std::vector<VkDeviceMemory> uniformBufferMemoryObject;
 
-	std::vector<VkBuffer> colorUniformBuffer_LightSource;
-	std::vector<VkDeviceMemory> colorUniformBufferMemory_LightSource;
+	std::vector<VkBuffer> colorUniformBufferObject;
+	std::vector<VkDeviceMemory> colorUniformBufferMemoryObject;
 
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
-	std::vector<VkDescriptorSet> descriptorSets_LightSource;
+	std::vector<VkDescriptorSet> descriptorSetsObject;
 
 	uint32_t mipLevels;
 	VkImage textureImage;
