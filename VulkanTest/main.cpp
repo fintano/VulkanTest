@@ -73,6 +73,93 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
+template<typename T> 
+struct UniformBuffer
+{
+	void createUniformBuffer(size_t inSize, VkDevice& inDevice, VkPhysicalDevice& inPhysicalDevice)
+	{
+		size = inSize;
+		device = inDevice;
+		physicalDevice = inPhysicalDevice;
+
+		uniformBuffers.resize(inSize);
+		uniformBufferMemory.resize(inSize);
+
+		for (size_t i = 0; i < inSize; i++)
+		{
+			createBuffer(getSize(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBufferMemory[i]);
+		}
+	}
+
+private:
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+	{
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create vertex buffer!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+		if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate vertex buffer memory!");
+		}
+		vkBindBufferMemory(device, buffer, bufferMemory, 0);
+	}
+
+	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+	{
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+		{
+			if ((typeFilter & (1 << i)) &&
+				((memProperties.memoryTypes[i].propertyFlags & properties) == properties))
+			{
+				return i;
+			}
+		}
+
+		throw std::runtime_error("failed to find suitable memory type!");
+	}
+
+public:
+	VkDeviceSize getSize()
+	{
+		return sizeof(T);
+	}
+
+	VkDescriptorBufferInfo CreateDescriptorBufferInfo(size_t index)
+	{
+		assert(index < size);
+
+		VkDescriptorBufferInfo bufferInfo{};
+		bufferInfo.buffer = uniformBuffers[index];
+		bufferInfo.offset = 0;
+		bufferInfo.range = getSize();
+
+		return bufferInfo;
+	}
+
+	VkDevice device;
+	VkPhysicalDevice physicalDevice;
+
+	std::vector<VkBuffer> uniformBuffers;
+	std::vector<VkDeviceMemory> uniformBufferMemory;
+	size_t size;
+};
+
 struct UniformBufferObject {
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
@@ -82,6 +169,15 @@ struct UniformBufferObject {
 struct ColorUBO {
 	alignas(16) glm::vec3 objectColor;
 	alignas(16) glm::vec3 lightColor;
+	alignas(16) glm::vec3 lightPos;
+	alignas(16) glm::vec3 viewPos;
+};
+
+struct Material {
+	alignas(16) glm::vec3 ambient;
+	alignas(16) glm::vec3 diffuse;
+	alignas(16) glm::vec3 specular;
+	alignas(16) float shininess;
 };
 
 struct Vertex
@@ -89,22 +185,32 @@ struct Vertex
 	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec2 texCoord;
+	glm::vec3 normal;
 
+	// Bindings: spacing between data and whether the data is per-vertex or
+	// per - instance(see instancing)
+	// Stride를 정하고 이게 Vertex인지 Instance인지 정하는 듯. 
 	static VkVertexInputBindingDescription getBindingDescription()
 	{
 		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = 0; // the index of the binding in the array of bindings.
+		/**
+		 * All of our per-vertex data is packed together in one array, so we're only going to have one binding. 
+		 * The 'binding' parameter specifies the index of the binding in the array of bindings.
+		 */
+		bindingDescription.binding = 0; 
 		bindingDescription.stride = sizeof(Vertex);
 		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		return bindingDescription;
 	}
-	// ATTRIBUTE
-	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions()
-	{
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
-		attributeDescriptions[0].binding = 0;
+	// Attribute descriptions: type of the attributes passed to the vertex shader,
+	// which binding to load them fromand at which offse
+	static auto getAttributeDescriptions()
+	{
+		std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
+
+		attributeDescriptions[0].binding = 0; 
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[0].offset = offsetof(Vertex, pos);
@@ -119,12 +225,17 @@ struct Vertex
 		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
+		attributeDescriptions[3].binding = 0;
+		attributeDescriptions[3].location = 3;
+		attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[3].offset = offsetof(Vertex, normal);
+
 		return attributeDescriptions;
 	}
 
 	bool operator==(const Vertex& other) const
 	{
-		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+		return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
 	}
 };
 
@@ -202,13 +313,13 @@ private:
 		
 		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(UniformBufferObject));
 		createUniformBuffers(uniformBuffersObject, uniformBufferMemoryObject, sizeof(UniformBufferObject));
-		createUniformBuffers(colorUniformBufferObject, colorUniformBufferMemoryObject, sizeof(ColorUBO));
+		colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice); //createUniformBuffers(colorUniformBuffer.uniformBuffers, colorUniformBuffer.uniformBufferMemory, sizeof(ColorUBO));
+		createUniformBuffers(materialUniformBufferObject, materialUniformBufferMemoryObject, sizeof(Material));
 
 		createDescriptorPool();
 
 		createDescriptorSets(uniformBuffers, descriptorSets);
-		createDescriptorSets(uniformBuffersObject, descriptorSetsObject);
-		createDescriptorSetsObject(colorUniformBufferObject, descriptorSetsObject);
+		createDescriptorSetsObject(descriptorSetsObject);
 
 		createCommandBuffers();
 		createSyncObjects();
@@ -610,13 +721,13 @@ private:
 		
 		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(UniformBufferObject));
 		createUniformBuffers(uniformBuffersObject, uniformBufferMemoryObject, sizeof(UniformBufferObject));
-		createUniformBuffers(colorUniformBufferObject, colorUniformBufferMemoryObject, sizeof(ColorUBO)); \
+		colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);//createUniformBuffers(colorUniformBuffer.uniformBuffers, colorUniformBuffer.uniformBufferMemory, sizeof(ColorUBO));
+		createUniformBuffers(materialUniformBufferObject, materialUniformBufferMemoryObject, sizeof(Material));
 		
 		createDescriptorPool();
 		
 		createDescriptorSets(uniformBuffers, descriptorSets);
-		createDescriptorSets(uniformBuffersObject, descriptorSetsObject);
-		createDescriptorSetsObject(colorUniformBufferObject, descriptorSetsObject);
+		createDescriptorSetsObject(descriptorSetsObject);
 
 		createCommandBuffers();
 	}
@@ -808,28 +919,12 @@ private:
     }
 	void createDescriptorSetLayout()
 	{
-		VkDescriptorSetLayoutBinding uboLayoutbinding{};
-		uboLayoutbinding.binding = 0;
-		uboLayoutbinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uboLayoutbinding.descriptorCount = 1;
-		uboLayoutbinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		uboLayoutbinding.pImmutableSamplers = nullptr; // imageSampling.
+		std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-		VkDescriptorSetLayoutBinding samplerLayoutbinding{};
-		samplerLayoutbinding.binding = 1;
-		samplerLayoutbinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		samplerLayoutbinding.descriptorCount = 1;
-		samplerLayoutbinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-		samplerLayoutbinding.pImmutableSamplers = nullptr;
-
-		VkDescriptorSetLayoutBinding lightColorLayoutbinding{};
-		lightColorLayoutbinding.binding = 2;
-		lightColorLayoutbinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		lightColorLayoutbinding.descriptorCount = 1;
-		lightColorLayoutbinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-		lightColorLayoutbinding.pImmutableSamplers = nullptr;
-
-		std::array< VkDescriptorSetLayoutBinding, 3> bindings = { uboLayoutbinding ,samplerLayoutbinding,lightColorLayoutbinding };
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -840,6 +935,18 @@ private:
 		{
 			throw std::runtime_error("failed to create descriptor set layout.");
 		}
+	}
+
+	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings)
+	{
+		VkDescriptorSetLayoutBinding Layoutbinding{};
+		Layoutbinding.binding = static_cast<uint32_t>(bindings.size());
+		Layoutbinding.descriptorType = Type;
+		Layoutbinding.descriptorCount = 1;
+		Layoutbinding.stageFlags = Stage;
+		Layoutbinding.pImmutableSamplers = nullptr; 
+
+		bindings.push_back(Layoutbinding);
 	}
 
 	void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipeline& OutPipeline)
@@ -1428,6 +1535,13 @@ private:
 
 				vertex.color = { 1.f, 1.f,1.f };
 
+				vertex.normal = 
+				{
+					attrib.normals[3 * index.normal_index + 0],
+					attrib.normals[3 * index.normal_index + 1],
+					attrib.normals[3 * index.normal_index + 2]
+				};
+
 				if (uniqueVertices.count(vertex) == 0)
 				{
 					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
@@ -1498,7 +1612,7 @@ private:
 	{
 		std::array<VkDescriptorPoolSize,2> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size()) * 2;
+		poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size()) * 10;
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
 
@@ -1506,7 +1620,7 @@ private:
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size()) * 2;
+		poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size()) * 10;
 
 		if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
 		{
@@ -1553,7 +1667,7 @@ private:
 			descriptorWrites[0].descriptorCount = 1; // how many descriptor you update
 			descriptorWrites[0].pBufferInfo = &bufferInfo;
 
-			/** in vertex shader, 
+			/** in vertex shader,
 			 * layout(binding = 0) uniform UniformBufferObject {
 					mat4 model;
 					mat4 view;
@@ -1569,7 +1683,7 @@ private:
 			descriptorWrites[1].descriptorCount = 1; // how many descriptor you update
 			descriptorWrites[1].pImageInfo = &imageInfo;
 
-			/** in fragment shader, 
+			/** in fragment shader,
 			 * layout(binding = 1) uniform sampler2D texSampler;
 			 */
 
@@ -1577,34 +1691,78 @@ private:
 		}
 	}
 
-	void createDescriptorSetsObject(const std::vector<VkBuffer>& inUniformBuffers, std::vector<VkDescriptorSet>& outDescriptorSets)
+	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets)
 	{
+		std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = descriptorPool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+		allocInfo.pSetLayouts = layouts.data();
+
+		outDescriptorSets.resize(swapChainImages.size());
+		// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
+		if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate descriptor sets!");
+		}
+
 		// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
 		for (size_t i = 0; i < swapChainImages.size(); i++)
 		{
-			VkDescriptorBufferInfo bufferInfo{};
-			bufferInfo.buffer = inUniformBuffers[i];
-			bufferInfo.offset = 0;
-			bufferInfo.range = sizeof(ColorUBO);
+			std::vector<VkWriteDescriptorSet> descriptorWrites;
 
-			std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
-			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = outDescriptorSets[i];
-			descriptorWrites[0].dstBinding = 2; // layout (binding = 0)
-			descriptorWrites[0].dstArrayElement = 0;
-			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrites[0].descriptorCount = 1; // how many descriptor you update
-			descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-			/** in frag shader,
-			 * layout(binding = 2) uniform ColorUBO {
-					vec3 objectColor;
-					vec3 lightColor;
-				} colorUbo;
-			 */
+			VkDescriptorBufferInfo BufferInfo = CreateDescriptorBufferInfo(uniformBuffersObject[i], sizeof(UniformBufferObject));
+			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, outDescriptorSets[i], nullptr, &BufferInfo, descriptorWrites);
+			
+			VkDescriptorImageInfo ImageInfo = CreateDescriptorImageInfo(textureImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &ImageInfo, nullptr, descriptorWrites);
+			
+			VkDescriptorBufferInfo BufferInfo2 = colorUniformBuffer.CreateDescriptorBufferInfo(i);
+			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, outDescriptorSets[i], nullptr, &BufferInfo2, descriptorWrites);
+			
+			VkDescriptorBufferInfo BufferInfo3 = CreateDescriptorBufferInfo(materialUniformBufferObject[i], sizeof(Material));
+			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, outDescriptorSets[i], nullptr, &BufferInfo3, descriptorWrites);
 
 			vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
+	}
+
+	VkDescriptorBufferInfo CreateDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize)
+	{
+		VkDescriptorBufferInfo bufferInfo{};
+		bufferInfo.buffer = buffer;
+		bufferInfo.offset = 0;
+		bufferInfo.range = bufferSize;
+
+		return bufferInfo;
+	}
+
+	VkDescriptorImageInfo CreateDescriptorImageInfo(VkImageView& imageView, VkSampler& sampler, VkImageLayout layout)
+	{
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = layout;
+		imageInfo.imageView = imageView;
+		imageInfo.sampler = sampler;
+
+		return imageInfo;
+	}
+
+	void CreateWriteDescriptorSet(VkDescriptorType type, VkDescriptorSet& DescriptorSet, VkDescriptorImageInfo* ImageInfo, VkDescriptorBufferInfo* BufferInfo, std::vector<VkWriteDescriptorSet>& descriptorWrites)
+	{
+		VkWriteDescriptorSet DescriptorWrite;
+		DescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		DescriptorWrite.pNext = nullptr;
+		DescriptorWrite.dstSet = DescriptorSet;
+		DescriptorWrite.dstBinding = static_cast<uint32_t>(descriptorWrites.size());
+		DescriptorWrite.dstArrayElement = 0;
+		DescriptorWrite.descriptorType = type;
+		DescriptorWrite.descriptorCount = 1; // how many descriptor you update
+		DescriptorWrite.pBufferInfo = BufferInfo;
+		DescriptorWrite.pImageInfo = ImageInfo;
+
+		descriptorWrites.emplace_back(std::move(DescriptorWrite));
 	}
 
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
@@ -1932,10 +2090,22 @@ private:
 		ColorUBO colorUbo;
 		colorUbo.objectColor = glm::vec3(1.0f, 0.5f, 0.31f);
 		colorUbo.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+		colorUbo.lightPos = lightPos;
+		colorUbo.viewPos = camera.Position;
 
-		vkMapMemory(device, colorUniformBufferMemoryObject[currentImage], 0, sizeof(colorUbo), 0, &data);
+		vkMapMemory(device, colorUniformBuffer.uniformBufferMemory[currentImage], 0, sizeof(colorUbo), 0, &data);
 		memcpy(data, &colorUbo, sizeof(colorUbo));
-		vkUnmapMemory(device, colorUniformBufferMemoryObject[currentImage]);
+		vkUnmapMemory(device, colorUniformBuffer.uniformBufferMemory[currentImage]);
+
+		Material material;
+		material.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
+		material.diffuse = glm::vec3(1.0f, 0.5f, 0.31f);
+		material.specular = glm::vec3(1.0f, 0.5f, 0.31f);
+		material.shininess = 32.f;
+
+		vkMapMemory(device, materialUniformBufferMemoryObject[currentImage], 0, sizeof(Material), 0, &data);
+		memcpy(data, &material, sizeof(material));
+		vkUnmapMemory(device, materialUniformBufferMemoryObject[currentImage]);
 	}
 
 	void cleanUp()
@@ -1998,8 +2168,15 @@ private:
 		{
 			vkDestroyBuffer(device, uniformBuffers[i], nullptr);
 			vkFreeMemory(device, uniformBufferMemory[i], nullptr);
+
 			vkDestroyBuffer(device, uniformBuffersObject[i], nullptr);
 			vkFreeMemory(device, uniformBufferMemoryObject[i], nullptr);
+
+			vkDestroyBuffer(device, colorUniformBuffer.uniformBuffers[i], nullptr);
+			vkFreeMemory(device, colorUniformBuffer.uniformBufferMemory[i], nullptr);
+
+			vkDestroyBuffer(device, materialUniformBufferObject[i], nullptr);
+			vkFreeMemory(device, materialUniformBufferMemoryObject[i], nullptr);
 		}
 		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 	}
@@ -2055,13 +2232,18 @@ private:
 	VkDeviceMemory indexBufferMemory;
 
 	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkBuffer> uniformBuffersObject;
-
 	std::vector<VkDeviceMemory> uniformBufferMemory;
+
+	std::vector<VkBuffer> uniformBuffersObject;
 	std::vector<VkDeviceMemory> uniformBufferMemoryObject;
 
-	std::vector<VkBuffer> colorUniformBufferObject;
-	std::vector<VkDeviceMemory> colorUniformBufferMemoryObject;
+	//std::vector<VkBuffer> colorUniformBufferObject;
+	//std::vector<VkDeviceMemory> colorUniformBufferMemoryObject;
+
+	UniformBuffer<ColorUBO> colorUniformBuffer;
+
+	std::vector<VkBuffer> materialUniformBufferObject;
+	std::vector<VkDeviceMemory> materialUniformBufferMemoryObject;
 
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
