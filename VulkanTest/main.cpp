@@ -81,6 +81,7 @@ struct UniformBuffer
 		size = inSize;
 		device = inDevice;
 		physicalDevice = inPhysicalDevice;
+		type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 		uniformBuffers.resize(inSize);
 		uniformBufferMemory.resize(inSize);
@@ -89,6 +90,46 @@ struct UniformBuffer
 		{
 			createBuffer(getSize(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBufferMemory[i]);
 		}
+
+		createDescriptorBufferInfos();
+	}
+
+	void createWriteDescriptorSet(size_t index, VkDescriptorSet& DescriptorSet, std::vector<VkWriteDescriptorSet>& descriptorWrites)
+	{
+		VkWriteDescriptorSet DescriptorWrite;
+		DescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		DescriptorWrite.pNext = nullptr;
+		DescriptorWrite.dstSet = DescriptorSet;
+		DescriptorWrite.dstBinding = static_cast<uint32_t>(descriptorWrites.size());
+		DescriptorWrite.dstArrayElement = 0;
+		DescriptorWrite.descriptorType = type;
+		DescriptorWrite.descriptorCount = 1; // how many descriptor you update
+		
+		if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+		{
+			DescriptorWrite.pBufferInfo = &uniformBufferInfo[index];
+		}
+		else
+		{
+			DescriptorWrite.pImageInfo = nullptr;
+		}
+
+		descriptorWrites.emplace_back(std::move(DescriptorWrite));
+	}
+
+	void CopyData(uint32_t currentImage, T& data)
+	{
+		void* virtualAddress;
+
+		vkMapMemory(device, uniformBufferMemory[currentImage], 0, getSize(), 0, &virtualAddress);
+		memcpy(virtualAddress, &data, getSize());
+		vkUnmapMemory(device, uniformBufferMemory[currentImage]);
+	}
+
+	void destroy(size_t index)
+	{
+		vkDestroyBuffer(device, uniformBuffers[index], nullptr);
+		vkFreeMemory(device, uniformBufferMemory[index], nullptr);
 	}
 
 private:
@@ -134,6 +175,19 @@ private:
 		throw std::runtime_error("failed to find suitable memory type!");
 	}
 
+	void createDescriptorBufferInfos()
+	{
+		for (int i = 0; i < size; i++)
+		{
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = uniformBuffers[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range = getSize();
+
+			uniformBufferInfo.emplace_back(std::move(bufferInfo));
+		}
+	}
+
 public:
 	VkDeviceSize getSize()
 	{
@@ -154,13 +208,15 @@ public:
 
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
+	VkDescriptorType type;
 
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBufferMemory;
+	std::vector<VkDescriptorBufferInfo> uniformBufferInfo;
 	size_t size;
 };
 
-struct UniformBufferObject {
+struct Transform {
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
@@ -311,9 +367,9 @@ private:
 		createVertexBuffer();
 		createIndexBuffer();
 		
-		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(UniformBufferObject));
-		createUniformBuffers(uniformBuffersObject, uniformBufferMemoryObject, sizeof(UniformBufferObject));
-		colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice); //createUniformBuffers(colorUniformBuffer.uniformBuffers, colorUniformBuffer.uniformBufferMemory, sizeof(ColorUBO));
+		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(Transform));
+		createUniformBuffers(uniformBuffersObject, uniformBufferMemoryObject, sizeof(Transform));
+		colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice); 
 		createUniformBuffers(materialUniformBufferObject, materialUniformBufferMemoryObject, sizeof(Material));
 
 		createDescriptorPool();
@@ -719,9 +775,9 @@ private:
 		createDepthResources();
 		createFrameBuffers();
 		
-		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(UniformBufferObject));
-		createUniformBuffers(uniformBuffersObject, uniformBufferMemoryObject, sizeof(UniformBufferObject));
-		colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);//createUniformBuffers(colorUniformBuffer.uniformBuffers, colorUniformBuffer.uniformBufferMemory, sizeof(ColorUBO));
+		createUniformBuffers(uniformBuffers, uniformBufferMemory, sizeof(Transform));
+		createUniformBuffers(uniformBuffersObject, uniformBufferMemoryObject, sizeof(Transform));
+		colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 		createUniformBuffers(materialUniformBufferObject, materialUniformBufferMemoryObject, sizeof(Material));
 		
 		createDescriptorPool();
@@ -1651,7 +1707,7 @@ private:
 			VkDescriptorBufferInfo bufferInfo{};
 			bufferInfo.buffer = inUniformBuffers[i];
 			bufferInfo.offset = 0;
-			bufferInfo.range = sizeof(UniformBufferObject);
+			bufferInfo.range = sizeof(Transform);
 
 			VkDescriptorImageInfo imageInfo{};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1668,7 +1724,7 @@ private:
 			descriptorWrites[0].pBufferInfo = &bufferInfo;
 
 			/** in vertex shader,
-			 * layout(binding = 0) uniform UniformBufferObject {
+			 * layout(binding = 0) uniform Transform {
 					mat4 model;
 					mat4 view;
 					mat4 proj;
@@ -1713,14 +1769,13 @@ private:
 		{
 			std::vector<VkWriteDescriptorSet> descriptorWrites;
 
-			VkDescriptorBufferInfo BufferInfo = CreateDescriptorBufferInfo(uniformBuffersObject[i], sizeof(UniformBufferObject));
+			VkDescriptorBufferInfo BufferInfo = CreateDescriptorBufferInfo(uniformBuffersObject[i], sizeof(Transform));
 			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, outDescriptorSets[i], nullptr, &BufferInfo, descriptorWrites);
 			
 			VkDescriptorImageInfo ImageInfo = CreateDescriptorImageInfo(textureImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &ImageInfo, nullptr, descriptorWrites);
 			
-			VkDescriptorBufferInfo BufferInfo2 = colorUniformBuffer.CreateDescriptorBufferInfo(i);
-			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, outDescriptorSets[i], nullptr, &BufferInfo2, descriptorWrites);
+			colorUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 			
 			VkDescriptorBufferInfo BufferInfo3 = CreateDescriptorBufferInfo(materialUniformBufferObject[i], sizeof(Material));
 			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, outDescriptorSets[i], nullptr, &BufferInfo3, descriptorWrites);
@@ -2066,7 +2121,7 @@ private:
 
 		const glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
-		UniformBufferObject ubo{};
+		Transform ubo{};
 		ubo.model = glm::translate(glm::mat4(1.f), lightPos);
 		ubo.model = glm::scale(ubo.model, glm::vec3(0.2f));
 		ubo.view = viewMat;
@@ -2093,9 +2148,7 @@ private:
 		colorUbo.lightPos = lightPos;
 		colorUbo.viewPos = camera.Position;
 
-		vkMapMemory(device, colorUniformBuffer.uniformBufferMemory[currentImage], 0, sizeof(colorUbo), 0, &data);
-		memcpy(data, &colorUbo, sizeof(colorUbo));
-		vkUnmapMemory(device, colorUniformBuffer.uniformBufferMemory[currentImage]);
+		colorUniformBuffer.CopyData(currentImage, colorUbo);
 
 		Material material;
 		material.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
@@ -2172,8 +2225,7 @@ private:
 			vkDestroyBuffer(device, uniformBuffersObject[i], nullptr);
 			vkFreeMemory(device, uniformBufferMemoryObject[i], nullptr);
 
-			vkDestroyBuffer(device, colorUniformBuffer.uniformBuffers[i], nullptr);
-			vkFreeMemory(device, colorUniformBuffer.uniformBufferMemory[i], nullptr);
+			colorUniformBuffer.destroy(i);
 
 			vkDestroyBuffer(device, materialUniformBufferObject[i], nullptr);
 			vkFreeMemory(device, materialUniformBufferMemoryObject[i], nullptr);
@@ -2231,19 +2283,19 @@ private:
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
 
-	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkDeviceMemory> uniformBufferMemory;
+	//std::vector<VkBuffer> uniformBuffers;
+	//std::vector<VkDeviceMemory> uniformBufferMemory;
+	UniformBuffer<Transform> lightTransformUniformBuffer;
 
-	std::vector<VkBuffer> uniformBuffersObject;
-	std::vector<VkDeviceMemory> uniformBufferMemoryObject;
-
-	//std::vector<VkBuffer> colorUniformBufferObject;
-	//std::vector<VkDeviceMemory> colorUniformBufferMemoryObject;
+	//std::vector<VkBuffer> uniformBuffersObject;
+	//std::vector<VkDeviceMemory> uniformBufferMemoryObject;
+	UniformBuffer<Transform> ObjectTransformUniformBuffer;
 
 	UniformBuffer<ColorUBO> colorUniformBuffer;
 
-	std::vector<VkBuffer> materialUniformBufferObject;
-	std::vector<VkDeviceMemory> materialUniformBufferMemoryObject;
+	//std::vector<VkBuffer> materialUniformBufferObject;
+	//std::vector<VkDeviceMemory> materialUniformBufferMemoryObject;
+	UniformBuffer<Material> materialUniformBuffer;
 
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
