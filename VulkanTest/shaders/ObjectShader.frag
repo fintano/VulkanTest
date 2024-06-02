@@ -14,7 +14,8 @@ layout(binding = 3) uniform Material {
     vec3 shininess;
 } material;
 layout(binding = 4) uniform Light {
-    vec3 position;
+    //vec3 position;
+    vec3 direction;
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
@@ -30,7 +31,8 @@ layout(location = 0) out vec4 outColor;
 void main()
 {
     vec3 norm = normalize(fragNormal);
-    vec3 lightDir = normalize(light.position - fragPos);  
+    //vec3 lightDir = normalize(light.position - fragPos);  
+    vec3 lightDir = normalize(-light.direction);  
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = light.diffuse * (diff * material.diffuse); 
 

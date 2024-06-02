@@ -27,6 +27,7 @@
 #include <unordered_map>
 
 #include "Camera.h"
+#include "UniformBuffer.h"
 
 static std::vector<char> readFile(const std::string& filename);
 
@@ -73,176 +74,6 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
-template<typename T> 
-struct UniformBuffer
-{
-	void createUniformBuffer(size_t inSize, VkDevice& inDevice, VkPhysicalDevice& inPhysicalDevice)
-	{
-		size = inSize;
-		device = inDevice;
-		physicalDevice = inPhysicalDevice;
-		type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
-		uniformBuffers.resize(inSize);
-		uniformBufferMemory.resize(inSize);
-
-		for (size_t i = 0; i < inSize; i++)
-		{
-			createBuffer(getSize(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBufferMemory[i]);
-		}
-
-		createDescriptorBufferInfos();
-	}
-
-	void createWriteDescriptorSet(size_t index, VkDescriptorSet& DescriptorSet, std::vector<VkWriteDescriptorSet>& descriptorWrites)
-	{
-		VkWriteDescriptorSet DescriptorWrite;
-		DescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		DescriptorWrite.pNext = nullptr;
-		DescriptorWrite.dstSet = DescriptorSet;
-		DescriptorWrite.dstBinding = static_cast<uint32_t>(descriptorWrites.size());
-		DescriptorWrite.dstArrayElement = 0;
-		DescriptorWrite.descriptorType = type;
-		DescriptorWrite.descriptorCount = 1; // how many descriptor you update
-		
-		if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-		{
-			DescriptorWrite.pBufferInfo = &uniformBufferInfo[index];
-		}
-		else
-		{
-			DescriptorWrite.pImageInfo = nullptr;
-		}
-
-		descriptorWrites.emplace_back(std::move(DescriptorWrite));
-	}
-
-	void CopyData(uint32_t currentImage, T& data)
-	{
-		void* virtualAddress;
-
-		vkMapMemory(device, uniformBufferMemory[currentImage], 0, getSize(), 0, &virtualAddress);
-		memcpy(virtualAddress, &data, getSize());
-		vkUnmapMemory(device, uniformBufferMemory[currentImage]);
-	}
-
-	void destroy(size_t index)
-	{
-		vkDestroyBuffer(device, uniformBuffers[index], nullptr);
-		vkFreeMemory(device, uniformBufferMemory[index], nullptr);
-	}
-
-private:
-	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
-	{
-		VkBufferCreateInfo bufferInfo{};
-		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = size;
-		bufferInfo.usage = usage;
-		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create vertex buffer!");
-		}
-
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to allocate vertex buffer memory!");
-		}
-		vkBindBufferMemory(device, buffer, bufferMemory, 0);
-	}
-
-	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
-	{
-		VkPhysicalDeviceMemoryProperties memProperties;
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-		{
-			if ((typeFilter & (1 << i)) &&
-				((memProperties.memoryTypes[i].propertyFlags & properties) == properties))
-			{
-				return i;
-			}
-		}
-
-		throw std::runtime_error("failed to find suitable memory type!");
-	}
-
-	void createDescriptorBufferInfos()
-	{
-		for (int i = 0; i < size; i++)
-		{
-			VkDescriptorBufferInfo bufferInfo{};
-			bufferInfo.buffer = uniformBuffers[i];
-			bufferInfo.offset = 0;
-			bufferInfo.range = getSize();
-
-			uniformBufferInfo.emplace_back(std::move(bufferInfo));
-		}
-	}
-
-public:
-	VkDeviceSize getSize()
-	{
-		return sizeof(T);
-	}
-
-	VkDescriptorBufferInfo CreateDescriptorBufferInfo(size_t index)
-	{
-		assert(index < size);
-
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = uniformBuffers[index];
-		bufferInfo.offset = 0;
-		bufferInfo.range = getSize();
-
-		return bufferInfo;
-	}
-
-	VkDevice device;
-	VkPhysicalDevice physicalDevice;
-	VkDescriptorType type;
-
-	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkDeviceMemory> uniformBufferMemory;
-	std::vector<VkDescriptorBufferInfo> uniformBufferInfo;
-	size_t size;
-};
-
-struct Transform {
-	alignas(16) glm::mat4 model;
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
-};
-
-struct ColorUBO {
-	alignas(16) glm::vec3 objectColor;
-	alignas(16) glm::vec3 lightColor;
-	alignas(16) glm::vec3 lightPos;
-	alignas(16) glm::vec3 viewPos;
-};
-
-struct Material {
-	alignas(16) glm::vec3 ambient;
-	alignas(16) glm::vec3 diffuse;
-	alignas(16) glm::vec3 specular;
-	alignas(16) glm::vec3 shininess;
-};
-
-struct Light {
-	alignas(16) glm::vec3 position;
-	alignas(16) glm::vec3 ambient;
-	alignas(16) glm::vec3 diffuse;
-	alignas(16) glm::vec3 specular;
-};
-
 struct Vertex
 {
 	glm::vec3 pos;
@@ -268,7 +99,7 @@ struct Vertex
 	}
 
 	// Attribute descriptions: type of the attributes passed to the vertex shader,
-	// which binding to load them fromand at which offse
+	// which binding to load them from and at which offse
 	static auto getAttributeDescriptions()
 	{
 		std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
@@ -1961,14 +1792,17 @@ private:
 
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+				// Light
+				//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 				VkBuffer vertexBuffers[]{ vertexBuffer };
 				VkDeviceSize offsets[]{ 0 };
 				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 				vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
-				vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+				//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+				//vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
+				// Objects
+				// 
 				// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
 				// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
 				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
@@ -2176,7 +2010,7 @@ private:
 		light.ambient = ambientColor;//glm::vec3(0.2f, 0.2f, 0.2f);
 		light.diffuse = diffuseColor;//glm::vec3(0.5f, 0.5f, 0.5f); // darken diffuse light a bit
 		light.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-		light.position = lightPos;
+		light.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
 
 		lightUniformBuffer.CopyData(currentImage, light);
 	}
