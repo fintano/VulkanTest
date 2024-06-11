@@ -84,45 +84,45 @@ struct Vertex
 	// Bindings: spacing between data and whether the data is per-vertex or
 	// per - instance(see instancing)
 	// Stride를 정하고 이게 Vertex인지 Instance인지 정하는 듯. 
-	static VkVertexInputBindingDescription getBindingDescription()
+	static auto getBindingDescriptions()
 	{
-		VkVertexInputBindingDescription bindingDescription{};
+		std::vector<VkVertexInputBindingDescription> bindingDescriptions
+		{
+			VkVertexInputBindingDescription{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX},
+			VkVertexInputBindingDescription{1, sizeof(glm::vec4) * 4, VK_VERTEX_INPUT_RATE_INSTANCE},
+		};
+
 		/**
 		 * All of our per-vertex data is packed together in one array, so we're only going to have one binding. 
 		 * The 'binding' parameter specifies the index of the binding in the array of bindings.
 		 */
-		bindingDescription.binding = 0; 
-		bindingDescription.stride = sizeof(Vertex);
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		//bindingDescription.binding = 0; 
+		//bindingDescription.stride = sizeof(Vertex);
+		//bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-		return bindingDescription;
+		return bindingDescriptions;
 	}
 
 	// Attribute descriptions: type of the attributes passed to the vertex shader,
 	// which binding to load them from and at which offse
 	static auto getAttributeDescriptions()
 	{
-		std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions
+		{
+			// Per-vertex attributes
+			// These are advanced for each vertex fetched by the vertex shader
+			VkVertexInputAttributeDescription{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos)},
+			VkVertexInputAttributeDescription{1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color)},
+			VkVertexInputAttributeDescription{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, texCoord)},
+			VkVertexInputAttributeDescription{3, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)},
 
-		attributeDescriptions[0].binding = 0; 
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-		attributeDescriptions[1].binding = 0;
-		attributeDescriptions[1].location = 1;
-		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-		attributeDescriptions[2].binding = 0;
-		attributeDescriptions[2].location = 2;
-		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-		attributeDescriptions[3].binding = 0;
-		attributeDescriptions[3].location = 3;
-		attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[3].offset = offsetof(Vertex, normal);
+			// Per-Instance attributes
+			// These are advanced for each instance rendered
+			VkVertexInputAttributeDescription{4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
+			VkVertexInputAttributeDescription{5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 1},
+			VkVertexInputAttributeDescription{6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2},
+			VkVertexInputAttributeDescription{7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3},
+		};
 
 		return attributeDescriptions;
 	}
@@ -203,6 +203,7 @@ private:
 		createTextureSampler();
 		loadModel();
 		createVertexBuffer();
+		createInstanceBuffer();
 		createIndexBuffer();
 		
 		lightTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
@@ -867,15 +868,15 @@ private:
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-		auto bindingDescription = Vertex::getBindingDescription();
+		auto bindingDescriptions = Vertex::getBindingDescriptions();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		// the number of vertex buffer.
-		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
 		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -1450,6 +1451,29 @@ private:
 				indices.push_back(uniqueVertices[vertex]);
 			}
 		}
+
+		static glm::vec3 cubePositions[] = {
+			glm::vec3(0.0f,  0.0f,  0.0f),
+			glm::vec3(2.0f,  5.0f, -15.0f),
+			glm::vec3(-1.5f, -2.2f, -2.5f),
+			glm::vec3(-3.8f, -2.0f, -12.3f),
+			glm::vec3(2.4f, -0.4f, -3.5f),
+			glm::vec3(-1.7f,  3.0f, -7.5f),
+			glm::vec3(1.3f, -2.0f, -2.5f),
+			glm::vec3(1.5f,  2.0f, -2.5f),
+			glm::vec3(1.5f,  0.2f, -1.5f),
+			glm::vec3(-1.3f,  1.0f, -1.5f)
+		};
+
+		for (unsigned int i = 0; i < 10; i++)
+		{
+			glm::mat4 model = glm::mat4(1.0f);
+			model = glm::translate(model, cubePositions[i]);
+			float angle = 20.0f * i;
+			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+
+			instances.push_back(model);
+		}
 	}
 
 	void createVertexBuffer()
@@ -1474,6 +1498,25 @@ private:
 
 		// vertex array to cpu accessible memory(stagingBuffer) 
 		// cpu accessible memory to device local memory(vertexBuffer)
+	}
+
+	void createInstanceBuffer()
+	{
+		VkDeviceSize bufferSize = sizeof(instances[0]) * instances.size();
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, instances.data(), (size_t)bufferSize);
+		vkUnmapMemory(device, stagingBufferMemory);
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceBuffer, instanceBufferMemory);
+		copyBuffer(stagingBuffer, instanceBuffer, bufferSize);
+
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingBufferMemory, nullptr);
 	}
 
 	void createIndexBuffer()
@@ -1797,6 +1840,10 @@ private:
 				VkBuffer vertexBuffers[]{ vertexBuffer };
 				VkDeviceSize offsets[]{ 0 };
 				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+				VkBuffer instanceBuffers[]{ instanceBuffer };
+				vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffers, offsets);
+
 				vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 				//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 				//vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
@@ -1807,7 +1854,7 @@ private:
 				// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
 				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
 				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSetsObject[i], 0, nullptr);
-				vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+				vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instances.size()), 0, 0, 0);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -2127,6 +2174,10 @@ private:
 	std::vector<Vertex> vertices;
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
+
+	std::vector<glm::mat4> instances;
+	VkBuffer instanceBuffer;
+	VkDeviceMemory instanceBufferMemory;
 
 	std::vector<uint32_t> indices;
 	VkBuffer indexBuffer;
