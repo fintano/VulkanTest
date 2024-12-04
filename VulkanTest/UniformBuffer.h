@@ -85,6 +85,7 @@ struct UniformBuffer
 	{
 		vkDestroyBuffer(device, uniformBuffers[index], nullptr);
 		vkFreeMemory(device, uniformBufferMemory[index], nullptr);
+		uniformBufferInfo.clear();
 	}
 
 private:

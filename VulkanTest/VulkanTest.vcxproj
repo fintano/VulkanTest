@@ -156,6 +156,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="VulkanTutorial.cpp" />
+    <ClCompile Include="VulkanTutorialExtension.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\lightShader.frag" />
@@ -169,6 +171,8 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="UniformBuffer.h" />
+    <ClInclude Include="VulkanTutorial.h" />
+    <ClInclude Include="VulkanTutorialExtension.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
