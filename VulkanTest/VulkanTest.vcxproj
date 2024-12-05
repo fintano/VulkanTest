@@ -124,13 +124,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(UserProfile)\Documents\Visual Studio 2019\Libraries\tinyobjloader-master;$(UserProfile)\Documents\Visual Studio 2019\Libraries\glfw-3.3.4.bin.WIN64\include;$(UserProfile)\Documents\Visual Studio 2019\Libraries\stb-master;$(UserProfile)\Documents\Visual Studio 2019\Libraries\glm-master;C:\VulkanSDK\1.2.182.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Sources\MyCodes;$(ProjectDir)Sources\VulkanTutorial;$(ProjectDir)Libraries\tinyobjloader-master;$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\include;$(ProjectDir)Libraries\stb-master;$(ProjectDir)Libraries\glm-master;C:\VulkanSDK\1.2.182.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(UserProfile)\Documents\Visual Studio 2019\Libraries\glfw-3.3.4.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.182.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\lib-vc2019;C:\VulkanSDK\1.2.182.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -155,11 +155,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="VulkanTutorial.cpp" />
-    <ClCompile Include="VulkanTutorialExtension.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="shaders\lightShader.frag" />
     <None Include="shaders\lightShader.vert" />
     <None Include="shaders\ObjectShader.frag" />
@@ -169,10 +164,16 @@
     <None Include="shaders\shader2.vert" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="UniformBuffer.h" />
-    <ClInclude Include="VulkanTutorial.h" />
-    <ClInclude Include="VulkanTutorialExtension.h" />
+    <ClCompile Include="Sources\main.cpp" />
+    <ClCompile Include="Sources\MyCodes\VulkanTutorialExtension.cpp" />
+    <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Sources\MyCodes\Camera.h" />
+    <ClInclude Include="Sources\MyCodes\UniformBuffer.h" />
+    <ClInclude Include="Sources\MyCodes\Vertex.h" />
+    <ClInclude Include="Sources\MyCodes\VulkanTutorialExtension.h" />
+    <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
