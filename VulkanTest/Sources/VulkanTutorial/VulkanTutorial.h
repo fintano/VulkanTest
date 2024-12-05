@@ -67,7 +67,6 @@ public:
 	VulkanTutorial();
 
 	void run();
-	Camera& getCamera() { return camera; }
 
 protected:
 	virtual void initWindow();
@@ -81,6 +80,8 @@ protected:
 	virtual void createDescriptorSetLayoutBindings(std::vector<VkDescriptorSetLayoutBinding>& bindings);
 	virtual void RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	virtual void cleanUpSwapchain();
+	virtual void loadModel();
+	virtual void createBuffers();
 
 	bool checkValidationLayerSupport();
 	void createInstance();
@@ -121,7 +122,6 @@ protected:
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-	void loadModel();
 	void createVertexBuffer();
 	void createInstanceBuffer();
 	void createIndexBuffer();
@@ -179,18 +179,9 @@ protected:
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
 
-	std::vector<glm::mat4> instances;
-	VkBuffer instanceBuffer;
-	VkDeviceMemory instanceBufferMemory;
-
 	std::vector<uint32_t> indices;
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
-
-	UniformBuffer<Transform> objectTransformUniformBuffer;
-	UniformBuffer<ColorUBO> colorUniformBuffer;
-	UniformBuffer<Material> materialUniformBuffer;
-	UniformBuffer<Light> lightUniformBuffer;
 
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
@@ -240,8 +231,6 @@ protected:
 	const std::vector<const char*> deviceExtensions = {
 		"VK_KHR_swapchain"
 	};
-
-	Camera camera;
 };
 
 extern std::vector<char> readFile(const std::string& filename);

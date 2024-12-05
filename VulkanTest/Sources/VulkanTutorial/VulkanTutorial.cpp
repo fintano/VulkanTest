@@ -46,7 +46,6 @@ std::vector<char> readFile(const std::string& filename)
 }
 
 VulkanTutorial::VulkanTutorial()
-	: camera({ 0.f, 0.f, -5.f }, { 0.f,1.f,0.f })
 	{}
 
 	void VulkanTutorial::run()
@@ -89,9 +88,7 @@ VulkanTutorial::VulkanTutorial()
 		createTextureImageView();
 		createTextureSampler();
 		loadModel();
-		createVertexBuffer();
-		createInstanceBuffer();
-		createIndexBuffer();
+		createBuffers();
 		createUniformBuffers();
 		createDescriptorPool();
 		createDescriptorSets();
@@ -1329,29 +1326,12 @@ VulkanTutorial::VulkanTutorial()
 				indices.push_back(uniqueVertices[vertex]);
 			}
 		}
+	}
 
-		static glm::vec3 cubePositions[] = {
-			glm::vec3(0.0f,  0.0f,  0.0f),
-			glm::vec3(2.0f,  5.0f, -15.0f),
-			glm::vec3(-1.5f, -2.2f, -2.5f),
-			glm::vec3(-3.8f, -2.0f, -12.3f),
-			glm::vec3(2.4f, -0.4f, -3.5f),
-			glm::vec3(-1.7f,  3.0f, -7.5f),
-			glm::vec3(1.3f, -2.0f, -2.5f),
-			glm::vec3(1.5f,  2.0f, -2.5f),
-			glm::vec3(1.5f,  0.2f, -1.5f),
-			glm::vec3(-1.3f,  1.0f, -1.5f)
-		};
-
-		for (unsigned int i = 0; i < 10; i++)
-		{
-			glm::mat4 model = glm::mat4(1.0f);
-			model = glm::translate(model, cubePositions[i]);
-			float angle = 20.0f * i;
-			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-
-			instances.push_back(model);
-		}
+	void VulkanTutorial::createBuffers()
+	{
+		createVertexBuffer();
+		createIndexBuffer();
 	}
 
 	void VulkanTutorial::createVertexBuffer()
@@ -1378,25 +1358,6 @@ VulkanTutorial::VulkanTutorial()
 		// cpu accessible memory to device local memory(vertexBuffer)
 	}
 
-	void VulkanTutorial::createInstanceBuffer()
-	{
-		VkDeviceSize bufferSize = sizeof(instances[0]) * instances.size();
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		void* data;
-		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-		memcpy(data, instances.data(), (size_t)bufferSize);
-		vkUnmapMemory(device, stagingBufferMemory);
-
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceBuffer, instanceBufferMemory);
-		copyBuffer(stagingBuffer, instanceBuffer, bufferSize);
-
-		vkDestroyBuffer(device, stagingBuffer, nullptr);
-		vkFreeMemory(device, stagingBufferMemory, nullptr);
-	}
-
 	void VulkanTutorial::createIndexBuffer()
 	{
 		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
@@ -1418,10 +1379,6 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::createUniformBuffers()
 	{
-		objectTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-		colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-		materialUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-		lightUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	}
 
 	void VulkanTutorial::createDescriptorPool()
@@ -1747,59 +1704,10 @@ VulkanTutorial::VulkanTutorial()
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-		glm::mat4 viewMat = camera.GetViewMatrix();
-		glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
-		persMat[1][1] *= -1;
-
-		/** Object */
-
-		Transform ubo{};
-		ubo.model = glm::mat4(1.f);
-		ubo.view = viewMat;
-		ubo.proj = persMat;
-
-		objectTransformUniformBuffer.CopyData(currentImage, ubo);
-
-		ColorUBO colorUbo;
-		colorUbo.objectColor = glm::vec3(1.0f, 0.5f, 0.31f);
-		colorUbo.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-		colorUbo.viewPos = camera.Position;
-
-		colorUniformBuffer.CopyData(currentImage, colorUbo);
-
-		Material material;
-		material.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
-		material.diffuse = glm::vec3(1.0f, 0.5f, 0.31f);
-		material.specular = glm::vec3(1.0f, 0.5f, 0.31f);
-		// 유니폼 버퍼 멤버의 타입을 정할 때 float은 잘 안된다. 
-		// float을 할거면 vec3/vec4로 해서 컴포넌트로 넘겨주는 것만 작동한다. 
-		material.shininess = glm::vec3(32.0f, 0.5f, 0.31f);
-
-		materialUniformBuffer.CopyData(currentImage, material);
-
-		glm::vec3 lightColor;
-		lightColor.x = sin(glfwGetTime() * 2.0f);
-		lightColor.y = sin(glfwGetTime() * 0.7f);
-		lightColor.z = sin(glfwGetTime() * 1.3f);
-
-		glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
-		glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
-
-		Light light;
-		light.ambient = ambientColor;//glm::vec3(0.2f, 0.2f, 0.2f);
-		light.diffuse = diffuseColor;//glm::vec3(0.5f, 0.5f, 0.5f); // darken diffuse light a bit
-		light.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-		light.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
-
-		lightUniformBuffer.CopyData(currentImage, light);
 	}
 
 	void VulkanTutorial::clearUniformBuffer(uint32_t i)
 	{
-		objectTransformUniformBuffer.destroy(i);
-		colorUniformBuffer.destroy(i);
-		materialUniformBuffer.destroy(i);
-		lightUniformBuffer.destroy(i);
 	}
 
 	void VulkanTutorial::cleanUp()

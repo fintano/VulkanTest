@@ -2,6 +2,11 @@
 
 #include "VulkanTutorial.h"
 
+/**
+* https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
+* 이 프로젝트를 토대로 개인적으로 추가한 코드는 최대한 VulkanTutorialExtension에 구현해 분리한다.
+*/
+
 class VulkanTutorialExtension : public VulkanTutorial{
 public:
 
@@ -20,20 +25,34 @@ private:
 	void createDescriptorSetLayoutBindings(std::vector<VkDescriptorSetLayoutBinding>& bindings) override;
 	void RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
 	void cleanUpSwapchain() override;
+	void loadModel() override;
+	void createBuffers() override;
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 	{
-		auto app = reinterpret_cast<VulkanTutorial*>(glfwGetWindowUserPointer(window));
-		app->getCamera().ProcessMouseMovement(xpos, ypos);
+		auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
+		app->camera.ProcessMouseMovement(xpos, ypos);
 	}
 
 	void createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
+	void createInstanceBuffer();
 
 private:
+	std::vector<glm::mat4> instances;
+	VkBuffer instanceBuffer;
+	VkDeviceMemory instanceBufferMemory;
+
 	UniformBuffer<Transform> lightTransformUniformBuffer;
+	UniformBuffer<Transform> objectTransformUniformBuffer;
+	UniformBuffer<ColorUBO> colorUniformBuffer;
+	UniformBuffer<Material> materialUniformBuffer;
+	UniformBuffer<Light> lightUniformBuffer;
+
 	VkPipeline graphicsPipelineObject;
 	std::vector<VkDescriptorSet> descriptorSetsObject;
+	
+	Camera camera;
 
 	double deltaTime = 0.0f; // Time between current frame and last frame
 	double lastFrame = 0.0f; // Time of last frame

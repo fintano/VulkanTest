@@ -1,6 +1,7 @@
 #include "VulkanTutorialExtension.h"
 
 VulkanTutorialExtension::VulkanTutorialExtension()
+	: camera({ 0.f, 0.f, -5.f }, { 0.f,1.f,0.f })
 {
 }
 
@@ -34,10 +35,6 @@ void VulkanTutorialExtension::processInput()
 		camera.ProcessKeyboard(Camera_Movement::LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(Camera_Movement::RIGHT, deltaTime);
-	//if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-		//camera.ProcessKeyboard(Camera_Movement::UP, deltaTime);
-	//if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-		//camera.ProcessKeyboard(Camera_Movement::DOWN, deltaTime);
 }
 
 void VulkanTutorialExtension::createUniformBuffers()
@@ -45,6 +42,10 @@ void VulkanTutorialExtension::createUniformBuffers()
 	VulkanTutorial::createUniformBuffers();
 
 	lightTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	objectTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	materialUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	lightUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 }
 
 void VulkanTutorialExtension::createDescriptorSets()
@@ -74,6 +75,47 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	ubo.proj = persMat;
 
 	lightTransformUniformBuffer.CopyData(currentImage, ubo);
+
+	/** Object */
+
+	ubo.model = glm::mat4(1.f);
+	ubo.view = viewMat;
+	ubo.proj = persMat;
+
+	objectTransformUniformBuffer.CopyData(currentImage, ubo);
+
+	ColorUBO colorUbo;
+	colorUbo.objectColor = glm::vec3(1.0f, 0.5f, 0.31f);
+	colorUbo.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+	colorUbo.viewPos = camera.Position;
+
+	colorUniformBuffer.CopyData(currentImage, colorUbo);
+
+	Material material;
+	material.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
+	material.diffuse = glm::vec3(1.0f, 0.5f, 0.31f);
+	material.specular = glm::vec3(1.0f, 0.5f, 0.31f);
+	// 유니폼 버퍼 멤버의 타입을 정할 때 float은 잘 안된다. 
+	// float을 할거면 vec3/vec4로 해서 컴포넌트로 넘겨주는 것만 작동한다. 
+	material.shininess = glm::vec3(32.0f, 0.5f, 0.31f);
+
+	materialUniformBuffer.CopyData(currentImage, material);
+
+	glm::vec3 lightColor;
+	lightColor.x = sin(glfwGetTime() * 2.0f);
+	lightColor.y = sin(glfwGetTime() * 0.7f);
+	lightColor.z = sin(glfwGetTime() * 1.3f);
+
+	glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
+	glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
+
+	Light light;
+	light.ambient = ambientColor;//glm::vec3(0.2f, 0.2f, 0.2f);
+	light.diffuse = diffuseColor;//glm::vec3(0.5f, 0.5f, 0.5f); // darken diffuse light a bit
+	light.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+	light.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
+
+	lightUniformBuffer.CopyData(currentImage, light);
 }
 
 void VulkanTutorialExtension::clearUniformBuffer(uint32_t i)
@@ -81,6 +123,10 @@ void VulkanTutorialExtension::clearUniformBuffer(uint32_t i)
 	VulkanTutorial::clearUniformBuffer(i);
 
 	lightTransformUniformBuffer.destroy(i);
+	objectTransformUniformBuffer.destroy(i);
+	colorUniformBuffer.destroy(i);
+	materialUniformBuffer.destroy(i);
+	lightUniformBuffer.destroy(i);
 }
 
 void VulkanTutorialExtension::createGraphicsPipelines()
@@ -96,7 +142,7 @@ void VulkanTutorialExtension::createDescriptorSetLayoutBindings(std::vector<VkDe
 {
 	VulkanTutorial::createDescriptorSetLayoutBindings(bindings);
 
-	//	Transform 
+	//	Transform
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
 	//	TexSampler
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
@@ -236,4 +282,58 @@ void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescripto
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
+}
+
+void VulkanTutorialExtension::createInstanceBuffer()
+{
+	VkDeviceSize bufferSize = sizeof(instances[0]) * instances.size();
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, instances.data(), (size_t)bufferSize);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceBuffer, instanceBufferMemory);
+	copyBuffer(stagingBuffer, instanceBuffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+void VulkanTutorialExtension::loadModel()
+{
+	VulkanTutorial::loadModel();
+
+	static glm::vec3 cubePositions[] = {
+			glm::vec3(0.0f,  0.0f,  0.0f),
+			glm::vec3(2.0f,  5.0f, -15.0f),
+			glm::vec3(-1.5f, -2.2f, -2.5f),
+			glm::vec3(-3.8f, -2.0f, -12.3f),
+			glm::vec3(2.4f, -0.4f, -3.5f),
+			glm::vec3(-1.7f,  3.0f, -7.5f),
+			glm::vec3(1.3f, -2.0f, -2.5f),
+			glm::vec3(1.5f,  2.0f, -2.5f),
+			glm::vec3(1.5f,  0.2f, -1.5f),
+			glm::vec3(-1.3f,  1.0f, -1.5f)
+	};
+
+	for (unsigned int i = 0; i < 10; i++)
+	{
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, cubePositions[i]);
+		float angle = 20.0f * i;
+		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+
+		instances.push_back(model);
+	}
+}
+
+void VulkanTutorialExtension::createBuffers()
+{
+	VulkanTutorial::createBuffers();
+
+	createInstanceBuffer();
 }
