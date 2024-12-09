@@ -85,12 +85,12 @@ protected:
 	virtual void loadModel();
 	virtual void createBuffers();
 	virtual void recreateSwapChain();
-	virtual void preDrawFrame();
+	virtual void preDrawFrame(uint32_t imageIndex);
 	virtual void drawFrame();
 	virtual void postDrawFrame();
 	virtual void createCommandPool();
 	virtual void createCommandBuffers();
-
+	virtual void createFrameBuffers();
 
 	bool checkValidationLayerSupport();
 	void createInstance();
@@ -117,7 +117,6 @@ protected:
 	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings);
 	void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipeline& OutPipeline);
 	VkShaderModule createShaderModule(const std::vector<char>& code);
-	void createFrameBuffers();
 	void createColorResources();
 	void createDepthResources();
 	VkFormat findDepthFormat();
@@ -142,6 +141,10 @@ protected:
 	void createSyncObjects();
 	void mainLoop();
 	void cleanUp();
+
+	void addCommandBuffer(VkCommandBuffer commandBuffer);
+	size_t getCommandBufferCount();
+	const VkCommandBuffer* getCommandBufferData();
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
@@ -177,6 +180,7 @@ protected:
 	std::vector<VkFramebuffer> swapChainFrameBuffers;
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
+	std::vector<VkCommandBuffer> CommandBuffersToSubmit;
 
 	std::vector<Vertex> vertices;
 	VkBuffer vertexBuffer;

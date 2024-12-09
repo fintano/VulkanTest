@@ -496,8 +496,10 @@ VulkanTutorial::VulkanTutorial()
 		createCommandBuffers();
 	}
 
-	void VulkanTutorial::preDrawFrame()
+	void VulkanTutorial::preDrawFrame(uint32_t imageIndex)
 	{
+		updateUniformBuffer(imageIndex);
+		addCommandBuffer(commandBuffers[imageIndex]);
 	}
 
 	void VulkanTutorial::postDrawFrame()
@@ -1624,7 +1626,6 @@ VulkanTutorial::VulkanTutorial()
 		{
 			glfwPollEvents();
 			processInput();
-			preDrawFrame();
 			drawFrame();
 			postDrawFrame();
 		}
@@ -1650,7 +1651,7 @@ VulkanTutorial::VulkanTutorial()
 			throw std::runtime_error("failed to acquire next image!");
 		}
 
-		updateUniformBuffer(imageIndex);
+		preDrawFrame(imageIndex);
 
 		if (imagesInFlight[imageIndex] != VK_NULL_HANDLE)
 		{
@@ -1669,8 +1670,8 @@ VulkanTutorial::VulkanTutorial()
 		submitInfo.pWaitDstStageMask = waitStage;
 
 		/** 2. Execute the command buffer with that image as attachment in the framebuffer */
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
+		submitInfo.commandBufferCount = getCommandBufferCount();
+		submitInfo.pCommandBuffers = getCommandBufferData();
 		// the semaphore to signal once the command buffer have finished execution.
 		VkSemaphore signalSemaphores[] = { renderFinishedSemaphore[currentFrame] };
 		submitInfo.signalSemaphoreCount = 1;
@@ -1752,6 +1753,21 @@ VulkanTutorial::VulkanTutorial()
 		glfwDestroyWindow(window);
 
 		glfwTerminate();
+	}
+
+	void VulkanTutorial::addCommandBuffer(VkCommandBuffer commandBuffer)
+	{
+		CommandBuffersToSubmit.push_back(commandBuffer);
+	}
+
+	size_t VulkanTutorial::getCommandBufferCount()
+	{
+		return static_cast<size_t>(CommandBuffersToSubmit.size());
+	}
+
+	const VkCommandBuffer* VulkanTutorial::getCommandBufferData()
+	{
+		return CommandBuffersToSubmit.data();
 	}
 
 	void VulkanTutorial::cleanUpSwapchain()

@@ -474,15 +474,9 @@ void VulkanTutorialExtension::recreateSwapChain()
 	ImGui_ImplVulkan_SetMinImageCount(swapChainImages.size());
 }
 
-void VulkanTutorialExtension::preDrawFrame()
+void VulkanTutorialExtension::preDrawFrame(uint32_t imageIndex)
 {
-	VulkanTutorial::preDrawFrame();
-
-}
-
-void VulkanTutorialExtension::drawFrame()
-{
-	VulkanTutorial::drawFrame();
+	VulkanTutorial::preDrawFrame(imageIndex);
 
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -490,6 +484,40 @@ void VulkanTutorialExtension::drawFrame()
 	ImGui::ShowDemoWindow();
 	ImGui::Render();
 
+	VkCommandBufferBeginInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	VkResult err = vkBeginCommandBuffer(imGuiCommandBuffers[imageIndex], &info);
+	check_vk_result(err);
+
+	{
+		VkRenderPassBeginInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		info.renderPass = imGuiRenderPass;
+		info.framebuffer = imGuiFrameBuffers[imageIndex];
+		info.renderArea.extent = swapChainExtent;
+
+		std::array<VkClearValue, 1> clearValues{};
+		clearValues[0].color = { { 0.f, 0.f, 0.f, 1.f } };
+
+		info.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		info.pClearValues = clearValues.data();
+		vkCmdBeginRenderPass(imGuiCommandBuffers[imageIndex], &info, VK_SUBPASS_CONTENTS_INLINE);
+	}
+
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imGuiCommandBuffers[imageIndex]);
+
+	// Submit command buffer
+	vkCmdEndRenderPass(imGuiCommandBuffers[imageIndex]);
+	err = vkEndCommandBuffer(imGuiCommandBuffers[imageIndex]);
+	check_vk_result(err);
+
+	addCommandBuffer(imGuiCommandBuffers[imageIndex]);
+}
+
+void VulkanTutorialExtension::drawFrame()
+{
+	VulkanTutorial::drawFrame();
 }
 
 void VulkanTutorialExtension::createCommandPool()
@@ -522,5 +550,29 @@ void VulkanTutorialExtension::createCommandBuffers()
 	if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, imGuiCommandBuffers.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to allocate command buffers.");
+	}
+}
+
+void VulkanTutorialExtension::createFrameBuffers()
+{
+	VulkanTutorial::createFrameBuffers();
+
+	imGuiFrameBuffers.resize(swapChainImageViews.size());
+
+	VkImageView attachment[1];
+	VkFramebufferCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	info.renderPass = imGuiRenderPass;
+	info.attachmentCount = 1;
+	info.pAttachments = attachment;
+	info.width = swapChainExtent.width;
+	info.height = swapChainExtent.height;
+	info.layers = 1;
+
+	for (uint32_t i = 0; i < swapChainImageViews.size(); i++)
+	{
+		attachment[0] = colorImageView;
+		VkResult err = vkCreateFramebuffer(device, &info, nullptr, &imGuiFrameBuffers[i]);
+		check_vk_result(err);
 	}
 }

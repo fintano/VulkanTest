@@ -29,10 +29,11 @@ private:
 	void loadModel() override;
 	void createBuffers() override;
 	void recreateSwapChain() override;
-	void preDrawFrame() override;
+	void preDrawFrame(uint32_t imageIndex) override;
 	void drawFrame() override;
 	void createCommandPool() override;
 	void createCommandBuffers() override;
+	void createFrameBuffers() override;
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 	{
@@ -55,6 +56,7 @@ private:
 	VkRenderPass imGuiRenderPass;
 	VkCommandPool imGuiCommandPool;
 	std::vector<VkCommandBuffer> imGuiCommandBuffers;
+	std::vector<VkFramebuffer> imGuiFrameBuffers;
 
 	UniformBuffer<Transform> lightTransformUniformBuffer;
 	UniformBuffer<Transform> objectTransformUniformBuffer;
