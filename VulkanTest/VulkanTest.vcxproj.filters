@@ -14,6 +14,9 @@
     <Filter Include="MyCodes">
       <UniqueIdentifier>{30969388-1645-4cd0-be5d-20ec74de9307}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MyCodes\ImGui">
+      <UniqueIdentifier>{1f7227d2-0e1f-4260-8d3d-88d3d736eff1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag">
@@ -45,6 +48,27 @@
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtension.cpp">
       <Filter>MyCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\DearImGui\imgui.cpp">
+      <Filter>MyCodes\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\DearImGui\imgui_demo.cpp">
+      <Filter>MyCodes\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\DearImGui\imgui_draw.cpp">
+      <Filter>MyCodes\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\DearImGui\imgui_impl_glfw.cpp">
+      <Filter>MyCodes\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\DearImGui\imgui_impl_vulkan.cpp">
+      <Filter>MyCodes\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\DearImGui\imgui_tables.cpp">
+      <Filter>MyCodes\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp">
+      <Filter>MyCodes\ImGui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

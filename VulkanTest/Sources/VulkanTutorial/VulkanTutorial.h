@@ -73,7 +73,9 @@ protected:
 	virtual void initVulkan();
 	virtual void processInput();
 	virtual void createUniformBuffers();
+	virtual void createDescriptorPool();
 	virtual void createDescriptorSets();
+	virtual void createRenderPass();
 	virtual void updateUniformBuffer(uint32_t currentImage);
 	virtual void clearUniformBuffer(uint32_t i);
 	virtual void createGraphicsPipelines();
@@ -82,6 +84,13 @@ protected:
 	virtual void cleanUpSwapchain();
 	virtual void loadModel();
 	virtual void createBuffers();
+	virtual void recreateSwapChain();
+	virtual void preDrawFrame();
+	virtual void drawFrame();
+	virtual void postDrawFrame();
+	virtual void createCommandPool();
+	virtual void createCommandBuffers();
+
 
 	bool checkValidationLayerSupport();
 	void createInstance();
@@ -97,7 +106,6 @@ protected:
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice  device);
 	void createLogicalDevice();
 	void createSwapchain();
-	void recreateSwapChain();
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
@@ -105,13 +113,11 @@ protected:
 	void createTextureImageView();
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createTextureSampler();
-	void createRenderPass();
 	void createDescriptorSetLayout();
 	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings);
 	void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipeline& OutPipeline);
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createFrameBuffers();
-	void createCommandPool();
 	void createColorResources();
 	void createDepthResources();
 	VkFormat findDepthFormat();
@@ -125,7 +131,6 @@ protected:
 	void createVertexBuffer();
 	void createInstanceBuffer();
 	void createIndexBuffer();
-	void createDescriptorPool();
 	VkDescriptorBufferInfo CreateDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
 	VkDescriptorImageInfo CreateDescriptorImageInfo(VkImageView& imageView, VkSampler& sampler, VkImageLayout layout);
 	void CreateWriteDescriptorSet(VkDescriptorType type, VkDescriptorSet& DescriptorSet, VkDescriptorImageInfo* ImageInfo, VkDescriptorBufferInfo* BufferInfo, std::vector<VkWriteDescriptorSet>& descriptorWrites);
@@ -134,10 +139,8 @@ protected:
 	void copyBuffer(VkBuffer& srcBuffer, VkBuffer& dstBuffer, VkDeviceSize size);
 	VkCommandBuffer beginSingleTimeCommands();
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-	void createCommandBuffers();
 	void createSyncObjects();
 	void mainLoop();
-	void drawFrame();
 	void cleanUp();
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {

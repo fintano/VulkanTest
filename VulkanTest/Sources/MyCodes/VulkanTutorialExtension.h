@@ -18,6 +18,7 @@ private:
 	void initVulkan() override;
 	void processInput() override;
 	void createUniformBuffers() override;
+	void createDescriptorPool() override;
 	void createDescriptorSets() override;
 	void updateUniformBuffer(uint32_t currentImage) override;
 	void clearUniformBuffer(uint32_t i) override;
@@ -27,6 +28,11 @@ private:
 	void cleanUpSwapchain() override;
 	void loadModel() override;
 	void createBuffers() override;
+	void recreateSwapChain() override;
+	void preDrawFrame() override;
+	void drawFrame() override;
+	void createCommandPool() override;
+	void createCommandBuffers() override;
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 	{
@@ -34,6 +40,9 @@ private:
 		app->camera.ProcessMouseMovement(xpos, ypos);
 	}
 
+	void createImGuiRenderPass();
+	void createImGui();
+	void loadFonts();
 	void createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createInstanceBuffer();
@@ -42,6 +51,10 @@ private:
 	std::vector<glm::mat4> instances;
 	VkBuffer instanceBuffer;
 	VkDeviceMemory instanceBufferMemory;
+	VkDescriptorPool imGuiDescriptorPool;
+	VkRenderPass imGuiRenderPass;
+	VkCommandPool imGuiCommandPool;
+	std::vector<VkCommandBuffer> imGuiCommandBuffers;
 
 	UniformBuffer<Transform> lightTransformUniformBuffer;
 	UniformBuffer<Transform> objectTransformUniformBuffer;

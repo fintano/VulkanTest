@@ -496,6 +496,14 @@ VulkanTutorial::VulkanTutorial()
 		createCommandBuffers();
 	}
 
+	void VulkanTutorial::preDrawFrame()
+	{
+	}
+
+	void VulkanTutorial::postDrawFrame()
+	{
+	}
+
 	VkSurfaceFormatKHR VulkanTutorial::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 	{
 		for (const auto& availableFormat : availableFormats)
@@ -638,7 +646,7 @@ VulkanTutorial::VulkanTutorial()
 		colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;//VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentReference colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
@@ -1616,7 +1624,9 @@ VulkanTutorial::VulkanTutorial()
 		{
 			glfwPollEvents();
 			processInput();
+			preDrawFrame();
 			drawFrame();
+			postDrawFrame();
 		}
 
 		vkDeviceWaitIdle(device);
@@ -1661,7 +1671,7 @@ VulkanTutorial::VulkanTutorial()
 		/** 2. Execute the command buffer with that image as attachment in the framebuffer */
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
-		// the smephore to signal once the command buffer have finished execution.
+		// the semaphore to signal once the command buffer have finished execution.
 		VkSemaphore signalSemaphores[] = { renderFinishedSemaphore[currentFrame] };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
