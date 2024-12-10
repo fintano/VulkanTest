@@ -25,6 +25,7 @@
 #include "Camera.h"
 #include "UniformBuffer.h"
 #include "Vertex.h"
+#include <mutex>
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -91,6 +92,7 @@ protected:
 	virtual void createCommandPool();
 	virtual void createCommandBuffers();
 	virtual void createFrameBuffers();
+	virtual void cleanUp();
 
 	bool checkValidationLayerSupport();
 	void createInstance();
@@ -140,11 +142,11 @@ protected:
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void createSyncObjects();
 	void mainLoop();
-	void cleanUp();
 
 	void addCommandBuffer(VkCommandBuffer commandBuffer);
 	size_t getCommandBufferCount();
 	const VkCommandBuffer* getCommandBufferData();
+	void clearCommandBuffers();
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;

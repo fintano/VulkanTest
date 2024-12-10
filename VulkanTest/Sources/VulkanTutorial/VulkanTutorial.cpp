@@ -499,6 +499,7 @@ VulkanTutorial::VulkanTutorial()
 	void VulkanTutorial::preDrawFrame(uint32_t imageIndex)
 	{
 		updateUniformBuffer(imageIndex);
+		clearCommandBuffers();
 		addCommandBuffer(commandBuffers[imageIndex]);
 	}
 
@@ -648,7 +649,7 @@ VulkanTutorial::VulkanTutorial()
 		colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;//VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentReference colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
@@ -1149,6 +1150,21 @@ VulkanTutorial::VulkanTutorial()
 			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 
+
+			/**
+			*  Cmd0    Cmd1    Cmd2    Cmd3    Cmd4    Cmd5    ... 
+			*	|		|		|		|		|		★		|		|
+			*	|		|		|		|		★		|		|		|
+			*	|		|		|		★		|		|		|		|
+			*	★		★		★		|		|		|		|		| Transfer Stage
+			*	|		|		|		|		|		|		|		|
+			*	|		|		|		|		|		|		|		| Fragment Shader Stage	
+			*	|		|		|		|		|		|		|		|
+			* 
+			*	커맨드 버퍼 안 커맨드는 순차적으로 실행되나 파이프라인 스테이지에선 병렬적으로 실행될 수 있다. 
+			* 
+			*/
+
 			// 현재 파이프라인을 VK_PIPELINE_STAGE_TRANSFER_BIT 단계 전에서 막아 놓고 현재 GPU에서 실행 중인 모든 커맨드 들이 VK_PIPELINE_STAGE_TRANSFER_BIT를 끝낼 때
 			// VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL를 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL로, VK_ACCESS_TRANSFER_WRITE_BIT를 VK_ACCESS_TRANSFER_READ_BIT로 바꿔준다. 
 
@@ -1180,7 +1196,7 @@ VulkanTutorial::VulkanTutorial()
 			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
 			// 현재 파이프라인을 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT 단계 전에서 막아 놓고 현재 GPU에서 실행 중인 모든 커맨드 들이 VK_PIPELINE_STAGE_TRANSFER_BIT를 끝낼 때
-			// VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL를 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL로, VK_ACCESS_TRANSFER_READ_BIT를 VK_ACCESS_SHADER_READ_BIT로 바꿔준다. 
+			// VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL를 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL로, VK_ACCESS_TRANSFER_READ_BIT를 VK_ACCESS_SHADER_READ_BIT로 바꿔준다. 
 
 			// 다른 모든 샘플링 오퍼레이션은 이 Transition이 끝나기를 기다린다. 모든 커맨드들이 아니라 VkImageMemoryBarrier라면 이미지 리소스에서만 락이 걸리지 않을까 추측한다. 
 			// 그 중에서 barrier.subresourceRange.baseMipLevel 여기에 락이 걸리는듯.
@@ -1233,7 +1249,7 @@ VulkanTutorial::VulkanTutorial()
 		}
 
 		barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -1657,6 +1673,7 @@ VulkanTutorial::VulkanTutorial()
 		{
 			vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
 		}
+
 		imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
 		VkSubmitInfo submitInfo{};
@@ -1768,6 +1785,11 @@ VulkanTutorial::VulkanTutorial()
 	const VkCommandBuffer* VulkanTutorial::getCommandBufferData()
 	{
 		return CommandBuffersToSubmit.data();
+	}
+
+	void VulkanTutorial::clearCommandBuffers()
+	{
+		CommandBuffersToSubmit.clear();
 	}
 
 	void VulkanTutorial::cleanUpSwapchain()

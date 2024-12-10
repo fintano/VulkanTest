@@ -34,6 +34,8 @@ private:
 	void createCommandPool() override;
 	void createCommandBuffers() override;
 	void createFrameBuffers() override;
+	void createRenderPass() override;
+	void cleanUp() override;
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos)
 	{
@@ -41,7 +43,6 @@ private:
 		app->camera.ProcessMouseMovement(xpos, ypos);
 	}
 
-	void createImGuiRenderPass();
 	void createImGui();
 	void loadFonts();
 	void createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets);
