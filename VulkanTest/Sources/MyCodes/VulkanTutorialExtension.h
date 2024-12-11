@@ -44,6 +44,7 @@ private:
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 	static void focusCallback(GLFWwindow* window, int focused);
+	static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
 	void initImGui();
 	void createImGui();

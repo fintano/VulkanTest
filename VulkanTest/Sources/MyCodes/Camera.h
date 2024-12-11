@@ -4,6 +4,8 @@
 //#include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <string>
+#include <sstream>
 
 // Defines several possible options for camera movement. Used as abstraction to stay away from window-system specific input methods
 enum Camera_Movement {
@@ -87,6 +89,11 @@ public:
 			Position += Right * velocity;
 	}
 
+	void ResetPreoffsets()
+	{
+		bOffsetInitialized = false;
+	}
+
 	// processes input received from a mouse input system. Expects the offset value in both the x and y direction.
 	void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true)
 	{
@@ -131,6 +138,17 @@ public:
 			Zoom = 1.0f;
 		if (Zoom > 45.0f)
 			Zoom = 45.0f;
+	}
+
+	std::string ToString()
+	{
+		std::ostringstream oss;
+		//oss << "Pitch " << Pitch << ", Yaw " << Yaw << "\n";
+		oss << "Front (" << Front.x << ", " << Front.y << ", " << Front.z << ")\n";
+		oss << "Up (" << Up.x << ", " << Up.y << ", " << Up.z << ")\n";
+		oss << "Right (" << Right.x << ", " << Right.y << ", " << Right.z << ")\n";
+
+		return oss.str();
 	}
 
 private:

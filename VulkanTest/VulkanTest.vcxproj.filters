@@ -70,6 +70,9 @@
     <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp">
       <Filter>MyCodes\ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\MyCodes\VulkanTutorialExtensionImGui.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h">
@@ -85,6 +88,9 @@
       <Filter>MyCodes</Filter>
     </ClInclude>
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtension.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\VulkanTutorialExtensionImGui.h">
       <Filter>MyCodes</Filter>
     </ClInclude>
   </ItemGroup>

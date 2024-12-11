@@ -13,8 +13,8 @@ static void check_vk_result(VkResult err)
 		abort();
 }
 
-
 static bool canUseDirectionalLight = false;
+std::string ImGui::stringToDebug;
 
 void ImGui::ShowVulkanWindow(bool* p_open)
 {
@@ -66,6 +66,7 @@ void ImGui::ShowVulkanWindow(bool* p_open)
     ImGui::Spacing();
 
     ImGui::Checkbox("Directional Light", &canUseDirectionalLight);
+	ImGui::PrintDebugString();
 
     // End of ShowDemoWindow()
     ImGui::PopItemWidth();
@@ -77,6 +78,14 @@ bool ImGui::CanUseDirectionalLight()
     return canUseDirectionalLight;
 }
 
+void ImGui::PrintDebugString()
+{
+	if (!stringToDebug.empty())
+	{
+		ImGui::Text("%s", stringToDebug.c_str());
+		ImGui::Spacing();
+	}
+}
 
 void VulkanTutorialExtension::initImGui()
 {

@@ -2,9 +2,10 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "VulkanTutorialExtensionImGui.h"
 
 VulkanTutorialExtension::VulkanTutorialExtension()
-	: camera({ 0.f, 0.f, -5.f }, { 0.f,1.f,0.f })
+	: camera({ 5.f, 5.f, 5.f }, { 0.f,1.f,0.f })
 {
 }
 
@@ -15,6 +16,7 @@ void VulkanTutorialExtension::initWindow()
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	glfwSetCursorPosCallback(window, mouseCallback);
 	glfwSetWindowFocusCallback(window, focusCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
 	initImGui();
 }
@@ -29,6 +31,8 @@ void VulkanTutorialExtension::initVulkan()
 
 void VulkanTutorialExtension::processInput()
 {
+	ImGui::stringToDebug.clear();
+
 	VulkanTutorial::processInput();
 
 	double currentFrame = glfwGetTime();
@@ -43,6 +47,8 @@ void VulkanTutorialExtension::processInput()
 		camera.ProcessKeyboard(Camera_Movement::LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(Camera_Movement::RIGHT, deltaTime);
+
+	ImGui::stringToDebug.append(camera.ToString());
 }
 
 void VulkanTutorialExtension::mouseCallback(GLFWwindow* window, double xpos, double ypos)
@@ -56,7 +62,7 @@ void VulkanTutorialExtension::mouseCallback(GLFWwindow* window, double xpos, dou
 
 		ImGuiIO& io = ImGui::GetIO();
 		if (io.WantCaptureMouse) {
-			// ImGui가 마우스 입력을 처리 중이므로 GLFW의 입력 처리를 무시합니다.
+			// Ignore GLFW input as ImGui is precessing mouse input.
 			return;
 		}
 
@@ -70,6 +76,17 @@ void VulkanTutorialExtension::focusCallback(GLFWwindow* window, int focused)
 	assert(app);
 
 	app->setWindowFocused(focused);
+}
+
+void VulkanTutorialExtension::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) 
+	{
+		auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
+		assert(app);
+
+		app->camera.ResetPreoffsets();
+	}
 }
 
 void VulkanTutorialExtension::createUniformBuffers()
@@ -143,17 +160,19 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 
 	materialUniformBuffer.CopyData(currentImage, material);
 
-	glm::vec3 lightColor;
-	lightColor.x = sin(glfwGetTime() * 2.0f);
-	lightColor.y = sin(glfwGetTime() * 0.7f);
-	lightColor.z = sin(glfwGetTime() * 1.3f);
+	//glm::vec3 lightColor;
+	//lightColor.x = sin(glfwGetTime() * 2.0f);
+	//lightColor.y = sin(glfwGetTime() * 0.7f);
+	//lightColor.z = sin(glfwGetTime() * 1.3f);
 
-	glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
-	glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
+	//glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
+	//glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
 
 	Light light;
-	light.ambient = ambientColor;//glm::vec3(0.2f, 0.2f, 0.2f);
-	light.diffuse = diffuseColor;//glm::vec3(0.5f, 0.5f, 0.5f); // darken diffuse light a bit
+	//light.ambient = ambientColor;
+	light.ambient = glm::vec3(0.2f, 0.2f, 0.2f);
+	//light.diffuse = diffuseColor;
+	light.diffuse = glm::vec3(0.5f, 0.5f, 0.5f); // darken diffuse light a bit
 	light.specular = glm::vec3(1.0f, 1.0f, 1.0f);
 	light.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
 
@@ -205,10 +224,6 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	VkBuffer vertexBuffers[]{ vertexBuffer };
 	VkDeviceSize offsets[]{ 0 };
 	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-
-	VkBuffer instanceBuffers[]{ instanceBuffer };
-	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffers, offsets);
-
 	vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 	//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 	//vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
@@ -217,6 +232,9 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	// 
 	// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
 	// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
+	VkBuffer instanceBuffers[]{ instanceBuffer };
+	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffers, offsets);
+	
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
 	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSetsObject[i], 0, nullptr);
 	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instances.size()), 0, 0, 0);
@@ -351,7 +369,8 @@ void VulkanTutorialExtension::loadModel()
 
 	static glm::vec3 cubePositions[] = {
 			glm::vec3(0.0f,  0.0f,  0.0f),
-			glm::vec3(2.0f,  5.0f, -15.0f),
+			glm::vec3(0.0f,  1.0f,  0.0f),
+			//glm::vec3(2.0f,  5.0f, -15.0f),
 			glm::vec3(-1.5f, -2.2f, -2.5f),
 			glm::vec3(-3.8f, -2.0f, -12.3f),
 			glm::vec3(2.4f, -0.4f, -3.5f),
@@ -362,12 +381,14 @@ void VulkanTutorialExtension::loadModel()
 			glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
 
-	for (unsigned int i = 0; i < 10; i++)
+	static int instanceCount = 2;
+
+	for (unsigned int i = 0; i < instanceCount; i++)
 	{
 		glm::mat4 model = glm::mat4(1.0f);
 		model = glm::translate(model, cubePositions[i]);
-		float angle = 20.0f * i;
-		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		//float angle = 20.0f * i;
+		//model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 
 		instances.push_back(model);
 	}
