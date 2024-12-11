@@ -173,10 +173,12 @@
     <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtension.cpp" />
+    <ClCompile Include="Sources\MyCodes\VulkanTutorialExtensionImGui.cpp" />
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\MyCodes\Camera.h" />
+    <ClInclude Include="Sources\MyCodes\VulkanTutorialExtensionImGui.h" />
     <ClInclude Include="Sources\MyCodes\UniformBuffer.h" />
     <ClInclude Include="Sources\MyCodes\Vertex.h" />
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtension.h" />

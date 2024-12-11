@@ -25,7 +25,6 @@ private:
 	void createGraphicsPipelines() override;
 	void createDescriptorSetLayoutBindings(std::vector<VkDescriptorSetLayoutBinding>& bindings) override;
 	void RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
-	void cleanUpSwapchain() override;
 	void loadModel() override;
 	void createBuffers() override;
 	void recreateSwapChain() override;
@@ -35,19 +34,27 @@ private:
 	void createCommandBuffers() override;
 	void createFrameBuffers() override;
 	void createRenderPass() override;
+	void cleanUpSwapchain() override;
 	void cleanUp() override;
 
-	static void mouseCallback(GLFWwindow* window, double xpos, double ypos)
-	{
-		auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
-		app->camera.ProcessMouseMovement(xpos, ypos);
-	}
-
-	void createImGui();
-	void loadFonts();
 	void createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createInstanceBuffer();
+	void setWindowFocused(int inFocused);
+
+	static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
+	static void focusCallback(GLFWwindow* window, int focused);
+
+	void initImGui();
+	void createImGui();
+	void createImGuiDescriptorPool();
+	void drawImGui(uint32_t imageIndex);
+	void createImGuiCommandPool();
+	void createImGuiCommandBuffers();
+	void createImGuiFrameBuffers();
+	void createImGuiRenderPass();
+	void cleanUpImGuiSwapchain();
+	void cleanUpImGui();
 
 private:
 	std::vector<glm::mat4> instances;
@@ -69,6 +76,8 @@ private:
 	std::vector<VkDescriptorSet> descriptorSetsObject;
 	
 	Camera camera;
+
+	bool focused;
 
 	double deltaTime = 0.0f; // Time between current frame and last frame
 	double lastFrame = 0.0f; // Time of last frame

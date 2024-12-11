@@ -3,15 +3,6 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-static void check_vk_result(VkResult err)
-{
-	if (err == 0)
-		return;
-	fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
-	if (err < 0)
-		abort();
-}
-
 VulkanTutorialExtension::VulkanTutorialExtension()
 	: camera({ 0.f, 0.f, -5.f }, { 0.f,1.f,0.f })
 {
@@ -21,15 +12,11 @@ void VulkanTutorialExtension::initWindow()
 {
 	VulkanTutorial::initWindow();
 
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	glfwSetCursorPosCallback(window, mouseCallback);
+	glfwSetWindowFocusCallback(window, focusCallback);
 
-	// Setup Dear ImGui context
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	initImGui();
 }
 
 void VulkanTutorialExtension::initVulkan()
@@ -37,37 +24,6 @@ void VulkanTutorialExtension::initVulkan()
 	VulkanTutorial::initVulkan();
 
 	createImGui();
-	loadFonts();
-}
-
-void VulkanTutorialExtension::createImGui()
-{
-	if (!findQueueFamilies(physicalDevice).graphicsFamily.has_value())
-	{
-		throw std::runtime_error("failed to find graphics queue familites!");
-	}
-
-	// Setup Platform/Renderer bindings
-	ImGui_ImplGlfw_InitForVulkan(window, true);
-	ImGui_ImplVulkan_InitInfo init_info = {};
-	init_info.Instance = instance;
-	init_info.PhysicalDevice = physicalDevice;
-	init_info.Device = device;
-	init_info.QueueFamily = *(findQueueFamilies(physicalDevice).graphicsFamily);
-	init_info.Queue = graphicsQueue;
-	init_info.PipelineCache = VK_NULL_HANDLE;
-	init_info.DescriptorPool = imGuiDescriptorPool;
-	init_info.Allocator = nullptr;
-	init_info.MinImageCount = swapChainImages.size();
-	init_info.ImageCount = swapChainImages.size();
-	init_info.CheckVkResultFn = check_vk_result;
-	init_info.RenderPass = imGuiRenderPass;
-	init_info.Subpass = 0;
-	ImGui_ImplVulkan_Init(&init_info);
-}
-
-void VulkanTutorialExtension::loadFonts()
-{
 	ImGui_ImplVulkan_CreateFontsTexture();
 }
 
@@ -89,6 +45,33 @@ void VulkanTutorialExtension::processInput()
 		camera.ProcessKeyboard(Camera_Movement::RIGHT, deltaTime);
 }
 
+void VulkanTutorialExtension::mouseCallback(GLFWwindow* window, double xpos, double ypos)
+{
+	bool bLeftMouseButtonClicked = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+	if (bLeftMouseButtonClicked)
+	{
+		auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
+		assert(app);
+
+		ImGuiIO& io = ImGui::GetIO();
+		if (io.WantCaptureMouse) {
+			// ImGui가 마우스 입력을 처리 중이므로 GLFW의 입력 처리를 무시합니다.
+			return;
+		}
+
+		app->camera.ProcessMouseMovement(xpos, ypos);
+	}
+}
+
+void VulkanTutorialExtension::focusCallback(GLFWwindow* window, int focused)
+{
+	auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
+	assert(app);
+
+	app->setWindowFocused(focused);
+}
+
 void VulkanTutorialExtension::createUniformBuffers()
 {
 	VulkanTutorial::createUniformBuffers();
@@ -104,31 +87,7 @@ void VulkanTutorialExtension::createDescriptorPool()
 {
 	VulkanTutorial::createDescriptorPool();
 
-	static const VkDescriptorPoolSize poolSizes[] =
-	{
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-	};
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = static_cast<uint32_t>(sizeof(poolSizes) / sizeof(VkDescriptorPoolSize));
-	poolInfo.pPoolSizes = poolSizes;
-	poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size()) * 10;
-
-	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &imGuiDescriptorPool) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create descriptor pool!");
-	}
+	createImGuiDescriptorPool();
 }
 
 void VulkanTutorialExtension::createDescriptorSets()
@@ -264,11 +223,6 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 
 }
 
-void VulkanTutorialExtension::cleanUpSwapchain()
-{
-	vkDestroyPipeline(device, graphicsPipelineObject, nullptr);
-}
-
 void VulkanTutorialExtension::createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets)
 {
 	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
@@ -386,6 +340,11 @@ void VulkanTutorialExtension::createInstanceBuffer()
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
+void VulkanTutorialExtension::setWindowFocused(int inFocused)
+{
+	focused = inFocused;
+}
+
 void VulkanTutorialExtension::loadModel()
 {
 	VulkanTutorial::loadModel();
@@ -432,41 +391,7 @@ void VulkanTutorialExtension::preDrawFrame(uint32_t imageIndex)
 {
 	VulkanTutorial::preDrawFrame(imageIndex);
 
-	ImGui_ImplVulkan_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-	ImGui::ShowDemoWindow();
-	ImGui::Render();
-
-	VkCommandBufferBeginInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	VkResult err = vkBeginCommandBuffer(imGuiCommandBuffers[imageIndex], &info);
-	check_vk_result(err);
-
-	{
-		VkRenderPassBeginInfo info = {};
-		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		info.renderPass = imGuiRenderPass;
-		info.framebuffer = imGuiFrameBuffers[imageIndex];
-		info.renderArea.extent = swapChainExtent;
-
-		std::array<VkClearValue, 1> clearValues{};
-		clearValues[0].color = { { 0.f, 0.f, 0.f, 1.f } };
-
-		info.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		info.pClearValues = clearValues.data();
-		vkCmdBeginRenderPass(imGuiCommandBuffers[imageIndex], &info, VK_SUBPASS_CONTENTS_INLINE);
-	}
-
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imGuiCommandBuffers[imageIndex]);
-
-	// Submit command buffer
-	vkCmdEndRenderPass(imGuiCommandBuffers[imageIndex]);
-	err = vkEndCommandBuffer(imGuiCommandBuffers[imageIndex]);
-	check_vk_result(err);
-
-	addCommandBuffer(imGuiCommandBuffers[imageIndex]);
+	drawImGui(imageIndex);
 }
 
 void VulkanTutorialExtension::drawFrame()
@@ -478,122 +403,46 @@ void VulkanTutorialExtension::createCommandPool()
 {
 	VulkanTutorial::createCommandPool();
 
-	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
-
-	VkCommandPoolCreateInfo commandPoolCreateInfo = {};
-	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	commandPoolCreateInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-	commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-
-	if (vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &imGuiCommandPool) != VK_SUCCESS) {
-		throw std::runtime_error("Could not create graphics command pool");
-	}
+	createImGuiCommandPool();
 }
 
 void VulkanTutorialExtension::createCommandBuffers()
 {
 	VulkanTutorial::createCommandBuffers();
 
-	imGuiCommandBuffers.resize(swapChainImages.size());
-
-	VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
-	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	commandBufferAllocateInfo.commandPool = imGuiCommandPool;
-	commandBufferAllocateInfo.commandBufferCount = (uint32_t)imGuiCommandBuffers.size();
-	if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, imGuiCommandBuffers.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate command buffers.");
-	}
+	createImGuiCommandBuffers();
 }
 
 void VulkanTutorialExtension::createFrameBuffers()
 {
 	VulkanTutorial::createFrameBuffers();
 
-	imGuiFrameBuffers.resize(swapChainImageViews.size());
-
-	VkImageView attachment[1];
-	VkFramebufferCreateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	info.renderPass = imGuiRenderPass;
-	info.attachmentCount = 1;
-	info.pAttachments = attachment;
-	info.width = swapChainExtent.width;
-	info.height = swapChainExtent.height;
-	info.layers = 1;
-
-	for (uint32_t i = 0; i < swapChainImageViews.size(); i++)
-	{
-		attachment[0] = swapChainImageViews[i];
-		VkResult err = vkCreateFramebuffer(device, &info, nullptr, &imGuiFrameBuffers[i]);
-		check_vk_result(err);
-	}
+	createImGuiFrameBuffers();
 }
-
 
 void VulkanTutorialExtension::createRenderPass()
 {
 	VulkanTutorial::createRenderPass();
 
-	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = swapChainImageFormat;
-	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	// 이렇게 하려면 resolve attachment의 finalLayout을 present가 아닌 값으로 수정해야되지 않을까?
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	createImGuiRenderPass();
+}
+void VulkanTutorialExtension::cleanUpSwapchain()
+{
+	vkDestroyPipeline(device, graphicsPipelineObject, nullptr);
 
-	VkAttachmentReference colorAttachmentRef{};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	cleanUpImGuiSwapchain();
 
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
-
-	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	VkRenderPassCreateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	info.attachmentCount = 1;
-	info.pAttachments = &colorAttachment;
-	info.subpassCount = 1;
-	info.pSubpasses = &subpass;
-	info.dependencyCount = 1;
-	info.pDependencies = &dependency;
-	if (vkCreateRenderPass(device, &info, nullptr, &imGuiRenderPass) != VK_SUCCESS) {
-		throw std::runtime_error("Could not create Dear ImGui's render pass");
-	}
+	VulkanTutorial::cleanUpSwapchain();
 }
 
 void VulkanTutorialExtension::cleanUp()
 {
-	// Resources to destroy on swapchain recreation
-	for (auto framebuffer : imGuiFrameBuffers) {
-		vkDestroyFramebuffer(device, framebuffer, nullptr);
-	}
+	glfwSetWindowUserPointer(window, nullptr);
 
-	vkDestroyRenderPass(device, imGuiRenderPass, nullptr);
+	cleanUpImGui();
 
-	vkFreeCommandBuffers(device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
-	vkDestroyCommandPool(device, imGuiCommandPool, nullptr);
-
-	// Resources to destroy when the program ends
-	ImGui_ImplVulkan_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
-	vkDestroyDescriptorPool(device, imGuiDescriptorPool, nullptr);
+	vkDestroyBuffer(device, instanceBuffer, nullptr);
+	vkFreeMemory(device, instanceBufferMemory, nullptr);
 
 	VulkanTutorial::cleanUp();
 }
