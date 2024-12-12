@@ -98,7 +98,10 @@ void VulkanTutorialExtension::createUniformBuffers()
 	materialUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	dirLightUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	pointLightsUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice, NR_POINT_LIGHTS);
-	lightTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice, NR_POINT_LIGHTS);
+	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	{
+		lightTransformUniformBuffer[lightIndex].createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	}
 }
 
 void VulkanTutorialExtension::createDescriptorPool()
@@ -112,7 +115,10 @@ void VulkanTutorialExtension::createDescriptorSets()
 {
 	VulkanTutorial::createDescriptorSets();
 
-	//createDescriptorSetsLight(descriptorSets);
+	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	{
+		createDescriptorSetsPointLights(lightTransformUniformBuffer[lightIndex], descriptorSetsPointLights[lightIndex]);
+	}
 	createDescriptorSetsObject(descriptorSetsObject);
 }
 
@@ -131,23 +137,21 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
 	persMat[1][1] *= -1;
 
-	/** Point Light Object */
-
-	std::vector<Transform> pointLightTransforms{};
-	for (int i = 0; i < NR_POINT_LIGHTS; i++)
+	/** PointLights Object */
+	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
+		std::vector<Transform> pointLightTransforms{};
 		Transform transform;
-		transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[i]);
+		transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
 		transform.model = glm::scale(transform.model, glm::vec3(0.2f));
 		transform.view = viewMat;
 		transform.proj = persMat;
-
 		pointLightTransforms.emplace_back(std::move(transform));
+
+		lightTransformUniformBuffer[lightIndex].CopyData(currentImage, pointLightTransforms);
 	}
 
-	lightTransformUniformBuffer.CopyData(currentImage, pointLightTransforms);
-
-	/** Object */
+	// Object
 	Transform ubo{};
 	ubo.model = glm::mat4(1.f);
 	ubo.view = viewMat;
@@ -163,7 +167,6 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	colorUniformBuffer.CopyData(currentImage, { colorUbo });
 
 	// Material 
-
 	Material material;
 	material.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
 	material.diffuse = glm::vec3(1.0f, 0.5f, 0.31f);
@@ -184,7 +187,6 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	dirLightUniformBuffer.CopyData(currentImage, { dirLight });
 
 	// Point Lights
-
 	std::vector<PointLight> pointLights;
 	for (int i = 0; i < NR_POINT_LIGHTS; i++)
 	{
@@ -216,7 +218,49 @@ void VulkanTutorialExtension::clearUniformBuffer(uint32_t i)
 	materialUniformBuffer.destroy(i);
 	dirLightUniformBuffer.destroy(i);
 	pointLightsUniformBuffer.destroy(i);
-	lightTransformUniformBuffer.destroy(i);
+	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	{
+		lightTransformUniformBuffer[lightIndex].destroy(i);
+	}
+}
+
+void VulkanTutorialExtension::createDescriptorSetLayouts()
+{
+	VulkanTutorial::createDescriptorSetLayouts();
+
+	{
+		std::vector<VkDescriptorSetLayoutBinding> bindings;
+		//	Transform
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
+		//	TexSampler
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+		//	colorUniformBuffer
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+		//	materialUniformBuffer
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+		//	dirLightUniformBuffer
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+		//	pointLightsUniformBuffer
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+
+		createDescriptorSetLayout(bindings, descriptorSetLayout);
+	}
+
+	{
+		std::vector<VkDescriptorSetLayoutBinding> bindings;
+		//	Transform
+		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
+		
+		createDescriptorSetLayout(bindings, descriptorSetLayoutPointLights);
+	}
+}
+
+void VulkanTutorialExtension::createPipelineLayouts()
+{
+	VulkanTutorial::createPipelineLayouts();
+
+	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
+	createPipelineLayout(descriptorSetLayoutPointLights, pipelineLayoutPointLights);
 }
 
 void VulkanTutorialExtension::createGraphicsPipelines()
@@ -224,129 +268,80 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	VulkanTutorial::createGraphicsPipelines();
 
 	createObjectGraphicsPipelines();
-	createPointLightObjectGraphicsPipeline();
+	createPointLightsGraphicsPipeline();
 }
 
 void VulkanTutorialExtension::createObjectGraphicsPipelines()
 {
 	auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
 	auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
-	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, graphicsPipelineObject);
+	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, graphicsPipelineObject);
 }
 
-void VulkanTutorialExtension::createPointLightObjectGraphicsPipeline()
+void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
 {
-
-}
-
-void VulkanTutorialExtension::createDescriptorSetLayoutBindings(std::vector<VkDescriptorSetLayoutBinding>& bindings)
-{
-	VulkanTutorial::createDescriptorSetLayoutBindings(bindings);
-
-	//	Transform
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
-	//	TexSampler
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	colorUniformBuffer
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	materialUniformBuffer
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	dirLightUniformBuffer
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	pointLightsUniformBuffer
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	pointLightsTransform
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	auto vertShaderCode = readFile("shaders/shadervert.spv");
+	auto fragShaderCode = readFile("shaders/shaderfrag.spv");
+	createGraphicsPipeline(vertShaderCode, fragShaderCode, pipelineLayoutPointLights, graphicsPipelinePointLights);
 }
 
 void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
 {
 	VulkanTutorial::RecordRenderPassCommands(commandBuffer, i);
 
-	// Light
-	//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 	VkBuffer vertexBuffers[]{ vertexBuffer };
 	VkDeviceSize offsets[]{ 0 };
 	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 	vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-	//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
-	//vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
-	// Objects
-	// 
-	// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
-	// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
 	VkBuffer instanceBuffers[]{ instanceBuffer };
 	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffers, offsets);
+
+	// Light
+	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelinePointLights);
+	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	{
+		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutPointLights, 0, 1, &descriptorSetsPointLights[lightIndex][i], 0, nullptr);
+		vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+	}
+
+	// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
+	// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
 	
+	// Objects
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
-	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSetsObject[i], 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
 	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instances.size()), 0, 0, 0);
 
 }
 
-//void VulkanTutorialExtension::createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets)
-//{
-//	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
-//
-//	VkDescriptorSetAllocateInfo allocInfo{};
-//	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-//	allocInfo.descriptorPool = descriptorPool;
-//	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
-//	allocInfo.pSetLayouts = layouts.data();
-//
-//	outDescriptorSets.resize(swapChainImages.size());
-//	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
-//	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
-//	{
-//		throw std::runtime_error("failed to allocate descriptor sets!");
-//	}
-//
-//	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
-//	for (size_t i = 0; i < swapChainImages.size(); i++)
-//	{
-//		VkDescriptorBufferInfo bufferInfo{};
-//		bufferInfo.buffer = lightTransformUniformBuffer.getUniformBuffer(i);
-//		bufferInfo.offset = 0;
-//		bufferInfo.range = sizeof(Transform);
-//
-//		VkDescriptorImageInfo imageInfo{};
-//		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-//		imageInfo.imageView = textureImageView;
-//		imageInfo.sampler = textureSampler;
-//
-//		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-//		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-//		descriptorWrites[0].dstSet = outDescriptorSets[i];
-//		descriptorWrites[0].dstBinding = 0; // layout (binding = 0)
-//		descriptorWrites[0].dstArrayElement = 0;
-//		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//		descriptorWrites[0].descriptorCount = 1; // how many descriptor you update
-//		descriptorWrites[0].pBufferInfo = &bufferInfo;
-//
-//		/** in vertex shader,
-//		 * layout(binding = 0) uniform Transform {
-//				mat4 model;
-//				mat4 view;
-//				mat4 proj;
-//			} ubo;
-//		 */
-//
-//		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-//		descriptorWrites[1].dstSet = outDescriptorSets[i];
-//		descriptorWrites[1].dstBinding = 1; // layout (binding = 1)
-//		descriptorWrites[1].dstArrayElement = 0;
-//		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-//		descriptorWrites[1].descriptorCount = 1; // how many descriptor you update
-//		descriptorWrites[1].pImageInfo = &imageInfo;
-//
-//		/** in fragment shader,
-//		 * layout(binding = 1) uniform sampler2D texSampler;
-//		 */
-//
-//		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-//	}
-//}
+void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets)
+{
+	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayoutPointLights);
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+	allocInfo.pSetLayouts = layouts.data();
+
+	outDescriptorSets.resize(swapChainImages.size());
+	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
+	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate descriptor sets!");
+	}
+
+	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
+	for (size_t i = 0; i < swapChainImages.size(); i++)
+	{
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+		inUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+
+		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+	}
+}
 
 void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets)
 {
@@ -380,7 +375,6 @@ void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescripto
 		materialUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 		dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		lightTransformUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
@@ -501,7 +495,10 @@ void VulkanTutorialExtension::createRenderPass()
 }
 void VulkanTutorialExtension::cleanUpSwapchain()
 {
+	vkDestroyPipelineLayout(device, pipelineLayoutObject, nullptr);
+	vkDestroyPipelineLayout(device, pipelineLayoutPointLights, nullptr);
 	vkDestroyPipeline(device, graphicsPipelineObject, nullptr);
+	vkDestroyPipeline(device, graphicsPipelinePointLights, nullptr);
 
 	cleanUpImGuiSwapchain();
 

@@ -156,7 +156,7 @@ private:
 	void updateCameraVectors(float xOffset, float yOffset)
 	{
 		auto view_transform = glm::mat4(1.f); 
-		view_transform = glm::rotate(view_transform, glm::radians(xOffset), Up);
+		view_transform = glm::rotate(view_transform, glm::radians(-xOffset), Up);
 		view_transform = glm::rotate(view_transform, glm::radians(yOffset), Right);
 
 		Position = view_transform * glm::vec4(Position, 1.f);

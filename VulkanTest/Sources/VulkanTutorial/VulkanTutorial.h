@@ -79,8 +79,9 @@ protected:
 	virtual void createRenderPass();
 	virtual void updateUniformBuffer(uint32_t currentImage);
 	virtual void clearUniformBuffer(uint32_t i);
+	virtual void createDescriptorSetLayouts();
+	virtual void createPipelineLayouts();
 	virtual void createGraphicsPipelines();
-	virtual void createDescriptorSetLayoutBindings(std::vector<VkDescriptorSetLayoutBinding>& bindings);
 	virtual void RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	virtual void cleanUpSwapchain();
 	virtual void loadModel();
@@ -115,9 +116,9 @@ protected:
 	void createTextureImageView();
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createTextureSampler();
-	void createDescriptorSetLayout();
 	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings);
-	void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipeline& OutPipeline);
+	void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& pipelineLayout, VkPipeline& OutPipeline);
+	void createPipelineLayout(const VkDescriptorSetLayout& inDescriptorSetLayout, VkPipelineLayout& outPipelineLayout);
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createColorResources();
 	void createDepthResources();
@@ -147,6 +148,7 @@ protected:
 	size_t getCommandBufferCount();
 	const VkCommandBuffer* getCommandBufferData();
 	void clearCommandBuffers();
+	void createDescriptorSetLayout(std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout& outDescriptorSetLayout);
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
@@ -177,8 +179,6 @@ protected:
 	std::vector<VkImageView> swapChainImageViews;
 	VkRenderPass renderPass;
 	VkDescriptorSetLayout descriptorSetLayout;
-	VkPipelineLayout pipelineLayout;
-	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFrameBuffers;
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;

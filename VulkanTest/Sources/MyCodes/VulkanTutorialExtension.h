@@ -2,12 +2,13 @@
 
 #include "VulkanTutorial.h"
 
-#define NR_POINT_LIGHTS 1
-
 /**
 * https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
 * 이 프로젝트를 토대로 개인적으로 추가한 코드는 최대한 VulkanTutorialExtension에 구현해 분리한다.
 */
+
+// must be synced with NR_POINT_LIGHTS in ObjectShader.frag.
+#define NR_POINT_LIGHTS 2 
 
 class VulkanTutorialExtension : public VulkanTutorial{
 public:
@@ -21,11 +22,12 @@ private:
 	void processInput() override;
 	void createUniformBuffers() override;
 	void createDescriptorPool() override;
+	void createPipelineLayouts() override;
 	void createDescriptorSets() override;
 	void updateUniformBuffer(uint32_t currentImage) override;
 	void clearUniformBuffer(uint32_t i) override;
+	void createDescriptorSetLayouts() override;
 	void createGraphicsPipelines() override;
-	void createDescriptorSetLayoutBindings(std::vector<VkDescriptorSetLayoutBinding>& bindings) override;
 	void RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
 	void loadModel() override;
 	void createBuffers() override;
@@ -40,8 +42,8 @@ private:
 	void cleanUp() override;
 
 	void createObjectGraphicsPipelines();
-	void createPointLightObjectGraphicsPipeline();
-	void createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets);
+	void createPointLightsGraphicsPipeline();
+	void createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createInstanceBuffer();
 	void setWindowFocused(int inFocused);
@@ -71,7 +73,8 @@ private:
 	std::vector<VkCommandBuffer> imGuiCommandBuffers;
 	std::vector<VkFramebuffer> imGuiFrameBuffers;
 
-	UniformBuffer<Transform> lightTransformUniformBuffer;
+	std::array<UniformBuffer<Transform>, NR_POINT_LIGHTS> lightTransformUniformBuffer;
+	
 	UniformBuffer<Transform> objectTransformUniformBuffer;
 	UniformBuffer<ColorUBO> colorUniformBuffer;
 	UniformBuffer<Material> materialUniformBuffer;
@@ -79,7 +82,13 @@ private:
 	UniformBuffer<PointLight> pointLightsUniformBuffer;
 
 	VkPipeline graphicsPipelineObject;
+	VkPipelineLayout pipelineLayoutObject;
 	std::vector<VkDescriptorSet> descriptorSetsObject;
+
+	VkPipeline graphicsPipelinePointLights;
+	VkPipelineLayout pipelineLayoutPointLights;
+	VkDescriptorSetLayout descriptorSetLayoutPointLights;
+	std::array<std::vector<VkDescriptorSet>, NR_POINT_LIGHTS> descriptorSetsPointLights;
 	
 	Camera camera;
 

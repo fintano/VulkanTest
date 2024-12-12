@@ -78,7 +78,8 @@ VulkanTutorial::VulkanTutorial()
 		createSwapchain();
 		createImageViews();
 		createRenderPass();
-		createDescriptorSetLayout();
+		createDescriptorSetLayouts();
+		createPipelineLayouts();
 		createGraphicsPipelines();
 		createCommandPool();
 		createColorResources();
@@ -693,33 +694,25 @@ VulkanTutorial::VulkanTutorial()
 		}
 	}
 
-	void VulkanTutorial::createDescriptorSetLayout()
+	void VulkanTutorial::createDescriptorSetLayout(std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout& outDescriptorSetLayout)
 	{
-		std::vector<VkDescriptorSetLayoutBinding> bindings;
-
-		createDescriptorSetLayoutBindings(bindings);
-
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 		layoutInfo.pBindings = bindings.data();
 
-		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &outDescriptorSetLayout) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create descriptor set layout.");
 		}
 	}
 
-	void VulkanTutorial::createGraphicsPipelines()
+	void VulkanTutorial::createPipelineLayouts()
 	{
-		//auto vertShaderCode = readFile("shaders/shadervert.spv");
-		//auto fragShaderCode = readFile("shaders/shaderfrag.spv");
-		//createGraphicsPipeline(vertShaderCode, fragShaderCode, graphicsPipeline);
 	}
 
-	void VulkanTutorial::createDescriptorSetLayoutBindings(std::vector<VkDescriptorSetLayoutBinding>& bindings)
+	void VulkanTutorial::createGraphicsPipelines()
 	{
-		
 	}
 
 	void VulkanTutorial::createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings)
@@ -734,7 +727,7 @@ VulkanTutorial::VulkanTutorial()
 		bindings.push_back(Layoutbinding);
 	}
 
-	void VulkanTutorial::createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipeline& OutPipeline)
+	void VulkanTutorial::createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& inPipelineLayout, VkPipeline& OutPipeline)
 	{
 		VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -818,7 +811,7 @@ VulkanTutorial::VulkanTutorial()
 		colorBlending.blendConstants[2] = 0.0f;
 		colorBlending.blendConstants[3] = 0.0f;
 
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		/*VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = 1;
 		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
@@ -826,7 +819,7 @@ VulkanTutorial::VulkanTutorial()
 
 		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create pipeline layout!");
-		}
+		}*/
 
 		VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
 		depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -851,7 +844,7 @@ VulkanTutorial::VulkanTutorial()
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = nullptr;
 		// pipeline layout.
-		pipelineInfo.layout = pipelineLayout;
+		pipelineInfo.layout = inPipelineLayout;
 		// renderpass.
 		pipelineInfo.renderPass = renderPass;
 		pipelineInfo.subpass = 0; // index of the subpass where this graphics pipeline will be used.
@@ -866,6 +859,19 @@ VulkanTutorial::VulkanTutorial()
 
 		vkDestroyShaderModule(device, fragShaderModule, nullptr);
 		vkDestroyShaderModule(device, vertShaderModule, nullptr);
+	}
+	
+	void VulkanTutorial::createPipelineLayout(const VkDescriptorSetLayout& inDescriptorSetLayout, VkPipelineLayout& outPipelineLayout)
+	{
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &inDescriptorSetLayout;
+		pipelineLayoutInfo.pushConstantRangeCount = 0;
+
+		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &outPipelineLayout) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create pipeline layout!");
+		}
 	}
 
 	VkShaderModule VulkanTutorial::createShaderModule(const std::vector<char>& code)
@@ -1738,6 +1744,10 @@ VulkanTutorial::VulkanTutorial()
 	{
 	}
 
+	void VulkanTutorial::createDescriptorSetLayouts()
+	{
+	}
+
 	void VulkanTutorial::cleanUp()
 	{
 		cleanUpSwapchain();
@@ -1806,7 +1816,6 @@ VulkanTutorial::VulkanTutorial()
 		}
 		vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		//vkDestroyPipeline(device, graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyRenderPass(device, renderPass, nullptr);
 		for (auto imageView : swapChainImageViews)
 		{
