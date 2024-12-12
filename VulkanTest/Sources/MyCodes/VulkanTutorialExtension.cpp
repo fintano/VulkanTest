@@ -93,11 +93,12 @@ void VulkanTutorialExtension::createUniformBuffers()
 {
 	VulkanTutorial::createUniformBuffers();
 
-	lightTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	objectTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	materialUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-	lightUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	dirLightUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	pointLightsUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice, NR_POINT_LIGHTS);
+	lightTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice, NR_POINT_LIGHTS);
 }
 
 void VulkanTutorialExtension::createDescriptorPool()
@@ -119,36 +120,49 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 {
 	VulkanTutorial::updateUniformBuffer(currentImage);
 
+	static glm::vec3 pointLightPositions[] = {
+		glm::vec3(0.7f,  0.2f,  2.0f),
+		glm::vec3(2.3f, -3.3f, -4.0f),
+		glm::vec3(-4.0f,  2.0f, -12.0f),
+		glm::vec3(0.0f,  0.0f, -3.0f)
+	};
+
 	glm::mat4 viewMat = camera.GetViewMatrix();
 	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
 	persMat[1][1] *= -1;
 
-	/** Light Source */
+	/** Point Light Object */
 
-	const glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+	std::vector<Transform> pointLightTransforms{};
+	for (int i = 0; i < NR_POINT_LIGHTS; i++)
+	{
+		Transform transform;
+		transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[i]);
+		transform.model = glm::scale(transform.model, glm::vec3(0.2f));
+		transform.view = viewMat;
+		transform.proj = persMat;
 
-	Transform ubo{};
-	ubo.model = glm::translate(glm::mat4(1.f), lightPos);
-	ubo.model = glm::scale(ubo.model, glm::vec3(0.2f));
-	ubo.view = viewMat;
-	ubo.proj = persMat;
+		pointLightTransforms.emplace_back(std::move(transform));
+	}
 
-	lightTransformUniformBuffer.CopyData(currentImage, ubo);
+	lightTransformUniformBuffer.CopyData(currentImage, pointLightTransforms);
 
 	/** Object */
-
+	Transform ubo{};
 	ubo.model = glm::mat4(1.f);
 	ubo.view = viewMat;
 	ubo.proj = persMat;
 
-	objectTransformUniformBuffer.CopyData(currentImage, ubo);
+	objectTransformUniformBuffer.CopyData(currentImage, { ubo });
 
 	ColorUBO colorUbo;
 	colorUbo.objectColor = glm::vec3(1.0f, 0.5f, 0.31f);
 	colorUbo.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 	colorUbo.viewPos = camera.Position;
 
-	colorUniformBuffer.CopyData(currentImage, colorUbo);
+	colorUniformBuffer.CopyData(currentImage, { colorUbo });
+
+	// Material 
 
 	Material material;
 	material.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
@@ -158,45 +172,71 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	// float을 할거면 vec3/vec4로 해서 컴포넌트로 넘겨주는 것만 작동한다. 
 	material.shininess = glm::vec3(32.0f, 0.5f, 0.31f);
 
-	materialUniformBuffer.CopyData(currentImage, material);
+	materialUniformBuffer.CopyData(currentImage, { material });
 
-	//glm::vec3 lightColor;
-	//lightColor.x = sin(glfwGetTime() * 2.0f);
-	//lightColor.y = sin(glfwGetTime() * 0.7f);
-	//lightColor.z = sin(glfwGetTime() * 1.3f);
+	// Directional Light;
+	DirLight dirLight;
+	dirLight.ambient = glm::vec3(0.2f, 0.2f, 0.2f);
+	dirLight.diffuse = glm::vec3(0.f, 0.f, 1.f); // darken diffuse light a bit
+	dirLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+	dirLight.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
 
-	//glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
-	//glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
+	dirLightUniformBuffer.CopyData(currentImage, { dirLight });
 
-	Light light;
-	//light.ambient = ambientColor;
-	light.ambient = glm::vec3(0.2f, 0.2f, 0.2f);
-	//light.diffuse = diffuseColor;
-	light.diffuse = glm::vec3(0.5f, 0.5f, 0.5f); // darken diffuse light a bit
-	light.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-	light.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
+	// Point Lights
 
-	lightUniformBuffer.CopyData(currentImage, light);
+	std::vector<PointLight> pointLights;
+	for (int i = 0; i < NR_POINT_LIGHTS; i++)
+	{
+		PointLight pointLight;
+		pointLight.position = pointLightPositions[i];
+		pointLight.clq = glm::vec3(1.0f, 0.09f, 0.032f);
+		pointLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
+		pointLight.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
+		pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		pointLights.emplace_back(std::move(pointLight));
+	}
+
+	/**
+	* Vulkan은 데이터를 넘길 때, 배열인지 단일 데이터인지를 명시하지 않습니다.
+	* 대신, 쉐이더가 선언한 UBO 구조체에 따라 데이터를 해석합니다.
+	* 따라서 쉐이더가 UBO 배열로 선언되어 있지 않으면 제대로 동작하지 않을 수 있습니다.
+	*/	
+
+	pointLightsUniformBuffer.CopyData(currentImage, pointLights);
 }
 
 void VulkanTutorialExtension::clearUniformBuffer(uint32_t i)
 {
 	VulkanTutorial::clearUniformBuffer(i);
 
-	lightTransformUniformBuffer.destroy(i);
 	objectTransformUniformBuffer.destroy(i);
 	colorUniformBuffer.destroy(i);
 	materialUniformBuffer.destroy(i);
-	lightUniformBuffer.destroy(i);
+	dirLightUniformBuffer.destroy(i);
+	pointLightsUniformBuffer.destroy(i);
+	lightTransformUniformBuffer.destroy(i);
 }
 
 void VulkanTutorialExtension::createGraphicsPipelines()
 {
 	VulkanTutorial::createGraphicsPipelines();
 
+	createObjectGraphicsPipelines();
+	createPointLightObjectGraphicsPipeline();
+}
+
+void VulkanTutorialExtension::createObjectGraphicsPipelines()
+{
 	auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
 	auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
 	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, graphicsPipelineObject);
+}
+
+void VulkanTutorialExtension::createPointLightObjectGraphicsPipeline()
+{
+
 }
 
 void VulkanTutorialExtension::createDescriptorSetLayoutBindings(std::vector<VkDescriptorSetLayoutBinding>& bindings)
@@ -211,7 +251,11 @@ void VulkanTutorialExtension::createDescriptorSetLayoutBindings(std::vector<VkDe
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	//	materialUniformBuffer
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	lightUniformBuffer
+	//	dirLightUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	pointLightsUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	pointLightsTransform
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 }
 
@@ -241,68 +285,68 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 
 }
 
-void VulkanTutorialExtension::createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets)
-{
-	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
-
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
-	allocInfo.pSetLayouts = layouts.data();
-
-	outDescriptorSets.resize(swapChainImages.size());
-	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
-	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate descriptor sets!");
-	}
-
-	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
-	for (size_t i = 0; i < swapChainImages.size(); i++)
-	{
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = lightTransformUniformBuffer.uniformBuffers[i];
-		bufferInfo.offset = 0;
-		bufferInfo.range = sizeof(Transform);
-
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = textureImageView;
-		imageInfo.sampler = textureSampler;
-
-		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[0].dstSet = outDescriptorSets[i];
-		descriptorWrites[0].dstBinding = 0; // layout (binding = 0)
-		descriptorWrites[0].dstArrayElement = 0;
-		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorWrites[0].descriptorCount = 1; // how many descriptor you update
-		descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-		/** in vertex shader,
-		 * layout(binding = 0) uniform Transform {
-				mat4 model;
-				mat4 view;
-				mat4 proj;
-			} ubo;
-		 */
-
-		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrites[1].dstSet = outDescriptorSets[i];
-		descriptorWrites[1].dstBinding = 1; // layout (binding = 1)
-		descriptorWrites[1].dstArrayElement = 0;
-		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorWrites[1].descriptorCount = 1; // how many descriptor you update
-		descriptorWrites[1].pImageInfo = &imageInfo;
-
-		/** in fragment shader,
-		 * layout(binding = 1) uniform sampler2D texSampler;
-		 */
-
-		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-	}
-}
+//void VulkanTutorialExtension::createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets)
+//{
+//	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
+//
+//	VkDescriptorSetAllocateInfo allocInfo{};
+//	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+//	allocInfo.descriptorPool = descriptorPool;
+//	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+//	allocInfo.pSetLayouts = layouts.data();
+//
+//	outDescriptorSets.resize(swapChainImages.size());
+//	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
+//	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
+//	{
+//		throw std::runtime_error("failed to allocate descriptor sets!");
+//	}
+//
+//	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
+//	for (size_t i = 0; i < swapChainImages.size(); i++)
+//	{
+//		VkDescriptorBufferInfo bufferInfo{};
+//		bufferInfo.buffer = lightTransformUniformBuffer.getUniformBuffer(i);
+//		bufferInfo.offset = 0;
+//		bufferInfo.range = sizeof(Transform);
+//
+//		VkDescriptorImageInfo imageInfo{};
+//		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+//		imageInfo.imageView = textureImageView;
+//		imageInfo.sampler = textureSampler;
+//
+//		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+//		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//		descriptorWrites[0].dstSet = outDescriptorSets[i];
+//		descriptorWrites[0].dstBinding = 0; // layout (binding = 0)
+//		descriptorWrites[0].dstArrayElement = 0;
+//		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+//		descriptorWrites[0].descriptorCount = 1; // how many descriptor you update
+//		descriptorWrites[0].pBufferInfo = &bufferInfo;
+//
+//		/** in vertex shader,
+//		 * layout(binding = 0) uniform Transform {
+//				mat4 model;
+//				mat4 view;
+//				mat4 proj;
+//			} ubo;
+//		 */
+//
+//		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//		descriptorWrites[1].dstSet = outDescriptorSets[i];
+//		descriptorWrites[1].dstBinding = 1; // layout (binding = 1)
+//		descriptorWrites[1].dstArrayElement = 0;
+//		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//		descriptorWrites[1].descriptorCount = 1; // how many descriptor you update
+//		descriptorWrites[1].pImageInfo = &imageInfo;
+//
+//		/** in fragment shader,
+//		 * layout(binding = 1) uniform sampler2D texSampler;
+//		 */
+//
+//		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+//	}
+//}
 
 void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets)
 {
@@ -322,6 +366,7 @@ void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescripto
 	}
 
 	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
+	// binding 순서대로 index가 부여된다. shader와 일치해야한다.
 	for (size_t i = 0; i < swapChainImages.size(); i++)
 	{
 		std::vector<VkWriteDescriptorSet> descriptorWrites;
@@ -333,7 +378,9 @@ void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescripto
 
 		colorUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 		materialUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		lightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+		dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+		lightTransformUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
@@ -369,8 +416,8 @@ void VulkanTutorialExtension::loadModel()
 
 	static glm::vec3 cubePositions[] = {
 			glm::vec3(0.0f,  0.0f,  0.0f),
-			glm::vec3(0.0f,  1.0f,  0.0f),
-			//glm::vec3(2.0f,  5.0f, -15.0f),
+			glm::vec3(0.0f,  2.0f,  0.0f),
+			glm::vec3(2.0f,  5.0f, -15.0f),
 			glm::vec3(-1.5f, -2.2f, -2.5f),
 			glm::vec3(-3.8f, -2.0f, -12.3f),
 			glm::vec3(2.4f, -0.4f, -3.5f),
@@ -381,14 +428,19 @@ void VulkanTutorialExtension::loadModel()
 			glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
 
-	static int instanceCount = 2;
+	static int instanceCount = sizeof(cubePositions) / sizeof(cubePositions[0]);
 
 	for (unsigned int i = 0; i < instanceCount; i++)
 	{
-		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 identity = glm::mat4(1.0f);
+		// the obj model file is rotated incorrectly, so it needs to be fixed.
+		glm::mat4 xRotation = glm::rotate(identity, glm::radians(270.f), glm::vec3(1.f, 0.f, 0.f));
+		glm::mat4 yRotation = glm::rotate(identity, glm::radians(270.f), glm::vec3(0.f, 1.f, 0.f));
+		glm::mat4 model = yRotation * xRotation;
+
 		model = glm::translate(model, cubePositions[i]);
-		//float angle = 20.0f * i;
-		//model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		float angle = 20.0f * i;
+		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 
 		instances.push_back(model);
 	}

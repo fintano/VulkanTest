@@ -2,6 +2,8 @@
 
 #include "VulkanTutorial.h"
 
+#define NR_POINT_LIGHTS 1
+
 /**
 * https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
 * 이 프로젝트를 토대로 개인적으로 추가한 코드는 최대한 VulkanTutorialExtension에 구현해 분리한다.
@@ -37,6 +39,8 @@ private:
 	void cleanUpSwapchain() override;
 	void cleanUp() override;
 
+	void createObjectGraphicsPipelines();
+	void createPointLightObjectGraphicsPipeline();
 	void createDescriptorSetsLight(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createInstanceBuffer();
@@ -71,7 +75,8 @@ private:
 	UniformBuffer<Transform> objectTransformUniformBuffer;
 	UniformBuffer<ColorUBO> colorUniformBuffer;
 	UniformBuffer<Material> materialUniformBuffer;
-	UniformBuffer<Light> lightUniformBuffer;
+	UniformBuffer<DirLight> dirLightUniformBuffer;
+	UniformBuffer<PointLight> pointLightsUniformBuffer;
 
 	VkPipeline graphicsPipelineObject;
 	std::vector<VkDescriptorSet> descriptorSetsObject;

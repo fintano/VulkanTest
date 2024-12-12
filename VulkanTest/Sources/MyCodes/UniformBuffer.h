@@ -20,9 +20,16 @@ struct Material {
 	alignas(16) glm::vec3 shininess;
 };
 
-struct Light {
-	//alignas(16) glm::vec3 position;
+struct DirLight {
 	alignas(16) glm::vec3 direction;
+	alignas(16) glm::vec3 ambient;
+	alignas(16) glm::vec3 diffuse;
+	alignas(16) glm::vec3 specular;
+};
+
+struct PointLight {
+	alignas(16) glm::vec3 position;
+	alignas(16) glm::vec3 clq; // constant, linear, quadratic
 	alignas(16) glm::vec3 ambient;
 	alignas(16) glm::vec3 diffuse;
 	alignas(16) glm::vec3 specular;
@@ -31,11 +38,12 @@ struct Light {
 template<typename T> 
 struct UniformBuffer
 {
-	void createUniformBuffer(size_t inSize, VkDevice& inDevice, VkPhysicalDevice& inPhysicalDevice)
+	void createUniformBuffer(size_t inSize, VkDevice& inDevice, VkPhysicalDevice& inPhysicalDevice, int inBufferCount = 1)
 	{
 		size = inSize;
 		device = inDevice;
 		physicalDevice = inPhysicalDevice;
+		bufferCount = inBufferCount;
 		type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 		uniformBuffers.resize(inSize);
@@ -43,7 +51,7 @@ struct UniformBuffer
 
 		for (size_t i = 0; i < inSize; i++)
 		{
-			createBuffer(getSize(), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBufferMemory[i]);
+			createBuffer(getSize() * bufferCount, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBufferMemory[i]);
 		}
 
 		createDescriptorBufferInfos();
@@ -72,13 +80,16 @@ struct UniformBuffer
 		descriptorWrites.emplace_back(std::move(DescriptorWrite));
 	}
 
-	void CopyData(uint32_t currentImage, T& data)
+	void CopyData(uint32_t currentImage, std::vector<T> data)
 	{
-		void* virtualAddress;
+		for (int i = 0; i < bufferCount; i++)
+		{
+			void* virtualAddress;
 
-		vkMapMemory(device, uniformBufferMemory[currentImage], 0, getSize(), 0, &virtualAddress);
-		memcpy(virtualAddress, &data, getSize());
-		vkUnmapMemory(device, uniformBufferMemory[currentImage]);
+			vkMapMemory(device, uniformBufferMemory[currentImage], i * getSize(), getSize(), 0, &virtualAddress);
+			memcpy(virtualAddress, &data[i], getSize());
+			vkUnmapMemory(device, uniformBufferMemory[currentImage]);
+		}
 	}
 
 	void destroy(size_t index)
@@ -138,7 +149,7 @@ private:
 			VkDescriptorBufferInfo bufferInfo{};
 			bufferInfo.buffer = uniformBuffers[i];
 			bufferInfo.offset = 0;
-			bufferInfo.range = getSize();
+			bufferInfo.range = getSize() * bufferCount;
 
 			uniformBufferInfo.emplace_back(std::move(bufferInfo));
 		}
@@ -150,18 +161,9 @@ public:
 		return sizeof(T);
 	}
 
-	VkDescriptorBufferInfo CreateDescriptorBufferInfo(size_t index)
-	{
-		assert(index < size);
+	const VkBuffer& getUniformBuffer(int index) { return uniformBuffers[index]; }
 
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = uniformBuffers[index];
-		bufferInfo.offset = 0;
-		bufferInfo.range = getSize();
-
-		return bufferInfo;
-	}
-
+private:
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
 	VkDescriptorType type;
@@ -170,4 +172,5 @@ public:
 	std::vector<VkDeviceMemory> uniformBufferMemory;
 	std::vector<VkDescriptorBufferInfo> uniformBufferInfo;
 	size_t size;
+	int bufferCount;
 };

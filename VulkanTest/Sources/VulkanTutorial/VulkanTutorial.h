@@ -132,7 +132,7 @@ protected:
 	void createVertexBuffer();
 	void createInstanceBuffer();
 	void createIndexBuffer();
-	VkDescriptorBufferInfo CreateDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
+	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
 	VkDescriptorImageInfo CreateDescriptorImageInfo(VkImageView& imageView, VkSampler& sampler, VkImageLayout layout);
 	void CreateWriteDescriptorSet(VkDescriptorType type, VkDescriptorSet& DescriptorSet, VkDescriptorImageInfo* ImageInfo, VkDescriptorBufferInfo* BufferInfo, std::vector<VkWriteDescriptorSet>& descriptorWrites);
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);

@@ -1431,7 +1431,7 @@ VulkanTutorial::VulkanTutorial()
 	{
 	}
 
-	VkDescriptorBufferInfo VulkanTutorial::CreateDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize)
+	VkDescriptorBufferInfo VulkanTutorial::createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize)
 	{
 		VkDescriptorBufferInfo bufferInfo{};
 		bufferInfo.buffer = buffer;
