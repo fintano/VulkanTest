@@ -31,7 +31,10 @@ std::vector<char> readFile(const std::string& filename)
 
 	if (!file.is_open())
 	{
-		throw std::runtime_error("failed to open file!");
+		std::string errorMsg = "failed to open file ";
+		errorMsg.append(filename);
+
+		throw std::runtime_error(errorMsg);
 	}
 
 	size_t fileSize = (size_t)file.tellg();

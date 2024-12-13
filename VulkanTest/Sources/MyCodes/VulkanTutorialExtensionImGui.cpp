@@ -13,7 +13,6 @@ static void check_vk_result(VkResult err)
 		abort();
 }
 
-static bool canUseDirectionalLight = false;
 std::string ImGui::stringToDebug;
 
 void ImGui::ShowVulkanWindow(bool* p_open)
@@ -65,17 +64,21 @@ void ImGui::ShowVulkanWindow(bool* p_open)
     ImGui::Text("Vulkan Tutorial Extension (ver 0.1)", IMGUI_VERSION, IMGUI_VERSION_NUM);
     ImGui::Spacing();
 
-    ImGui::Checkbox("Directional Light", &canUseDirectionalLight);
+    ImGui::Checkbox("Directional Light", &VulkanTutorialExtension::useDirectionalLight);
+    ImGui::Checkbox("Point Lights", &VulkanTutorialExtension::usePointLights);
+	ImGui::Spacing();
+
+	// Sliders
+	static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
+	const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
+	ImGui::SliderFloat("pointLightlinear (0 -> 1)", &VulkanTutorialExtension::pointLightlinear, 0.0f, 1.0f, "%.3f", flags_for_sliders);
+	ImGui::SliderFloat("pointLightQuadratic (0 -> 1)", &VulkanTutorialExtension::pointLightQuadratic, 0.0f, 1.0f, "%.3f", flags_for_sliders);
+	
 	ImGui::PrintDebugString();
 
     // End of ShowDemoWindow()
     ImGui::PopItemWidth();
     ImGui::End();
-}
-
-bool ImGui::CanUseDirectionalLight()
-{
-    return canUseDirectionalLight;
 }
 
 void ImGui::PrintDebugString()

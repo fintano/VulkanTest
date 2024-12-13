@@ -17,7 +17,7 @@ struct PointLight
     vec3 specular;
 };
 
-#define NR_POINT_LIGHTS 2
+#define NR_POINT_LIGHTS 1
 
 layout(binding = 1) uniform sampler2D texSampler;
 
@@ -67,7 +67,7 @@ void main()
     }
     // phase 3: Spot Light 
     // 
-
+    
     outColor = vec4(result, 1.0);
 }
 
@@ -99,7 +99,7 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     float linear = light.clq.y;
     float quadratic = light.clq.z;
     float distance    = length(light.position - fragPos);
-    float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));    
+    float attenuation = 1.0 / (constant + linear * distance + quadratic * (distance * distance));  
 
     // combine results
     vec3 ambient = light.ambient * material.diffuse;

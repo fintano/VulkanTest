@@ -8,13 +8,17 @@
 */
 
 // must be synced with NR_POINT_LIGHTS in ObjectShader.frag.
-#define NR_POINT_LIGHTS 2 
+#define NR_POINT_LIGHTS 1
 
 class VulkanTutorialExtension : public VulkanTutorial{
 public:
 
 	VulkanTutorialExtension();
 
+	static bool useDirectionalLight;
+	static bool usePointLights;
+	static float pointLightlinear;
+	static float pointLightQuadratic;
 private:
 
 	void initWindow() override;

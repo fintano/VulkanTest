@@ -4,6 +4,11 @@
 #include "imgui_impl_vulkan.h"
 #include "VulkanTutorialExtensionImGui.h"
 
+bool VulkanTutorialExtension::useDirectionalLight = false;
+bool VulkanTutorialExtension::usePointLights = false;
+float VulkanTutorialExtension::pointLightlinear = 0.09f;
+float VulkanTutorialExtension::pointLightQuadratic = 0.032f;
+
 VulkanTutorialExtension::VulkanTutorialExtension()
 	: camera({ 5.f, 5.f, 5.f }, { 0.f,1.f,0.f })
 {
@@ -179,9 +184,12 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 
 	// Directional Light;
 	DirLight dirLight;
-	dirLight.ambient = glm::vec3(0.2f, 0.2f, 0.2f);
-	dirLight.diffuse = glm::vec3(0.f, 0.f, 1.f); // darken diffuse light a bit
-	dirLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+	if (useDirectionalLight)
+	{
+		dirLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
+		dirLight.diffuse = glm::vec3(0.4f, 0.4f, 0.4f); // darken diffuse light a bit
+		dirLight.specular = glm::vec3(0.5f, 0.5f, 0.5f);
+	}
 	dirLight.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
 
 	dirLightUniformBuffer.CopyData(currentImage, { dirLight });
@@ -192,11 +200,13 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	{
 		PointLight pointLight;
 		pointLight.position = pointLightPositions[i];
-		pointLight.clq = glm::vec3(1.0f, 0.09f, 0.032f);
-		pointLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
-		pointLight.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
-		pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-
+		if (usePointLights)
+		{
+			pointLight.clq = glm::vec3(1.0f, pointLightlinear, pointLightQuadratic);
+			pointLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
+			pointLight.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
+			pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+		}
 		pointLights.emplace_back(std::move(pointLight));
 	}
 
