@@ -506,7 +506,7 @@ VulkanTutorial::VulkanTutorial()
 		addCommandBuffer(commandBuffers[imageIndex]);
 	}
 
-	void VulkanTutorial::postDrawFrame()
+	void VulkanTutorial::postDrawFrame(uint32_t imageIndex)
 	{
 	}
 
@@ -1647,7 +1647,6 @@ VulkanTutorial::VulkanTutorial()
 			glfwPollEvents();
 			processInput();
 			drawFrame();
-			postDrawFrame();
 		}
 
 		vkDeviceWaitIdle(device);
@@ -1727,6 +1726,9 @@ VulkanTutorial::VulkanTutorial()
 		{
 			throw std::runtime_error("failed to present swap chain image!");
 		}
+
+		postDrawFrame(imageIndex);
+
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
@@ -1782,22 +1784,22 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::addCommandBuffer(VkCommandBuffer commandBuffer)
 	{
-		CommandBuffersToSubmit.push_back(commandBuffer);
+		commandBuffersToSubmit.push_back(commandBuffer);
 	}
 
 	size_t VulkanTutorial::getCommandBufferCount()
 	{
-		return static_cast<size_t>(CommandBuffersToSubmit.size());
+		return static_cast<size_t>(commandBuffersToSubmit.size());
 	}
 
 	const VkCommandBuffer* VulkanTutorial::getCommandBufferData()
 	{
-		return CommandBuffersToSubmit.data();
+		return commandBuffersToSubmit.data();
 	}
 
 	void VulkanTutorial::clearCommandBuffers()
 	{
-		CommandBuffersToSubmit.clear();
+		commandBuffersToSubmit.clear();
 	}
 
 	void VulkanTutorial::cleanUpSwapchain()

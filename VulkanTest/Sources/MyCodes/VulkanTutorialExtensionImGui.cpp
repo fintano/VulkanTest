@@ -64,17 +64,29 @@ void ImGui::ShowVulkanWindow(bool* p_open)
     ImGui::Text("Vulkan Tutorial Extension (ver 0.1)", IMGUI_VERSION, IMGUI_VERSION_NUM);
     ImGui::Spacing();
 
-    ImGui::Checkbox("Directional Light", &VulkanTutorialExtension::useDirectionalLight);
-    ImGui::Checkbox("Point Lights", &VulkanTutorialExtension::usePointLights);
-	ImGui::Spacing();
+	if (ImGui::CollapsingHeader("Instancing"))
+	{
+		ImGui::InputInt("Instance Count", &VulkanTutorialExtension::instanceCount);
+	}
 
-	// Sliders
-	static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
-	const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
-	ImGui::SliderFloat("pointLightlinear (0 -> 1)", &VulkanTutorialExtension::pointLightlinear, 0.0f, 1.0f, "%.3f", flags_for_sliders);
-	ImGui::SliderFloat("pointLightQuadratic (0 -> 1)", &VulkanTutorialExtension::pointLightQuadratic, 0.0f, 1.0f, "%.3f", flags_for_sliders);
+	if (ImGui::CollapsingHeader("Directional Light"))
+	{
+		ImGui::Checkbox("Use Directional Light", &VulkanTutorialExtension::useDirectionalLight);
+	}
+
+	if (ImGui::CollapsingHeader("Point Lights"))
+	{
+		ImGui::Checkbox("Use Point Lights", &VulkanTutorialExtension::usePointLights);
 	
-	ImGui::PrintDebugString();
+		// Sliders
+		static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
+		const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
+		ImGui::SliderFloat("pointLightlinear", &VulkanTutorialExtension::pointLightlinear, 0.0f, 1.0f, "%.3f", flags_for_sliders);
+		ImGui::SliderFloat("pointLightQuadratic", &VulkanTutorialExtension::pointLightQuadratic, 0.0f, 1.0f, "%.3f", flags_for_sliders);
+	}
+
+	ImGui::Spacing();	
+	//ImGui::PrintDebugString();
 
     // End of ShowDemoWindow()
     ImGui::PopItemWidth();

@@ -15,6 +15,7 @@ public:
 
 	VulkanTutorialExtension();
 
+	static int instanceCount;
 	static bool useDirectionalLight;
 	static bool usePointLights;
 	static float pointLightlinear;
@@ -41,6 +42,7 @@ private:
 	void recreateSwapChain() override;
 	void preDrawFrame(uint32_t imageIndex) override;
 	void drawFrame() override;
+	void postDrawFrame(uint32_t imageIndex) override;
 	void createCommandPool() override;
 	void createCommandBuffers() override;
 	void createFrameBuffers() override;
@@ -54,8 +56,10 @@ private:
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetLayoutsForObjects();
 	void createDescriptorSetLayoutsForPointLights();
-	void createInstanceBuffer();
+	void createInstanceBuffer(uint32_t imageIndex);
 	void setWindowFocused(int inFocused);
+	bool instanceCountChanged();
+	void recreateInstanceBuffer(uint32_t imageIndex);
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 	static void focusCallback(GLFWwindow* window, int focused);
@@ -77,8 +81,9 @@ private:
 
 private:
 	std::vector<glm::mat4> instances;
-	VkBuffer instanceBuffer;
-	VkDeviceMemory instanceBufferMemory;
+	std::vector<VkBuffer> instanceBuffers;
+	std::vector<VkDeviceMemory> instanceBufferMemories;
+	int previousInstanceCount = instanceCount;
 
 	std::array<UniformBuffer<Transform>, NR_POINT_LIGHTS> lightTransformUniformBuffer;
 	UniformBuffer<Transform> objectTransformUniformBuffer;

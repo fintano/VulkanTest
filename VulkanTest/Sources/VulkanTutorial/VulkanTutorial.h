@@ -88,7 +88,7 @@ protected:
 	virtual void recreateSwapChain();
 	virtual void preDrawFrame(uint32_t imageIndex);
 	virtual void drawFrame();
-	virtual void postDrawFrame();
+	virtual void postDrawFrame(uint32_t imageIndex);
 	virtual void createCommandPool();
 	virtual void createCommandBuffers();
 	virtual void createFrameBuffers();
@@ -130,7 +130,6 @@ protected:
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	void createVertexBuffer();
-	void createInstanceBuffer();
 	void createIndexBuffer();
 	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
 	VkDescriptorImageInfo CreateDescriptorImageInfo(VkImageView& imageView, VkSampler& sampler, VkImageLayout layout);
@@ -181,7 +180,7 @@ protected:
 	std::vector<VkFramebuffer> swapChainFrameBuffers;
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
-	std::vector<VkCommandBuffer> CommandBuffersToSubmit;
+	std::vector<VkCommandBuffer> commandBuffersToSubmit;
 
 	std::vector<Vertex> vertices;
 	VkBuffer vertexBuffer;

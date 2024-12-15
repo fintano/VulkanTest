@@ -7,8 +7,9 @@
 /**
 * GUI에서 사용할 변수들을 모아놓는다. 
 */
+int VulkanTutorialExtension::instanceCount = 2;
 bool VulkanTutorialExtension::useDirectionalLight = false;
-bool VulkanTutorialExtension::usePointLights = false;
+bool VulkanTutorialExtension::usePointLights = true;
 float VulkanTutorialExtension::pointLightlinear = 0.09f;
 float VulkanTutorialExtension::pointLightQuadratic = 0.032f;
 
@@ -371,8 +372,8 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 	vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-	VkBuffer instanceBuffers[]{ instanceBuffer };
-	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffers, offsets);
+	VkBuffer instanceBuffersToBind[]{ instanceBuffers[i]};
+	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffersToBind, offsets);
 
 	// Point Lights
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelinePointLights);
@@ -388,13 +389,13 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	// Objects
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
 	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
-	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instances.size()), 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instanceCount), 0, 0, 0);
 
 }
 
-void VulkanTutorialExtension::createInstanceBuffer()
+void VulkanTutorialExtension::createInstanceBuffer(uint32_t imageIndex)
 {
-	VkDeviceSize bufferSize = sizeof(instances[0]) * instances.size();
+	VkDeviceSize bufferSize = sizeof(instances[0]) * instanceCount;
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
@@ -404,8 +405,8 @@ void VulkanTutorialExtension::createInstanceBuffer()
 	memcpy(data, instances.data(), (size_t)bufferSize);
 	vkUnmapMemory(device, stagingBufferMemory);
 
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceBuffer, instanceBufferMemory);
-	copyBuffer(stagingBuffer, instanceBuffer, bufferSize);
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceBuffers[imageIndex], instanceBufferMemories[imageIndex]);
+	copyBuffer(stagingBuffer, instanceBuffers[imageIndex], bufferSize);
 
 	vkDestroyBuffer(device, stagingBuffer, nullptr);
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -456,7 +457,17 @@ void VulkanTutorialExtension::createBuffers()
 {
 	VulkanTutorial::createBuffers();
 
-	createInstanceBuffer();
+	instanceBuffers.resize(swapChainImages.size());
+	instanceBufferMemories.resize(swapChainImages.size());
+	for (int i = 0; i < swapChainImages.size(); i++)
+	{
+		createInstanceBuffer(i);
+	}
+}
+
+bool VulkanTutorialExtension::instanceCountChanged()
+{
+	return previousInstanceCount != instanceCount;
 }
 
 void VulkanTutorialExtension::recreateSwapChain()
@@ -473,9 +484,30 @@ void VulkanTutorialExtension::preDrawFrame(uint32_t imageIndex)
 	drawImGui(imageIndex);
 }
 
+void VulkanTutorialExtension::recreateInstanceBuffer(uint32_t imageIndex)
+{
+	vkDestroyBuffer(device, instanceBuffers[imageIndex], nullptr);
+	vkFreeMemory(device, instanceBufferMemories[imageIndex], nullptr);
+
+	createInstanceBuffer(imageIndex);
+}
+
 void VulkanTutorialExtension::drawFrame()
 {
 	VulkanTutorial::drawFrame();
+}
+
+void VulkanTutorialExtension::postDrawFrame(uint32_t imageIndex)
+{
+	VulkanTutorial::postDrawFrame(imageIndex);
+
+	if (instanceCountChanged())
+	{
+		uint32_t nextImageIndex = (imageIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+		recreateInstanceBuffer(nextImageIndex);
+		recreateSwapChain();
+		previousInstanceCount = instanceCount;
+	}
 }
 
 void VulkanTutorialExtension::createCommandPool()
@@ -523,8 +555,15 @@ void VulkanTutorialExtension::cleanUp()
 
 	cleanUpImGui();
 
-	vkDestroyBuffer(device, instanceBuffer, nullptr);
-	vkFreeMemory(device, instanceBufferMemory, nullptr);
+	for (auto instanceBuffer : instanceBuffers)
+	{
+		vkDestroyBuffer(device, instanceBuffer, nullptr);
+	}
+
+	for (auto instanceBufferMemory : instanceBufferMemories)
+	{
+		vkFreeMemory(device, instanceBufferMemory, nullptr);
+	}
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayoutPointLights, nullptr);
 	VulkanTutorial::cleanUp();
 }
