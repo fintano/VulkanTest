@@ -134,9 +134,13 @@
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
+      <Command>CD $(ProjectDir)Shaders
+CALL Compile.bat</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
       <Command>
       </Command>
-    </PreBuildEvent>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

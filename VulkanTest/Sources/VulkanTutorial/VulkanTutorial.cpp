@@ -82,7 +82,6 @@ VulkanTutorial::VulkanTutorial()
 		createImageViews();
 		createRenderPass();
 		createDescriptorSetLayouts();
-		createPipelineLayouts();
 		createGraphicsPipelines();
 		createCommandPool();
 		createColorResources();
@@ -708,10 +707,6 @@ VulkanTutorial::VulkanTutorial()
 		{
 			throw std::runtime_error("failed to create descriptor set layout.");
 		}
-	}
-
-	void VulkanTutorial::createPipelineLayouts()
-	{
 	}
 
 	void VulkanTutorial::createGraphicsPipelines()

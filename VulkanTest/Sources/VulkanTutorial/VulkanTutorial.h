@@ -80,7 +80,6 @@ protected:
 	virtual void updateUniformBuffer(uint32_t currentImage);
 	virtual void clearUniformBuffer(uint32_t i);
 	virtual void createDescriptorSetLayouts();
-	virtual void createPipelineLayouts();
 	virtual void createGraphicsPipelines();
 	virtual void RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	virtual void cleanUpSwapchain();

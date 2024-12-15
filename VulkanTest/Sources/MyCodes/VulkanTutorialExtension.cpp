@@ -4,6 +4,9 @@
 #include "imgui_impl_vulkan.h"
 #include "VulkanTutorialExtensionImGui.h"
 
+/**
+* GUI에서 사용할 변수들을 모아놓는다. 
+*/
 bool VulkanTutorialExtension::useDirectionalLight = false;
 bool VulkanTutorialExtension::usePointLights = false;
 float VulkanTutorialExtension::pointLightlinear = 0.09f;
@@ -127,6 +130,71 @@ void VulkanTutorialExtension::createDescriptorSets()
 	createDescriptorSetsObject(descriptorSetsObject);
 }
 
+void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets)
+{
+	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayoutPointLights);
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+	allocInfo.pSetLayouts = layouts.data();
+
+	outDescriptorSets.resize(swapChainImages.size());
+	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
+	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate descriptor sets!");
+	}
+
+	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
+	for (size_t i = 0; i < swapChainImages.size(); i++)
+	{
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+		inUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+
+		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+	}
+}
+
+void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets)
+{
+	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+	allocInfo.pSetLayouts = layouts.data();
+
+	outDescriptorSets.resize(swapChainImages.size());
+	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
+	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate descriptor sets!");
+	}
+
+	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
+	// binding 순서대로 index가 부여된다. shader와 일치해야한다.
+	for (size_t i = 0; i < swapChainImages.size(); i++)
+	{
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+		objectTransformUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+
+		VkDescriptorImageInfo ImageInfo = CreateDescriptorImageInfo(textureImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &ImageInfo, nullptr, descriptorWrites);
+
+		colorUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+		materialUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+		dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+
+		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+	}
+}
+
 void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 {
 	VulkanTutorial::updateUniformBuffer(currentImage);
@@ -238,54 +306,46 @@ void VulkanTutorialExtension::createDescriptorSetLayouts()
 {
 	VulkanTutorial::createDescriptorSetLayouts();
 
-	{
-		std::vector<VkDescriptorSetLayoutBinding> bindings;
-		//	Transform
-		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
-		//	TexSampler
-		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-		//	colorUniformBuffer
-		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-		//	materialUniformBuffer
-		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-		//	dirLightUniformBuffer
-		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-		//	pointLightsUniformBuffer
-		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-
-		createDescriptorSetLayout(bindings, descriptorSetLayout);
-	}
-
-	{
-		std::vector<VkDescriptorSetLayoutBinding> bindings;
-		//	Transform
-		createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
-		
-		createDescriptorSetLayout(bindings, descriptorSetLayoutPointLights);
-	}
+	createDescriptorSetLayoutsForPointLights();
+	createDescriptorSetLayoutsForObjects();
 }
 
-void VulkanTutorialExtension::createPipelineLayouts()
+void VulkanTutorialExtension::createDescriptorSetLayoutsForPointLights()
 {
-	VulkanTutorial::createPipelineLayouts();
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	//	Transform
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
 
-	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
-	createPipelineLayout(descriptorSetLayoutPointLights, pipelineLayoutPointLights);
+	createDescriptorSetLayout(bindings, descriptorSetLayoutPointLights);
+}
+
+void VulkanTutorialExtension::createDescriptorSetLayoutsForObjects()
+{
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	//	Transform
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
+	//	TexSampler
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	colorUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	materialUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	dirLightUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	pointLightsUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+
+	createDescriptorSetLayout(bindings, descriptorSetLayout);
 }
 
 void VulkanTutorialExtension::createGraphicsPipelines()
 {
 	VulkanTutorial::createGraphicsPipelines();
 
-	createObjectGraphicsPipelines();
+	createPipelineLayout(descriptorSetLayoutPointLights, pipelineLayoutPointLights);
+	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
 	createPointLightsGraphicsPipeline();
-}
-
-void VulkanTutorialExtension::createObjectGraphicsPipelines()
-{
-	auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
-	auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
-	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, graphicsPipelineObject);
+	createObjectGraphicsPipelines();
 }
 
 void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
@@ -293,6 +353,13 @@ void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
 	auto vertShaderCode = readFile("shaders/shadervert.spv");
 	auto fragShaderCode = readFile("shaders/shaderfrag.spv");
 	createGraphicsPipeline(vertShaderCode, fragShaderCode, pipelineLayoutPointLights, graphicsPipelinePointLights);
+}
+
+void VulkanTutorialExtension::createObjectGraphicsPipelines()
+{
+	auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
+	auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
+	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, graphicsPipelineObject);
 }
 
 void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
@@ -307,7 +374,7 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	VkBuffer instanceBuffers[]{ instanceBuffer };
 	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffers, offsets);
 
-	// Light
+	// Point Lights
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelinePointLights);
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
@@ -323,71 +390,6 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
 	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instances.size()), 0, 0, 0);
 
-}
-
-void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets)
-{
-	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayoutPointLights);
-
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
-	allocInfo.pSetLayouts = layouts.data();
-
-	outDescriptorSets.resize(swapChainImages.size());
-	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
-	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate descriptor sets!");
-	}
-
-	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
-	for (size_t i = 0; i < swapChainImages.size(); i++)
-	{
-		std::vector<VkWriteDescriptorSet> descriptorWrites;
-
-		inUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-
-		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-	}
-}
-
-void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets)
-{
-	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
-
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
-	allocInfo.pSetLayouts = layouts.data();
-
-	outDescriptorSets.resize(swapChainImages.size());
-	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
-	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate descriptor sets!");
-	}
-
-	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
-	// binding 순서대로 index가 부여된다. shader와 일치해야한다.
-	for (size_t i = 0; i < swapChainImages.size(); i++)
-	{
-		std::vector<VkWriteDescriptorSet> descriptorWrites;
-
-		objectTransformUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-
-		VkDescriptorImageInfo ImageInfo = CreateDescriptorImageInfo(textureImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &ImageInfo, nullptr, descriptorWrites);
-
-		colorUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		materialUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-
-		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-	}
 }
 
 void VulkanTutorialExtension::createInstanceBuffer()
@@ -523,6 +525,6 @@ void VulkanTutorialExtension::cleanUp()
 
 	vkDestroyBuffer(device, instanceBuffer, nullptr);
 	vkFreeMemory(device, instanceBufferMemory, nullptr);
-
+	vkDestroyDescriptorSetLayout(device, descriptorSetLayoutPointLights, nullptr);
 	VulkanTutorial::cleanUp();
 }
