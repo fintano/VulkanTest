@@ -1,6 +1,6 @@
 # VulkanTutorialExtension
 
-**VulkanTutorialExtension**은 Vulkan-Tutorial의 코드를 확장하여 작성된 간단한 샘플 프로젝트로, 현재 진행 중인 작업입니다. Vulkan 기반의 렌더링 환경에 사용자 정의 기능을 추가하고 실험적으로 활용하기 위한 목적으로 작성되었습니다.
+**VulkanTutorialExtension**은 Vulkan-Tutorial의 코드를 확장하여 작성된 간단한 샘플 프로젝트로, 현재 진행 중인 작업입니다. Vulkan 기반의 렌더링 환경에 사용자 정의 기능을 추가하고 실험적으로 활용하기 위한 목적으로 작성되었습니다. VulkanTutorialExtension.h/.cpp 에 사용자 정의 기능이 구현되어 있습니다.
 
 ## 실행 방법
 
