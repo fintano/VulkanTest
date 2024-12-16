@@ -8,26 +8,17 @@
 * GUI에서 사용할 변수들을 모아놓는다. 
 */
 int VulkanTutorialExtension::instanceCount = 2;
+int VulkanTutorialExtension::maxInstanceCount = instanceCount;
 bool VulkanTutorialExtension::useDirectionalLight = false;
 bool VulkanTutorialExtension::usePointLights = true;
+std::array<bool, NR_POINT_LIGHTS> VulkanTutorialExtension::pointLightsSwitch;
 float VulkanTutorialExtension::pointLightlinear = 0.09f;
 float VulkanTutorialExtension::pointLightQuadratic = 0.032f;
 
 VulkanTutorialExtension::VulkanTutorialExtension()
 	: camera({ 5.f, 5.f, 5.f }, { 0.f,1.f,0.f })
 {
-}
-
-void VulkanTutorialExtension::initWindow()
-{
-	VulkanTutorial::initWindow();
-
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-	glfwSetCursorPosCallback(window, mouseCallback);
-	glfwSetWindowFocusCallback(window, focusCallback);
-	glfwSetMouseButtonCallback(window, mouseButtonCallback);
-
-	initImGui();
+	pointLightsSwitch[0] = true;
 }
 
 void VulkanTutorialExtension::initVulkan()
@@ -56,15 +47,31 @@ void VulkanTutorialExtension::processInput()
 		camera.ProcessKeyboard(Camera_Movement::LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(Camera_Movement::RIGHT, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+		camera.ProcessKeyboard(Camera_Movement::DOWN, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+		camera.ProcessKeyboard(Camera_Movement::UP, deltaTime);
 
 	ImGui::stringToDebug.append(camera.ToString());
 }
 
+void VulkanTutorialExtension::initWindow()
+{
+	VulkanTutorial::initWindow();
+
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	glfwSetCursorPosCallback(window, mouseCallback);
+	glfwSetScrollCallback(window, mouseScrollCallback);
+	glfwSetWindowFocusCallback(window, focusCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+
+	initImGui();
+}
+
 void VulkanTutorialExtension::mouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
-	bool bLeftMouseButtonClicked = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-
-	if (bLeftMouseButtonClicked)
+	bool bRightMouseButtonClicked = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+	if (bRightMouseButtonClicked)
 	{
 		auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
 		assert(app);
@@ -79,6 +86,24 @@ void VulkanTutorialExtension::mouseCallback(GLFWwindow* window, double xpos, dou
 	}
 }
 
+void VulkanTutorialExtension::mouseScrollCallback(GLFWwindow* window, double, double yoffset)
+{
+	bool bRightMouseButtonClicked = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+	if (bRightMouseButtonClicked)
+	{
+		auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
+		assert(app);
+
+		ImGuiIO& io = ImGui::GetIO();
+		if (io.WantCaptureMouse) {
+			// Ignore GLFW input as ImGui is precessing mouse input.
+			return;
+		}
+
+		app->camera.ProcessMouseScroll(yoffset);
+	}
+}
+
 void VulkanTutorialExtension::focusCallback(GLFWwindow* window, int focused)
 {
 	auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
@@ -89,7 +114,7 @@ void VulkanTutorialExtension::focusCallback(GLFWwindow* window, int focused)
 
 void VulkanTutorialExtension::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) 
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) 
 	{
 		auto app = reinterpret_cast<VulkanTutorialExtension*>(glfwGetWindowUserPointer(window));
 		assert(app);
@@ -106,7 +131,7 @@ void VulkanTutorialExtension::createUniformBuffers()
 	colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	materialUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	dirLightUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-	pointLightsUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice, NR_POINT_LIGHTS);
+	pointLightsUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
 		lightTransformUniformBuffer[lightIndex].createUniformBuffer(swapChainImages.size(), device, physicalDevice);
@@ -211,18 +236,21 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
 	persMat[1][1] *= -1;
 
-	/** PointLights Object */
+	// PointLights Object 
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
-		std::vector<Transform> pointLightTransforms{};
-		Transform transform;
-		transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
-		transform.model = glm::scale(transform.model, glm::vec3(0.2f));
-		transform.view = viewMat;
-		transform.proj = persMat;
-		pointLightTransforms.emplace_back(std::move(transform));
+		if (isLightOn(lightIndex))
+		{
+			std::vector<Transform> pointLightTransforms{};
+			Transform transform;
+			transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
+			transform.model = glm::scale(transform.model, glm::vec3(0.2f));
+			transform.view = viewMat;
+			transform.proj = persMat;
+			pointLightTransforms.emplace_back(std::move(transform));
 
-		lightTransformUniformBuffer[lightIndex].CopyData(currentImage, pointLightTransforms);
+			lightTransformUniformBuffer[lightIndex].CopyData(currentImage, pointLightTransforms);
+		}
 	}
 
 	// Object
@@ -264,7 +292,9 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	dirLightUniformBuffer.CopyData(currentImage, { dirLight });
 
 	// Point Lights
-	std::vector<PointLight> pointLights;
+	std::array<PointLight, NR_POINT_LIGHTS > pointLights;
+	clearPointLightsSwitch();
+
 	for (int i = 0; i < NR_POINT_LIGHTS; i++)
 	{
 		PointLight pointLight;
@@ -276,16 +306,23 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 			pointLight.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
 			pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
 		}
-		pointLights.emplace_back(std::move(pointLight));
+		pointLights[i] = std::move(pointLight);
+		turnPointLightOn(i);
 	}
+
+	std::vector<PointLightsUniform> pointLightUniform;
+	pointLightUniform.emplace_back();
+	PointLightsUniform& newElement = pointLightUniform.back();
+	newElement.activeLightMask = activePointLightsMask;
+	newElement.pointLights = std::move(pointLights);
 
 	/**
 	* Vulkan은 데이터를 넘길 때, 배열인지 단일 데이터인지를 명시하지 않습니다.
 	* 대신, 쉐이더가 선언한 UBO 구조체에 따라 데이터를 해석합니다.
 	* 따라서 쉐이더가 UBO 배열로 선언되어 있지 않으면 제대로 동작하지 않을 수 있습니다.
-	*/	
+	*/
 
-	pointLightsUniformBuffer.CopyData(currentImage, pointLights);
+	pointLightsUniformBuffer.CopyData(currentImage, pointLightUniform);
 }
 
 void VulkanTutorialExtension::clearUniformBuffer(uint32_t i)
@@ -353,14 +390,30 @@ void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
 {
 	auto vertShaderCode = readFile("shaders/shadervert.spv");
 	auto fragShaderCode = readFile("shaders/shaderfrag.spv");
-	createGraphicsPipeline(vertShaderCode, fragShaderCode, pipelineLayoutPointLights, graphicsPipelinePointLights);
+
+	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
+	Vertex::getBindingDescriptions(bindingDescriptions);
+
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+	Vertex::getAttributeDescriptions(attributeDescriptions);
+
+	createGraphicsPipeline(vertShaderCode, fragShaderCode, pipelineLayoutPointLights, bindingDescriptions, attributeDescriptions, graphicsPipelinePointLights);
 }
 
 void VulkanTutorialExtension::createObjectGraphicsPipelines()
 {
 	auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
 	auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
-	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, graphicsPipelineObject);
+
+	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
+	Vertex::getBindingDescriptions(bindingDescriptions);
+	Instance::getBindingDescriptions(bindingDescriptions);
+
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+	Vertex::getAttributeDescriptions(attributeDescriptions);
+	Instance::getAttributeDescriptions(attributeDescriptions);
+
+	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, bindingDescriptions, attributeDescriptions, graphicsPipelineObject);
 }
 
 void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
@@ -372,16 +425,19 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 	vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-	VkBuffer instanceBuffersToBind[]{ instanceBuffers[i]};
-	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffersToBind, offsets);
-
 	// Point Lights
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelinePointLights);
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
-		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutPointLights, 0, 1, &descriptorSetsPointLights[lightIndex][i], 0, nullptr);
-		vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+		if (isLightOn(lightIndex))
+		{
+			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutPointLights, 0, 1, &descriptorSetsPointLights[lightIndex][i], 0, nullptr);
+			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+		}
 	}
+
+	VkBuffer instanceBuffersToBind[]{ instanceBuffers[usingInstanceBufferIndex] };
+	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffersToBind, offsets);
 
 	// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
 	// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
@@ -436,20 +492,23 @@ void VulkanTutorialExtension::loadModel()
 	};
 
 	static int instanceCount = sizeof(cubePositions) / sizeof(cubePositions[0]);
+	maxInstanceCount = instanceCount;
 
 	for (unsigned int i = 0; i < instanceCount; i++)
 	{
+		Instance instance;
+
 		glm::mat4 identity = glm::mat4(1.0f);
 		// the obj model file is rotated incorrectly, so it needs to be fixed.
 		glm::mat4 xRotation = glm::rotate(identity, glm::radians(270.f), glm::vec3(1.f, 0.f, 0.f));
 		glm::mat4 yRotation = glm::rotate(identity, glm::radians(270.f), glm::vec3(0.f, 1.f, 0.f));
-		glm::mat4 model = yRotation * xRotation;
+		instance.model = yRotation * xRotation;
 
-		model = glm::translate(model, cubePositions[i]);
+		instance.model = glm::translate(instance.model, cubePositions[i]);
 		float angle = 20.0f * i;
-		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		instance.model = glm::rotate(instance.model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 
-		instances.push_back(model);
+		instances.push_back(instance);
 	}
 }
 
@@ -457,9 +516,7 @@ void VulkanTutorialExtension::createBuffers()
 {
 	VulkanTutorial::createBuffers();
 
-	instanceBuffers.resize(swapChainImages.size());
-	instanceBufferMemories.resize(swapChainImages.size());
-	for (int i = 0; i < swapChainImages.size(); i++)
+	for (int i = 0; i < INSTANCE_BUFFER_COUNT; i++)
 	{
 		createInstanceBuffer(i);
 	}
@@ -480,6 +537,13 @@ void VulkanTutorialExtension::recreateSwapChain()
 void VulkanTutorialExtension::preDrawFrame(uint32_t imageIndex)
 {
 	VulkanTutorial::preDrawFrame(imageIndex);
+
+	if (pointLightSwitchChanged(imageIndex))
+	{
+		//vkFreeCommandBuffers(device, commandPool, 1, &commandBuffers[imageIndex]);
+		createCommandBuffer(imageIndex);
+		previousActivePointLightsMask[imageIndex] = activePointLightsMask;
+	}
 
 	drawImGui(imageIndex);
 }
@@ -503,10 +567,10 @@ void VulkanTutorialExtension::postDrawFrame(uint32_t imageIndex)
 
 	if (instanceCountChanged())
 	{
-		uint32_t nextImageIndex = (imageIndex + 1) % MAX_FRAMES_IN_FLIGHT;
-		recreateInstanceBuffer(nextImageIndex);
-		recreateSwapChain();
 		previousInstanceCount = instanceCount;
+		usingInstanceBufferIndex = (usingInstanceBufferIndex + 1 ) % INSTANCE_BUFFER_COUNT;
+		recreateInstanceBuffer(usingInstanceBufferIndex);
+		recreateSwapChain();
 	}
 }
 
@@ -522,6 +586,7 @@ void VulkanTutorialExtension::createCommandBuffers()
 	VulkanTutorial::createCommandBuffers();
 
 	createImGuiCommandBuffers();
+	previousActivePointLightsMask.resize(swapChainImages.size());
 }
 
 void VulkanTutorialExtension::createFrameBuffers()
@@ -566,4 +631,27 @@ void VulkanTutorialExtension::cleanUp()
 	}
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayoutPointLights, nullptr);
 	VulkanTutorial::cleanUp();
+}
+
+bool VulkanTutorialExtension::pointLightSwitchChanged(uint32_t index)
+{
+	return previousActivePointLightsMask[index] != activePointLightsMask;
+}
+
+void VulkanTutorialExtension::clearPointLightsSwitch()
+{
+	activePointLightsMask = 0;
+}
+
+void VulkanTutorialExtension::turnPointLightOn(int index)
+{
+	if (index >= 0 && index < NR_POINT_LIGHTS)
+	{
+		activePointLightsMask |= (pointLightsSwitch[index] << index);
+	}
+}
+
+bool VulkanTutorialExtension::isLightOn(int index)
+{
+	return activePointLightsMask & (1 << index);
 }

@@ -12,14 +12,16 @@ enum Camera_Movement {
 	FORWARD,
 	BACKWARD,
 	LEFT,
-	RIGHT
+	RIGHT,
+	DOWN,
+	UP
 };
 
 // Default camera values
 const float YAW = -90.0f;
 const float PITCH = 0.0f;
 const float SPEED = 2.5f;
-const float SENSITIVITY = 0.1f;
+const float SENSITIVITY = 0.2f;
 const float ZOOM = 45.0f;
 
 
@@ -72,21 +74,25 @@ public:
 	// returns the view matrix calculated using Euler Angles and the LookAt Matrix
 	glm::mat4 GetViewMatrix()
 	{
-		return glm::lookAt(Position, EyeCenter, Up);
+		return glm::lookAt(Position, Position + Front, Up);
 	}
 
 	// processes input received from any keyboard-like input system. Accepts input parameter in the form of camera defined ENUM (to abstract it from windowing systems)
 	void ProcessKeyboard(Camera_Movement direction, float deltaTime)
 	{
 		float velocity = MovementSpeed * deltaTime;
-		if (direction == FORWARD)
+		if (direction == Camera_Movement::FORWARD)
 			Position += Front * velocity;
-		if (direction == BACKWARD)
+		if (direction == Camera_Movement::BACKWARD)
 			Position -= Front * velocity;
-		if (direction == LEFT)
+		if (direction == Camera_Movement::LEFT)
 			Position -= Right * velocity;
-		if (direction == RIGHT)
+		if (direction == Camera_Movement::RIGHT)
 			Position += Right * velocity;
+		if (direction == Camera_Movement::DOWN)
+			Position -= Up * velocity;
+		if (direction == Camera_Movement::UP)
+			Position += Up * velocity;
 	}
 
 	void ResetPreoffsets()
@@ -127,23 +133,23 @@ public:
 		}*/
 
 		// update Front, Right and Up Vectors using the updated Euler angles
-		updateCameraVectors(deltaXOffset, deltaYOffset);
+		updateCameraVectors(-deltaXOffset, -deltaYOffset);
 	}
 
 	// processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
 	void ProcessMouseScroll(float yoffset)
 	{
-		Zoom -= (float)yoffset;
-		if (Zoom < 1.0f)
-			Zoom = 1.0f;
-		if (Zoom > 45.0f)
-			Zoom = 45.0f;
+		MovementSpeed += yoffset;
+		if (MovementSpeed < 1.0f)
+			MovementSpeed = 1.0f;
+		if (MovementSpeed > 10.0f)
+			MovementSpeed = 10.0f;
 	}
 
 	std::string ToString()
 	{
 		std::ostringstream oss;
-		//oss << "Pitch " << Pitch << ", Yaw " << Yaw << "\n";
+		oss << "Position (" << Position.x << "," << Position.y << "," << Position.z << ")\n";
 		oss << "Front (" << Front.x << ", " << Front.y << ", " << Front.z << ")\n";
 		oss << "Up (" << Up.x << ", " << Up.y << ", " << Up.z << ")\n";
 		oss << "Right (" << Right.x << ", " << Right.y << ", " << Right.z << ")\n";
@@ -155,16 +161,15 @@ private:
 	// calculates the front vector from the Camera's (updated) Euler Angles
 	void updateCameraVectors(float xOffset, float yOffset)
 	{
-		auto view_transform = glm::mat4(1.f); 
-		view_transform = glm::rotate(view_transform, glm::radians(-xOffset), Up);
-		view_transform = glm::rotate(view_transform, glm::radians(yOffset), Right);
+		glm::mat4 rotation = glm::mat4(1.0f);
+		rotation = glm::rotate(rotation, glm::radians(xOffset), glm::vec3(0.0f, 1.0f, 0.0f));
+		rotation = glm::rotate(rotation, glm::radians(yOffset), Right);
 
-		Position = view_transform * glm::vec4(Position, 1.f);
-		Front = glm::normalize(EyeCenter - Position);	
-		Up = view_transform * glm::vec4(Up, 0.f);
+		Front = glm::vec3(rotation * glm::vec4(Front, 0.0f));
+		Front = glm::normalize(Front);
 
-		// Consider a right-handed coordinate system of vulkan.
-		Right = glm::normalize(glm::cross(Up, Front));
+		Right = glm::normalize(glm::cross(Front, WorldUp));
+		Up = glm::normalize(glm::cross(Right, Front));
 	}
 };
 #endif

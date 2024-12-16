@@ -1,5 +1,7 @@
 #version 450
 
+#define NR_POINT_LIGHTS 4
+
 struct DirLight
 {
     vec3 direction;
@@ -16,8 +18,6 @@ struct PointLight
     vec3 diffuse;
     vec3 specular;
 };
-
-#define NR_POINT_LIGHTS 1
 
 layout(binding = 1) uniform sampler2D texSampler;
 
@@ -41,6 +41,7 @@ layout(binding = 4) uniform dirLightUniform {
 
 layout(binding = 5) uniform pointLightsUniform {
     PointLight pointLights[NR_POINT_LIGHTS];
+    int activeLightMask;
 };
 
 layout(location = 0) in vec3 fragColor;
@@ -63,12 +64,15 @@ void main()
     // phase 2: Point lights
     for(int i = 0 ; i < NR_POINT_LIGHTS; i++)
     {
-        result += CalcPointLight(pointLights[i], norm, fragPos, viewDir);
+        if((activeLightMask & (1 << i)) > 0)
+        {
+            result += CalcPointLight(pointLights[i], norm, fragPos, viewDir);
+        }
     }
     // phase 3: Spot Light 
     // 
     
-    outColor = vec4(result, 1.0);
+    outColor = vec4(result, 1.0) * texture(texSampler, fragTexCoord);
 }
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir)

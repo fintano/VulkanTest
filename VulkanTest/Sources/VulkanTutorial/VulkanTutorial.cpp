@@ -725,7 +725,8 @@ VulkanTutorial::VulkanTutorial()
 		bindings.push_back(Layoutbinding);
 	}
 
-	void VulkanTutorial::createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& inPipelineLayout, VkPipeline& OutPipeline)
+	void VulkanTutorial::createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& inPipelineLayout,
+	std::vector<VkVertexInputBindingDescription> bindingDescriptions, std::vector<VkVertexInputAttributeDescription> attributeDescriptions, VkPipeline& OutPipeline)
 	{
 		VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -744,8 +745,13 @@ VulkanTutorial::VulkanTutorial()
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-		auto bindingDescriptions = Vertex::getBindingDescriptions();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+		//std::vector<VkVertexInputBindingDescription> bindingDescriptions;
+		//Vertex::getBindingDescriptions(bindingDescriptions);
+		//Instance::getBindingDescriptions(bindingDescriptions);
+
+		//std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+		//Vertex::getAttributeDescriptions(attributeDescriptions);
+		//instance::getAttributeDescriptions(attributeDescriptions);
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -919,7 +925,7 @@ VulkanTutorial::VulkanTutorial()
 		VkCommandPoolCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		createInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-		createInfo.flags = 0;
+		createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 		if (vkCreateCommandPool(device, &createInfo, nullptr, &commandPool) != VK_SUCCESS)
 		{
@@ -1576,38 +1582,43 @@ VulkanTutorial::VulkanTutorial()
 
 		for (size_t i = 0; i < commandBuffers.size(); i++)
 		{
-			VkCommandBufferBeginInfo beginInfo{};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = 0;
-			beginInfo.pInheritanceInfo = nullptr;
+			createCommandBuffer(i);
+		}
+	}
 
-			if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
-			{
-				throw std::runtime_error("failed to begin recording command buffer!");
-			}
+	void VulkanTutorial::createCommandBuffer(int32_t i)
+	{
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = 0;
+		beginInfo.pInheritanceInfo = nullptr;
 
-			VkRenderPassBeginInfo renderPassInfo{};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = renderPass;
-			renderPassInfo.framebuffer = swapChainFrameBuffers[i];
-			renderPassInfo.renderArea.offset = { 0,0 };
-			renderPassInfo.renderArea.extent = swapChainExtent;
+		if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to begin recording command buffer!");
+		}
 
-			// define the clear values for vk_attachment_load_op_clear.
-			std::array<VkClearValue, 2> clearValues{};
-			clearValues[0].color = { { 0.f, 0.f, 0.f, 1.f } };
-			clearValues[1].depthStencil = { 1.f, 0 };
-			renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-			renderPassInfo.pClearValues = clearValues.data();
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = swapChainFrameBuffers[i];
+		renderPassInfo.renderArea.offset = { 0,0 };
+		renderPassInfo.renderArea.extent = swapChainExtent;
 
-			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			RecordRenderPassCommands(commandBuffers[i], i);
-			vkCmdEndRenderPass(commandBuffers[i]);
+		// define the clear values for vk_attachment_load_op_clear.
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = { { 0.f, 0.f, 0.f, 1.f } };
+		clearValues[1].depthStencil = { 1.f, 0 };
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
 
-			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("failed to record command buffer!");
-			}
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		RecordRenderPassCommands(commandBuffers[i], i);
+		vkCmdEndRenderPass(commandBuffers[i]);
+
+		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to record command buffer!");
 		}
 	}
 

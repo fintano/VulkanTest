@@ -84,5 +84,8 @@
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtensionImGui.h">
       <Filter>MyCodes</Filter>
     </ClInclude>
+    <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,14 +1,15 @@
 #pragma once
 
 #include "VulkanTutorial.h"
+#include "UniformBufferTypes.h"
 
 /**
 * https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
 * 이 프로젝트를 토대로 개인적으로 추가한 코드는 최대한 VulkanTutorialExtension에 구현해 분리한다.
 */
 
-//  ObjectShader.frag 안의 NR_POINT_LIGHTS와 반드시 일치시킨다.
-#define NR_POINT_LIGHTS 1
+// 인스턴스 개수를 바꿀 때 이미 사용중인 버퍼를 삭제하지 않게 하기 위해 더블버퍼링을 사용한다.
+#define INSTANCE_BUFFER_COUNT 2
 
 class VulkanTutorialExtension : public VulkanTutorial{
 public:
@@ -16,8 +17,10 @@ public:
 	VulkanTutorialExtension();
 
 	static int instanceCount;
+	static int maxInstanceCount;
 	static bool useDirectionalLight;
 	static bool usePointLights;
+	static std::array<bool, NR_POINT_LIGHTS> pointLightsSwitch;
 	static float pointLightlinear;
 	static float pointLightQuadratic;
 private:
@@ -26,9 +29,9 @@ private:
 	*	Vulkan-Tutorial에서 추가적인 기능을 구현하고 싶은 함수들을 분리해 구현한다. 
 	*	VulkanTutorial::initVulkan()의 순서는 그대로 유지해야 한다.
 	*/
-	void initWindow() override;
 	void initVulkan() override;
 	void processInput() override;
+	void initWindow() override;
 	void createUniformBuffers() override;
 	void createDescriptorPool() override;
 	void createDescriptorSets() override;
@@ -50,6 +53,7 @@ private:
 	void cleanUpSwapchain() override;
 	void cleanUp() override;
 
+	
 	void createObjectGraphicsPipelines();
 	void createPointLightsGraphicsPipeline();
 	void createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets);
@@ -60,8 +64,13 @@ private:
 	void setWindowFocused(int inFocused);
 	bool instanceCountChanged();
 	void recreateInstanceBuffer(uint32_t imageIndex);
+	void clearPointLightsSwitch();
+	void turnPointLightOn(int index);
+	bool isLightOn(int index);
+	bool pointLightSwitchChanged(uint32_t index);
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
+	static void mouseScrollCallback(GLFWwindow* window, double, double yoffset);
 	static void focusCallback(GLFWwindow* window, int focused);
 	static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
@@ -80,9 +89,10 @@ private:
 	void cleanUpImGui();
 
 private:
-	std::vector<glm::mat4> instances;
-	std::vector<VkBuffer> instanceBuffers;
-	std::vector<VkDeviceMemory> instanceBufferMemories;
+	std::vector<Instance> instances;
+	std::array<VkBuffer, INSTANCE_BUFFER_COUNT> instanceBuffers;
+	std::array<VkDeviceMemory, INSTANCE_BUFFER_COUNT> instanceBufferMemories;
+	int usingInstanceBufferIndex = 0;
 	int previousInstanceCount = instanceCount;
 
 	std::array<UniformBuffer<Transform>, NR_POINT_LIGHTS> lightTransformUniformBuffer;
@@ -90,7 +100,7 @@ private:
 	UniformBuffer<ColorUBO> colorUniformBuffer;
 	UniformBuffer<Material> materialUniformBuffer;
 	UniformBuffer<DirLight> dirLightUniformBuffer;
-	UniformBuffer<PointLight> pointLightsUniformBuffer;
+	UniformBuffer<PointLightsUniform> pointLightsUniformBuffer;
 
 	// 오브젝트용
 	VkPipeline graphicsPipelineObject;
@@ -102,7 +112,10 @@ private:
 	VkPipelineLayout pipelineLayoutPointLights;
 	VkDescriptorSetLayout descriptorSetLayoutPointLights;
 	std::array<std::vector<VkDescriptorSet>, NR_POINT_LIGHTS> descriptorSetsPointLights;
+	std::vector<int> previousActivePointLightsMask;
+	int activePointLightsMask = 0;
 	
+
 	Camera camera;
 
 	/**

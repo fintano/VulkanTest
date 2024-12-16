@@ -1,5 +1,7 @@
+#include <algorithm>
 #include "VulkanTutorialExtensionImGui.h"
 #include "VulkanTutorialExtension.h"
+#include "UniformBufferTypes.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -67,6 +69,7 @@ void ImGui::ShowVulkanWindow(bool* p_open)
 	if (ImGui::CollapsingHeader("Instancing"))
 	{
 		ImGui::InputInt("Instance Count", &VulkanTutorialExtension::instanceCount);
+		VulkanTutorialExtension::instanceCount = std::clamp(VulkanTutorialExtension::instanceCount, 1, VulkanTutorialExtension::maxInstanceCount);
 	}
 
 	if (ImGui::CollapsingHeader("Directional Light"))
@@ -76,8 +79,17 @@ void ImGui::ShowVulkanWindow(bool* p_open)
 
 	if (ImGui::CollapsingHeader("Point Lights"))
 	{
-		ImGui::Checkbox("Use Point Lights", &VulkanTutorialExtension::usePointLights);
-	
+		if (ImGui::BeginTable("pointLights", 4))
+		{
+			for (int i = 0; i < NR_POINT_LIGHTS; i++)
+			{
+				std::stringstream ss;
+				ss << "Point Light " << i;
+				ImGui::TableNextColumn(); ImGui::Checkbox(ss.str().c_str(), &VulkanTutorialExtension::pointLightsSwitch[i]);
+			}
+			ImGui::EndTable();
+		}
+
 		// Sliders
 		static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
 		const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
@@ -86,7 +98,7 @@ void ImGui::ShowVulkanWindow(bool* p_open)
 	}
 
 	ImGui::Spacing();	
-	//ImGui::PrintDebugString();
+	ImGui::PrintDebugString();
 
     // End of ShowDemoWindow()
     ImGui::PopItemWidth();
