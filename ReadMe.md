@@ -1,14 +1,11 @@
 # VulkanTutorialExtension
-
 **VulkanTutorialExtension**은 Vulkan-Tutorial의 코드를 확장하여 작성된 샘플 프로젝트로, Vulkan 기반의 렌더링 환경에 사용자 정의 기능을 추가한 프로젝트입니다. 이 프로젝트는 렌더링 인스턴싱과 조명 시스템을 확장하여 Vulkan 활용을 심화하는 데 중점을 둡니다.
 
----
 
 ## 실행 방법
 - Vulkan SDK가 설치된 환경에서 실행 ([Vulkan SDK 다운로드](https://vulkan.lunarg.com/sdk/home)).
 - 제공된 소스 코드를 빌드한 후 실행 파일을 실행.
 
----
 
 ## 주요 기능
 
@@ -24,8 +21,7 @@
 - 초기 위치와 방향 설정.
 - 사용자 입력을 통한 카메라 이동 및 시점 조작.
 
----
 
-### ImGui 통합
+### 4. **ImGui 통합**
 - 간단한 GUI를 제공하여 렌더링 설정 및 조명 파라미터를 실시간으로 조정.
 
