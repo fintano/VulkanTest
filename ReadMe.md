@@ -1,13 +1,13 @@
 # VulkanTutorialExtension
 
-**VulkanTutorialExtension**은 Vulkan-Tutorial의 코드를 확장하여 작성된 샘플 프로젝트로, Vulkan 기반의 렌더링 환경에 사용자 정의 기능을 추가한 프로젝트입니다. 이 프로젝트는 렌더링 인스턴싱과 조명 시스템을 확장하여 Vulkan 활용을 심화하는 데 중점을 둡니다.
+**VulkanTutorialExtension**은 Vulkan-Tutorial의 코드를 확장하여 작성된 간단한 샘플 프로젝트로, 현재 진행 중인 작업입니다. Vulkan 기반의 렌더링 환경에 사용자 정의 기능을 추가하고 실험적으로 활용하기 위한 목적으로 작성되었습니다.
 
 ## 실행 방법
 
 - Vulkan SDK가 설치된 환경에서 실행 ([Vulkan SDK 다운로드](https://vulkan.lunarg.com/sdk/home)).
 - 제공된 소스 코드를 빌드한 후 실행 파일을 실행.
 
-## 주요 기능
+## 지금까지 구현된 기능
 
 ### 1. **렌더링 인스턴싱 지원**
 
@@ -28,20 +28,22 @@
 
 - 간단한 GUI를 제공하여 렌더링 설정 및 조명 파라미터를 실시간으로 조정.
 
-***
+## 실행 화면
+![Sample Rendering](Images/VulkanTutorialExtension_ver0.1.png)
+*렌더링 인스턴싱 및 GUI 예시*
+
+---
 
 # VulkanTutorialExtension
 
-**VulkanTutorialExtension** is a sample project extending the Vulkan-Tutorial codebase, adding custom features to the Vulkan rendering environment. This project focuses on enhancing Vulkan utilization through rendering instancing and an extended lighting system.
-
-
+**VulkanTutorialExtension** is a simple and ongoing sample project extending the Vulkan-Tutorial codebase, designed to add custom features to the Vulkan rendering environment for experimental purposes.
 
 ## How to Run
 
 - Ensure Vulkan SDK is installed ([Download Vulkan SDK](https://vulkan.lunarg.com/sdk/home)).
 - Build the provided source code and execute the resulting binary.
 
-## Key Features
+## Implemented Features
 
 ### 1. **Rendering Instancing Support**
 
@@ -61,4 +63,8 @@
 ### 4. **ImGui Integration**
 
 - Provides a simple GUI for real-time adjustments of rendering settings and lighting parameters.
+
+## Execution Screenshot
+![Sample Rendering](Images/VulkanTutorialExtension_ver0.1.png)
+*Example of rendering instancing and GUI*
 
