@@ -114,7 +114,6 @@ private:
 	std::array<std::vector<VkDescriptorSet>, NR_POINT_LIGHTS> descriptorSetsPointLights;
 	std::vector<int> previousActivePointLightsMask;
 	int activePointLightsMask = 0;
-	
 
 	Camera camera;
 

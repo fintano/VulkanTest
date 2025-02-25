@@ -201,6 +201,16 @@ protected:
 	VkImageView textureImageView;
 	VkSampler textureSampler;
 
+	// GBuffers - 일단 이렇게 진행해본다.
+	struct FrameBufferAttachment
+	{
+		VkImage Image;
+		VkDeviceMemory ImageMemory;
+		VkImageView ImageView;
+	};
+
+	FrameBufferAttachment position,normal,colorSpecular;
+
 	VkImage colorImage;
 	VkDeviceMemory colorImageMemory;
 	VkImageView colorImageView;

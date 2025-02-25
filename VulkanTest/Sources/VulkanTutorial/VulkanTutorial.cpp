@@ -624,15 +624,24 @@ VulkanTutorial::VulkanTutorial()
 	}
 
 	void VulkanTutorial::createRenderPass() {
-		VkAttachmentDescription colorAttachment{};
-		colorAttachment.format = swapChainImageFormat;
-		colorAttachment.samples = msaaSamples;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		
+		std::array<VkAttachmentDescription, 4> colorAttachments = {};
+		for (VkAttachmentDescription& colorAttachment : colorAttachments)
+		{
+			colorAttachment.samples = msaaSamples;
+			colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		}
+
+		// position, normal, colorSpecular, color
+		colorAttachments[0].format = VK_FORMAT_R16G16B16A16_SFLOAT;
+		colorAttachments[1].format = VK_FORMAT_R16G16B16A16_SFLOAT;
+		colorAttachments[2].format = VK_FORMAT_R8G8B8A8_UNORM;
+		colorAttachments[3].format = swapChainImageFormat;
 
 		VkAttachmentDescription depthAttachment{};
 		depthAttachment.format = findDepthFormat();
@@ -654,24 +663,34 @@ VulkanTutorial::VulkanTutorial()
 		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-		VkAttachmentReference colorAttachmentRef{};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
+		std::array<VkAttachmentReference, 4> colorAttachmentRefs = {{
+			{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+			{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+			{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+			{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+		}};
+		
 		VkAttachmentReference depthAttachmentRef{};
-		depthAttachmentRef.attachment = 1;
+		depthAttachmentRef.attachment = 4;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		VkAttachmentReference colorAttachmentResolveRef{};
-		colorAttachmentResolveRef.attachment = 2;
-		colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		/*VkAttachmentReference colorAttachmentResolveRef{};
+		colorAttachmentResolveRef.attachment = 5;
+		colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;*/
+
+		std::array<VkAttachmentReference, 4> resolveRefs = { {
+			{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
+			{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
+			{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
+			{5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+		} };
 
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.colorAttachmentCount = 4;
+		subpass.pColorAttachments = colorAttachmentRefs.data();
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-		subpass.pResolveAttachments = &colorAttachmentResolveRef;
+		subpass.pResolveAttachments = resolveRefs.data();
 
 		VkSubpassDependency dependency{};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -681,7 +700,7 @@ VulkanTutorial::VulkanTutorial()
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-		std::array<VkAttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
+		std::array<VkAttachmentDescription, 6> attachments = { colorAttachments[0], colorAttachments[1], colorAttachments[2], colorAttachments[3], depthAttachment, colorAttachmentResolve };
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -900,7 +919,8 @@ VulkanTutorial::VulkanTutorial()
 
 		for (size_t i = 0; i < swapChainImageViews.size(); i++)
 		{
-			std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
+			std::array<VkImageView, 6> attachments = {
+			position.ImageView, normal.ImageView, colorSpecular.ImageView, colorImageView, depthImageView, swapChainImageViews[i] };
 
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -936,6 +956,15 @@ VulkanTutorial::VulkanTutorial()
 	void VulkanTutorial::createColorResources()
 	{
 		VkFormat colorFormat = swapChainImageFormat;
+
+		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, position.Image, position.ImageMemory);
+		position.ImageView = createImageView(position.Image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, normal.Image, normal.ImageMemory);
+		normal.ImageView = createImageView(normal.Image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		
+		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorSpecular.Image, colorSpecular.ImageMemory);
+		colorSpecular.ImageView = createImageView(colorSpecular.Image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
 		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
 		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
@@ -1815,6 +1844,16 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::cleanUpSwapchain()
 	{
+		vkDestroyImageView(device, position.ImageView, nullptr);
+		vkDestroyImage(device, position.Image, nullptr);
+		vkFreeMemory(device, position.ImageMemory, nullptr);
+		vkDestroyImageView(device, normal.ImageView, nullptr);
+		vkDestroyImage(device, normal.Image, nullptr);
+		vkFreeMemory(device, normal.ImageMemory, nullptr);
+		vkDestroyImageView(device, colorSpecular.ImageView, nullptr);
+		vkDestroyImage(device, colorSpecular.Image, nullptr);
+		vkFreeMemory(device, colorSpecular.ImageMemory, nullptr);
+
 		vkDestroyImageView(device, colorImageView, nullptr);
 		vkDestroyImage(device, colorImage, nullptr);
 		vkFreeMemory(device, colorImageMemory, nullptr);
