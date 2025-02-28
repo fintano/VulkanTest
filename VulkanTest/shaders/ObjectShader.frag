@@ -49,30 +49,36 @@ layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec3 fragNormal;
 layout(location = 3) in vec3 fragPos;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec3 outPosition;
+layout(location = 1) out vec3 outNormal;
+layout(location = 2) out vec4 outColorSpecular;
+layout(location = 3) out vec4 outColor;
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir);
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 
 void main()
 {
-    vec3 norm = normalize(fragNormal);
-    vec3 viewDir = normalize(colorUbo.viewPos - fragPos);
+    //vec3 norm = normalize(fragNormal);
+    //vec3 viewDir = normalize(colorUbo.viewPos - fragPos);
 
     // phase 1: Directinal lighting
-    vec3 result = CalcDirLight(dirLight, norm, viewDir);
+    //vec3 result = CalcDirLight(dirLight, norm, viewDir);
     // phase 2: Point lights
-    for(int i = 0 ; i < NR_POINT_LIGHTS; i++)
-    {
-        if((activeLightMask & (1 << i)) > 0)
-        {
-            result += CalcPointLight(pointLights[i], norm, fragPos, viewDir);
-        }
-    }
+    //for(int i = 0 ; i < NR_POINT_LIGHTS; i++)
+    //{
+    //    if((activeLightMask & (1 << i)) > 0)
+    //    {
+    //        result += CalcPointLight(pointLights[i], norm, fragPos, viewDir);
+    //   }
+    //}
     // phase 3: Spot Light 
     // 
-    
-    outColor = vec4(result, 1.0) * texture(texSampler, fragTexCoord);
+    outPosition = fragPos;
+    outNormal = normalize(fragNormal);
+    outColorSpecular.rgb = texture(texSampler, fragTexCoord).rgb;
+    outColorSpecular.a = 0;
+    //outColor = vec4(result, 1.0) * texture(texSampler, fragTexCoord);
 }
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir)

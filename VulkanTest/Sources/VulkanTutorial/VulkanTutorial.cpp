@@ -819,16 +819,22 @@ VulkanTutorial::VulkanTutorial()
 		multisampling.sampleShadingEnable = VK_FALSE;
 		multisampling.rasterizationSamples = msaaSamples;
 
-		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		colorBlendAttachment.blendEnable = VK_FALSE;
+		std::array<VkPipelineColorBlendAttachmentState, 4> colorBlendAttachment{};
+		colorBlendAttachment[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment[0].blendEnable = VK_FALSE;
+		colorBlendAttachment[1].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment[1].blendEnable = VK_FALSE;
+		colorBlendAttachment[2].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment[2].blendEnable = VK_FALSE;
+		colorBlendAttachment[3].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment[3].blendEnable = VK_FALSE;
 
 		VkPipelineColorBlendStateCreateInfo colorBlending{};
 		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		colorBlending.logicOpEnable = VK_FALSE;
 		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.attachmentCount = 1;
-		colorBlending.pAttachments = &colorBlendAttachment;
+		colorBlending.attachmentCount = colorBlendAttachment.size();
+		colorBlending.pAttachments = colorBlendAttachment.data();
 		colorBlending.blendConstants[0] = 0.0f;
 		colorBlending.blendConstants[1] = 0.0f;
 		colorBlending.blendConstants[2] = 0.0f;
@@ -1635,9 +1641,12 @@ VulkanTutorial::VulkanTutorial()
 		renderPassInfo.renderArea.extent = swapChainExtent;
 
 		// define the clear values for vk_attachment_load_op_clear.
-		std::array<VkClearValue, 2> clearValues{};
+		std::array<VkClearValue, 5> clearValues{};
 		clearValues[0].color = { { 0.f, 0.f, 0.f, 1.f } };
-		clearValues[1].depthStencil = { 1.f, 0 };
+		clearValues[1].color = { { 0.f, 0.f, 0.f, 1.f } };
+		clearValues[2].color = { { 0.f, 0.f, 0.f, 1.f } };
+		clearValues[3].color = { { 0.f, 0.f, 0.f, 1.f } };
+		clearValues[4].depthStencil = { 1.f, 0 };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
