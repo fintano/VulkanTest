@@ -105,6 +105,7 @@ protected:
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice  device);
 	void createLogicalDevice();
 	void createSwapchain();
@@ -115,7 +116,9 @@ protected:
 	void createTextureImageView();
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createTextureSampler();
+	VkRenderPassCreateInfo getRenderPassInfo();
 	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings);
+	VkGraphicsPipelineCreateInfo getGraphicsPipelineCreateInfo();
 	void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& inPipelineLayout,
 		std::vector<VkVertexInputBindingDescription> bindingDescriptions, std::vector<VkVertexInputAttributeDescription> attributeDescriptions, VkPipeline& OutPipeline);
 	void createPipelineLayout(const VkDescriptorSetLayout& inDescriptorSetLayout, VkPipelineLayout& outPipelineLayout);
@@ -207,10 +210,18 @@ protected:
 		VkImage Image;
 		VkDeviceMemory ImageMemory;
 		VkImageView ImageView;
+
+		void Destroy(VkDevice device);
 	};
 
-	FrameBufferAttachment position,normal,colorSpecular;
+	struct DeferredRenderer
+	{
+		FrameBufferAttachment position, normal, colorSpecular;
+		VkRenderPass renderPass;
+		VkFramebuffer frameBuffer;
 
+	} deferred;
+	
 	VkImage colorImage;
 	VkDeviceMemory colorImageMemory;
 	VkImageView colorImageView;

@@ -31,6 +31,9 @@
     <None Include="shaders\ObjectShader.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\LightingPass.frag">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp">

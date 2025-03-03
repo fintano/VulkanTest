@@ -154,6 +154,7 @@ void VulkanTutorialExtension::createDescriptorSets()
 		createDescriptorSetsPointLights(lightTransformUniformBuffer[lightIndex], descriptorSetsPointLights[lightIndex]);
 	}
 	createDescriptorSetsObject(descriptorSetsObject);
+	createLightingPassDescriptorSets(lightingPassDescriptorSets);
 }
 
 void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets)
@@ -216,6 +217,54 @@ void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescripto
 		materialUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 		dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+
+		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+	}
+}
+
+void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets)
+{
+	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), lightingPassDescriptorSetLayout);
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+	allocInfo.pSetLayouts = layouts.data();
+
+	outDescriptorSets.resize(swapChainImages.size());
+	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
+	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate descriptor sets!");
+	}
+
+	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
+	// binding 순서대로 index가 부여된다. shader와 일치해야한다.
+	for (size_t i = 0; i < swapChainImages.size(); i++)
+	{
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+		
+		// colorUBO
+		colorUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+		
+		// dirLightUniform
+		dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+		
+		// pointLightsUniform
+		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
+
+		// position
+		VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(position.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &positionImageInfo, nullptr, descriptorWrites);
+
+		// normal 
+		VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(normal.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &normalImageInfo, nullptr, descriptorWrites);
+
+		// color + specular
+		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(colorSpecular.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &colorSpecularImageInfo, nullptr, descriptorWrites);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
@@ -346,6 +395,7 @@ void VulkanTutorialExtension::createDescriptorSetLayouts()
 
 	createDescriptorSetLayoutsForPointLights();
 	createDescriptorSetLayoutsForObjects();
+	createLightingPassDescriptorSetLayout();
 }
 
 void VulkanTutorialExtension::createDescriptorSetLayoutsForPointLights()
@@ -376,14 +426,130 @@ void VulkanTutorialExtension::createDescriptorSetLayoutsForObjects()
 	createDescriptorSetLayout(bindings, descriptorSetLayout);
 }
 
+void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
+{
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	//	position
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	normal
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	color + specular 
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+
+	createDescriptorSetLayout(bindings, lightingPassDescriptorSetLayout);
+}
+
 void VulkanTutorialExtension::createGraphicsPipelines()
 {
 	VulkanTutorial::createGraphicsPipelines();
 
 	createPipelineLayout(descriptorSetLayoutPointLights, pipelineLayoutPointLights);
 	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
-	createPointLightsGraphicsPipeline();
-	createObjectGraphicsPipelines();
+	createPipelineLayout(lightingPassDescriptorSetLayout, lightingPassPipelineLayout);
+	
+	VkGraphicsPipelineCreateInfo GraphicsPipelineCreateInfo = getGraphicsPipelineCreateInfo();
+
+	// point light objects
+	auto vertShaderCode = readFile("shaders/shadervert.spv");
+	auto fragShaderCode = readFile("shaders/shaderfrag.spv");
+
+	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
+	Vertex::getBindingDescriptions(bindingDescriptions);
+
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+	Vertex::getAttributeDescriptions(attributeDescriptions);
+
+	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertShaderStageInfo.module = vertShaderModule;
+	vertShaderStageInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	fragShaderStageInfo.module = fragShaderModule;
+	fragShaderStageInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	// the number of vertex buffer.
+	vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
+	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+	vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+	GraphicsPipelineCreateInfo.stageCount = 2;
+	GraphicsPipelineCreateInfo.pStages = shaderStages;
+	GraphicsPipelineCreateInfo.pVertexInputState = &vertexInputInfo;
+	GraphicsPipelineCreateInfo.layout = pipelineLayoutPointLights;
+	GraphicsPipelineCreateInfo.renderPass = renderPass;
+
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &graphicsPipelinePointLights) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create graphics pipeline");
+	}
+
+	vkDestroyShaderModule(device, vertShaderModule, nullptr);
+	vkDestroyShaderModule(device, fragShaderModule, nullptr);
+
+	// objects
+
+	vertShaderCode = readFile("shaders/shadervert.spv");
+	fragShaderCode = readFile("shaders/shaderfrag.spv");
+
+	vertShaderModule = createShaderModule(vertShaderCode);
+	fragShaderModule = createShaderModule(fragShaderCode);
+
+	vertShaderStageInfo.module = vertShaderModule;
+	fragShaderStageInfo.module = fragShaderModule;
+
+	shaderStages[0] = vertShaderStageInfo;
+	shaderStages[1] = fragShaderStageInfo;
+
+	GraphicsPipelineCreateInfo.stageCount = 2;
+	GraphicsPipelineCreateInfo.pStages = shaderStages;
+	GraphicsPipelineCreateInfo.pVertexInputState = &vertexInputInfo;
+	GraphicsPipelineCreateInfo.layout = pipelineLayoutObject;
+	GraphicsPipelineCreateInfo.renderPass = renderPass;
+
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create graphics pipeline");
+	}
+
+	vkDestroyShaderModule(device, vertShaderModule, nullptr);
+	vkDestroyShaderModule(device, fragShaderModule, nullptr);
+
+	// lightpass
+
+	fragShaderCode = readFile("shaders/LightingPassfrag.spv");
+
+	fragShaderModule = createShaderModule(fragShaderCode);
+
+	fragShaderStageInfo.module = fragShaderModule;
+
+	GraphicsPipelineCreateInfo.stageCount = 1;
+	GraphicsPipelineCreateInfo.pStages = &fragShaderStageInfo;
+	GraphicsPipelineCreateInfo.pVertexInputState = nullptr;
+	GraphicsPipelineCreateInfo.layout = lightingPassPipelineLayout;
+	GraphicsPipelineCreateInfo.renderPass = deferred.renderPass;
+
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &lightingPassPipeline) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create graphics pipeline");
+	}
+
+	vkDestroyShaderModule(device, fragShaderModule, nullptr);
+
+	//createPointLightsGraphicsPipeline();
+	//createObjectGraphicsPipelines();
+	//createLightingPassGraphicsPipelines();
 }
 
 void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
@@ -416,6 +582,14 @@ void VulkanTutorialExtension::createObjectGraphicsPipelines()
 	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, bindingDescriptions, attributeDescriptions, graphicsPipelineObject);
 }
 
+void VulkanTutorialExtension::createLightingPassGraphicsPipelines()
+{
+	auto ShaderFragCode = readFile("shaders/LightingPassfrag.spv");
+
+	createGraphicsPipeline(std::vector<char>(), ShaderFragCode, lightingPassPipelineLayout, std::vector<VkVertexInputBindingDescription>(), std::vector<VkVertexInputAttributeDescription>(), lightingPassPipeline);
+}
+
+
 void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
 {
 	VulkanTutorial::RecordRenderPassCommands(commandBuffer, i);
@@ -447,6 +621,14 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
 	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instanceCount), 0, 0, 0);
 
+	// Lighting Pass
+	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPassPipeline);
+	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPassPipelineLayout, 0, 1, &lightingPassDescriptorSets[i], 0, nullptr);
+	// Final composition
+	// This is done by simply drawing a full screen quad
+	// The fragment shader then combines the deferred attachments into the final image
+	// Note: Also used for debug display if debugDisplayTarget > 0
+	vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
 }
 
 void VulkanTutorialExtension::createInstanceBuffer(uint32_t imageIndex)

@@ -55,10 +55,13 @@ private:
 
 	
 	void createObjectGraphicsPipelines();
+	void createLightingPassGraphicsPipelines();
 	void createPointLightsGraphicsPipeline();
 	void createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
+	void createLightingPassDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetLayoutsForObjects();
+	void createLightingPassDescriptorSetLayout();
 	void createDescriptorSetLayoutsForPointLights();
 	void createInstanceBuffer(uint32_t imageIndex);
 	void setWindowFocused(int inFocused);
@@ -114,6 +117,12 @@ private:
 	std::array<std::vector<VkDescriptorSet>, NR_POINT_LIGHTS> descriptorSetsPointLights;
 	std::vector<int> previousActivePointLightsMask;
 	int activePointLightsMask = 0;
+
+	// 라이팅 패스
+	VkPipeline lightingPassPipeline;
+	VkPipelineLayout lightingPassPipelineLayout;
+	VkDescriptorSetLayout lightingPassDescriptorSetLayout;
+	std::vector<VkDescriptorSet> lightingPassDescriptorSets;
 
 	Camera camera;
 

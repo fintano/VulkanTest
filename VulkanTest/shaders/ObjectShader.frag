@@ -76,9 +76,11 @@ void main()
     // 
     outPosition = fragPos;
     outNormal = normalize(fragNormal);
-    outColorSpecular.rgb = texture(texSampler, fragTexCoord).rgb;
-    outColorSpecular.a = 0;
+    outColorSpecular.rgb = texture(texSampler, fragTexCoord).rgb * material.diffuse;
+    outColorSpecular.a = material.specular.r; // r,g,b가 동일하다고 가정한다.
     //outColor = vec4(result, 1.0) * texture(texSampler, fragTexCoord);
+
+    outColor = vec4(outNormal, 1.0);
 }
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir)
