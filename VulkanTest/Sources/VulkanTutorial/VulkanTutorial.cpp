@@ -694,85 +694,21 @@ VulkanTutorial::VulkanTutorial()
 	}
 
 	void VulkanTutorial::createRenderPass() {
+		/*
+		 * Create default render pass 
+		 */
 		
-		//std::array<VkAttachmentDescription, 4> colorAttachments = {};
-		//for (VkAttachmentDescription& colorAttachment : colorAttachments)
-		//{
-		//	colorAttachment.samples = msaaSamples;
-		//	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		//	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		//	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		//	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		//	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		//	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		//}
-
-		//// position, normal, colorSpecular, color
-		//colorAttachments[0].format = VK_FORMAT_R16G16B16A16_SFLOAT;
-		//colorAttachments[1].format = VK_FORMAT_R16G16B16A16_SFLOAT;
-		//colorAttachments[2].format = VK_FORMAT_R8G8B8A8_UNORM;
-		//colorAttachments[3].format = swapChainImageFormat;
-
-		//std::array<VkAttachmentReference, 4> colorAttachmentRefs = {{
-		//	{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-		//	{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-		//	{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-		//	{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
-		//}};
-		//
-		//VkAttachmentReference depthAttachmentRef{};
-		//depthAttachmentRef.attachment = 4;
-		//depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		///*VkAttachmentReference colorAttachmentResolveRef{};
-		//colorAttachmentResolveRef.attachment = 5;
-		//colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;*/
-
-		//std::array<VkAttachmentReference, 4> resolveRefs = { {
-		//	{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
-		//	{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
-		//	{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
-		//	{5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
-		//} };
-
-		//VkSubpassDescription subpass{};
-		//subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		//subpass.colorAttachmentCount = 4;
-		//subpass.pColorAttachments = colorAttachmentRefs.data();
-		//subpass.pDepthStencilAttachment = &depthAttachmentRef;
-		//subpass.pResolveAttachments = resolveRefs.data();
-
-		//VkSubpassDependency dependency{};
-		//dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		//dependency.dstSubpass = 0;
-		//dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		//dependency.srcAccessMask = 0;
-		//dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		//dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		//std::array<VkAttachmentDescription, 6> attachments = { colorAttachments[0], colorAttachments[1], colorAttachments[2], colorAttachments[3], depthAttachment, colorAttachmentResolve };
-		//VkRenderPassCreateInfo renderPassInfo{};
-		//renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		//renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		//renderPassInfo.pAttachments = attachments.data();
-		//renderPassInfo.subpassCount = 1;
-		//renderPassInfo.pSubpasses = &subpass;
-		//renderPassInfo.dependencyCount = 1;
-		//renderPassInfo.pDependencies = &dependency;
-
-		//if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-		//	throw std::runtime_error("failed to create render pass!");
-		//}
-
 		VkRenderPassCreateInfo renderPassInfo = getRenderPassInfo();
 
 		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create render pass!");
 		}
 
-		// Create a render pass for deferred rendering
+		/*
+		 * Create a render pass for deferred rendering (Basepass)
+		 */ 
 
-		std::array<VkAttachmentDescription, 4> colorAttachments = {};
+		std::array<VkAttachmentDescription, 3> colorAttachments = {};
 		for (VkAttachmentDescription& colorAttachment : colorAttachments)
 		{
 			colorAttachment.samples = msaaSamples;
@@ -784,11 +720,10 @@ VulkanTutorial::VulkanTutorial()
 			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
 
-		// position, normal, colorSpecular, color
+		// position, normal, colorSpecular
 		colorAttachments[0].format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		colorAttachments[1].format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		colorAttachments[2].format = VK_FORMAT_R8G8B8A8_UNORM;
-		colorAttachments[3].format = swapChainImageFormat;
 
 		VkAttachmentDescription depthAttachment{};
 		depthAttachment.format = findDepthFormat();
@@ -800,42 +735,24 @@ VulkanTutorial::VulkanTutorial()
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		VkAttachmentDescription colorAttachmentResolve{};
-		colorAttachmentResolve.format = swapChainImageFormat;
-		colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-		std::array<VkAttachmentReference, 4> colorAttachmentRefs = { {
+		std::array<VkAttachmentReference, 3> colorAttachmentRefs = { {
 			{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-			{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-			{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+			{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		} };
 
 		VkAttachmentReference depthAttachmentRef{};
-		depthAttachmentRef.attachment = 4;
+		depthAttachmentRef.attachment = 3;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		std::array<VkAttachmentReference, 4> resolveRefs = { {
-			{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
-			{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
-			{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED},
-			{5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
-		} };
 
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 4;
+		subpass.colorAttachmentCount = 3;
 		subpass.pColorAttachments = colorAttachmentRefs.data();
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-		subpass.pResolveAttachments = resolveRefs.data();
+		subpass.pResolveAttachments = nullptr;
 
-		std::array<VkAttachmentDescription, 6> attachments = { colorAttachments[0], colorAttachments[1], colorAttachments[2], colorAttachments[3], depthAttachment, colorAttachmentResolve };
+		std::array<VkAttachmentDescription, 4> attachments = { colorAttachments[0], colorAttachments[1], colorAttachments[2], depthAttachment };
 
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 		renderPassInfo.pAttachments = attachments.data();
@@ -941,20 +858,20 @@ VulkanTutorial::VulkanTutorial()
 		multisampling.sampleShadingEnable = VK_FALSE;
 		multisampling.rasterizationSamples = msaaSamples;
 
-		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		colorBlendAttachment.blendEnable = VK_FALSE;
+		//VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+		//colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		//colorBlendAttachment.blendEnable = VK_FALSE;
 
-		VkPipelineColorBlendStateCreateInfo colorBlending{};
-		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		colorBlending.logicOpEnable = VK_FALSE;
-		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.attachmentCount = 1;
-		colorBlending.pAttachments = &colorBlendAttachment;
-		colorBlending.blendConstants[0] = 0.0f;
-		colorBlending.blendConstants[1] = 0.0f;
-		colorBlending.blendConstants[2] = 0.0f;
-		colorBlending.blendConstants[3] = 0.0f;
+		//VkPipelineColorBlendStateCreateInfo colorBlending{};
+		//colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		//colorBlending.logicOpEnable = VK_FALSE;
+		//colorBlending.logicOp = VK_LOGIC_OP_COPY;
+		//colorBlending.attachmentCount = 1;
+		//colorBlending.pAttachments = &colorBlendAttachment;
+		//colorBlending.blendConstants[0] = 0.0f;
+		//colorBlending.blendConstants[1] = 0.0f;
+		//colorBlending.blendConstants[2] = 0.0f;
+		//colorBlending.blendConstants[3] = 0.0f;
 
 		/*VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -986,7 +903,7 @@ VulkanTutorial::VulkanTutorial()
 		pipelineInfo.pRasterizationState = &rasterizer;
 		pipelineInfo.pMultisampleState = &multisampling;
 		pipelineInfo.pDepthStencilState = &depthStencilInfo;
-		pipelineInfo.pColorBlendState = &colorBlending;
+		//pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = nullptr;
 		// pipeline layout.
 		//pipelineInfo.layout = inPipelineLayout;
@@ -1182,26 +1099,36 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::createFrameBuffers()
 	{
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = renderPass;
+		framebufferInfo.height = swapChainExtent.height;
+		framebufferInfo.width = swapChainExtent.width;
+		framebufferInfo.layers = 1;
+
 		swapChainFrameBuffers.resize(swapChainImageViews.size());
 
 		for (size_t i = 0; i < swapChainImageViews.size(); i++)
 		{
-			std::array<VkImageView, 6> attachments = {
-			deferred.position.ImageView, deferred.normal.ImageView, deferred.colorSpecular.ImageView, colorImageView, depthImageView, swapChainImageViews[i] };
+			std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
 
-			VkFramebufferCreateInfo framebufferInfo{};
-			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebufferInfo.renderPass = deferred.renderPass;
 			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 			framebufferInfo.pAttachments = attachments.data();
-			framebufferInfo.height = swapChainExtent.height;
-			framebufferInfo.width = swapChainExtent.width;
-			framebufferInfo.layers = 1;
 
 			if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFrameBuffers[i]) != VK_SUCCESS)
 			{
 				std::runtime_error("failed to create framebuffer!");
 			}
+		}
+
+		std::array<VkImageView, 3> attachments = { deferred.position.ImageView, deferred.normal.ImageView, deferred.colorSpecular.ImageView };
+
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		framebufferInfo.pAttachments = attachments.data();
+
+		if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &deferred.frameBuffer) != VK_SUCCESS)
+		{
+			std::runtime_error("failed to create framebuffer!");
 		}
 	}
 
@@ -1892,16 +1819,40 @@ VulkanTutorial::VulkanTutorial()
 		{
 			throw std::runtime_error("failed to begin recording command buffer!");
 		}
+		
+		/**
+		* BasePass
+		*/
 
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = swapChainFrameBuffers[i];
+		renderPassInfo.renderPass = deferred.renderPass;
+		renderPassInfo.framebuffer = deferred.frameBuffer;
 		renderPassInfo.renderArea.offset = { 0,0 };
 		renderPassInfo.renderArea.extent = swapChainExtent;
 
 		// define the clear values for vk_attachment_load_op_clear.
-		std::array<VkClearValue, 5> clearValues{};
+		std::array<VkClearValue, 4> clearValues{};
+		clearValues[0].color = { { 0.f, 0.f, 0.f, 1.f } };
+		clearValues[1].color = { { 0.f, 0.f, 0.f, 1.f } };
+		clearValues[2].color = { { 0.f, 0.f, 0.f, 1.f } };
+		clearValues[3].depthStencil = { 1.f, 0 };
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		RecordRenderPassCommands(commandBuffers[i], i);
+		vkCmdEndRenderPass(commandBuffers[i]);
+
+		/**
+		* LightingPass
+		*/
+
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = swapChainFrameBuffers[i];
+
+		// define the clear values for vk_attachment_load_op_clear.
+		std::array<VkClearValue, 3> clearValues{};
 		clearValues[0].color = { { 0.f, 0.f, 0.f, 1.f } };
 		clearValues[1].color = { { 0.f, 0.f, 0.f, 1.f } };
 		clearValues[2].color = { { 0.f, 0.f, 0.f, 1.f } };

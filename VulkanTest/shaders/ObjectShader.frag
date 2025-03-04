@@ -52,7 +52,7 @@ layout(location = 3) in vec3 fragPos;
 layout(location = 0) out vec3 outPosition;
 layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec4 outColorSpecular;
-layout(location = 3) out vec4 outColor;
+//layout(location = 3) out vec4 outColor;
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir);
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
@@ -80,7 +80,7 @@ void main()
     outColorSpecular.a = material.specular.r; // r,g,b가 동일하다고 가정한다.
     //outColor = vec4(result, 1.0) * texture(texSampler, fragTexCoord);
 
-    outColor = vec4(outNormal, 1.0);
+    //outColor = vec4(outNormal, 1.0);
 }
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir)

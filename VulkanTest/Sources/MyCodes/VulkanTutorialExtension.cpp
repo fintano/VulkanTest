@@ -484,11 +484,37 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
+	auto DefaultPipelineColorBlendAttachmentState = [](){
+		VkPipelineColorBlendAttachmentState State{};
+		State.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		State.blendEnable = VK_FALSE;
+		return State;
+	};
+
+	std::array<VkPipelineColorBlendAttachmentState, 3> colorBlendAttachments =
+	{
+		DefaultPipelineColorBlendAttachmentState(),
+		DefaultPipelineColorBlendAttachmentState(),
+		DefaultPipelineColorBlendAttachmentState()
+	};
+
+	VkPipelineColorBlendStateCreateInfo colorBlending{};
+	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	colorBlending.logicOpEnable = VK_FALSE;
+	colorBlending.logicOp = VK_LOGIC_OP_COPY;
+	colorBlending.attachmentCount = colorBlendAttachments.size();
+	colorBlending.pAttachments = colorBlendAttachments.data();
+	colorBlending.blendConstants[0] = 0.0f;
+	colorBlending.blendConstants[1] = 0.0f;
+	colorBlending.blendConstants[2] = 0.0f;
+	colorBlending.blendConstants[3] = 0.0f;
+
 	GraphicsPipelineCreateInfo.stageCount = 2;
 	GraphicsPipelineCreateInfo.pStages = shaderStages;
 	GraphicsPipelineCreateInfo.pVertexInputState = &vertexInputInfo;
 	GraphicsPipelineCreateInfo.layout = pipelineLayoutPointLights;
-	GraphicsPipelineCreateInfo.renderPass = renderPass;
+	GraphicsPipelineCreateInfo.renderPass = deferred.renderPass;
+	GraphicsPipelineCreateInfo.pColorBlendState = &colorBlending;
 
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &graphicsPipelinePointLights) != VK_SUCCESS)
 	{
@@ -516,7 +542,8 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	GraphicsPipelineCreateInfo.pStages = shaderStages;
 	GraphicsPipelineCreateInfo.pVertexInputState = &vertexInputInfo;
 	GraphicsPipelineCreateInfo.layout = pipelineLayoutObject;
-	GraphicsPipelineCreateInfo.renderPass = renderPass;
+	GraphicsPipelineCreateInfo.renderPass = deferred.renderPass;
+	GraphicsPipelineCreateInfo.pColorBlendState = &colorBlending;
 
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
 	{
@@ -538,7 +565,16 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	GraphicsPipelineCreateInfo.pStages = &fragShaderStageInfo;
 	GraphicsPipelineCreateInfo.pVertexInputState = nullptr;
 	GraphicsPipelineCreateInfo.layout = lightingPassPipelineLayout;
-	GraphicsPipelineCreateInfo.renderPass = deferred.renderPass;
+	GraphicsPipelineCreateInfo.renderPass = renderPass;
+
+	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.blendEnable = VK_FALSE;
+
+	colorBlending.attachmentCount = 1;
+	colorBlending.pAttachments = &colorBlendAttachment;
+
+	GraphicsPipelineCreateInfo.pColorBlendState = &colorBlending;
 
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &lightingPassPipeline) != VK_SUCCESS)
 	{
