@@ -19,25 +19,26 @@ struct PointLight
     vec3 specular;
 };
 
-layout(binding = 1) uniform ColorUBO {
+layout(std140,binding = 0) uniform ColorUBO {
     vec3 objectColor;
     vec3 lightColor;
     //vec3 lightPos;
     vec3 viewPos;
+    uvec4 debug;
 } colorUbo;
 
-layout(binding = 2) uniform dirLightUniform {
+layout(binding = 1) uniform dirLightUniform {
     DirLight dirLight;
 };
 
-layout(binding = 3) uniform pointLightsUniform {
+layout(binding = 2) uniform pointLightsUniform {
     PointLight pointLights[NR_POINT_LIGHTS];
     int activeLightMask;
 };
 
-layout(binding = 4) uniform sampler2D position;
-layout(binding = 5) uniform sampler2D normal;
-layout(binding = 6) uniform sampler2D colorSpecular;
+layout(binding = 3) uniform sampler2D position;
+layout(binding = 4) uniform sampler2D normal;
+layout(binding = 5) uniform sampler2D colorSpecular;
 
 layout(location = 0) in vec2 texCoords;
 
@@ -48,7 +49,36 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
 
 void main()
 {
-    vec3 fragPos = texture(position, texCoords).rgb;
+    uint displayDebugTarget = colorUbo.debug.x;
+    if(displayDebugTarget == 1)
+    {
+         // 텍스처 좌표를 2배로 키움 (사분할 화면)
+        vec2 quadTexCoords = texCoords * 2.0;
+
+        // 각 사분면을 계산
+         vec3 fragPos_Debug = texture(position, quadTexCoords).rgb;
+         vec3 fragNormal_Debug = texture(normal, quadTexCoords).rgb;
+         vec3 fragColor_Debug = texture(colorSpecular, quadTexCoords).rgb;
+         vec3 fragSpecular_Debug = texture(colorSpecular, quadTexCoords).aaa;
+
+        // 사분면마다 다른 계산을 수행
+        // 사분면을 구분하는 수학적 표현
+        float xInFirstHalf = step(quadTexCoords.x, 1.0);
+        float yInFirstHalf = step(quadTexCoords.y, 1.0);
+    
+        // 각 사분면에 대해 텍스처 좌표 계산
+        fragPos_Debug *= xInFirstHalf * yInFirstHalf;
+        fragNormal_Debug *= xInFirstHalf * (1.0 - yInFirstHalf);
+        fragColor_Debug *= (1.0 - xInFirstHalf) * yInFirstHalf;
+        fragSpecular_Debug *= (1.0 - xInFirstHalf) * (1.0 - yInFirstHalf);
+
+        outColor = vec4(fragPos_Debug + fragNormal_Debug + fragColor_Debug + fragSpecular_Debug, 1.0);
+
+        return;
+    }
+    else
+    {
+    vec3 fragPos = texture(position, texCoords * 2).rgb;
     vec3 fragNormal = texture(normal, texCoords).rgb;
     vec4 fragColorSpecular = texture(colorSpecular, texCoords);
     vec3 fragColor = fragColorSpecular.rgb;
@@ -70,7 +100,8 @@ void main()
     // phase 3: Spot Light 
      
 
-    outColor = vec4(result, 1.0);
+     outColor = vec4(result, 1.0);
+     }
 }
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec3 albedo, float specular)

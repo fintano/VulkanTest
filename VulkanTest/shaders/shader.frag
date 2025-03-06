@@ -8,7 +8,7 @@ layout(location = 3) in vec3 fragPos;
 layout(location = 0) out vec3 outPosition;
 layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec4 outColorSpecular;
-layout(location = 3) out vec4 outColor;
+//layout(location = 3) out vec4 outColor;
 
 void main()
 {
@@ -16,5 +16,5 @@ void main()
     outNormal = fragNormal;
     outColorSpecular.rgb = fragColor.rgb;
     outColorSpecular.a = 1.0;
-    outColor = vec4(1.0);
+    //outColor = vec4(1.0);
 }

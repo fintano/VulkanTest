@@ -97,6 +97,11 @@ void ImGui::ShowVulkanWindow(bool* p_open)
 		ImGui::SliderFloat("pointLightQuadratic", &VulkanTutorialExtension::pointLightQuadratic, 0.0f, 1.0f, "%.3f", flags_for_sliders);
 	}
 
+	if (ImGui::CollapsingHeader("Debug"))
+	{
+		ImGui::Checkbox("GBuffers", &VulkanTutorialExtension::debugGBuffers);
+	}
+
 	ImGui::Spacing();	
 	ImGui::PrintDebugString();
 

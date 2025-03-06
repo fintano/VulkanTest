@@ -10,6 +10,7 @@
 int VulkanTutorialExtension::instanceCount = 2;
 int VulkanTutorialExtension::maxInstanceCount = instanceCount;
 bool VulkanTutorialExtension::useDirectionalLight = false;
+bool VulkanTutorialExtension::debugGBuffers = false;
 bool VulkanTutorialExtension::usePointLights = true;
 std::array<bool, NR_POINT_LIGHTS> VulkanTutorialExtension::pointLightsSwitch;
 float VulkanTutorialExtension::pointLightlinear = 0.09f;
@@ -238,7 +239,6 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 	{
 		throw std::runtime_error("failed to allocate descriptor sets!");
 	}
-
 	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
 	// binding 순서대로 index가 부여된다. shader와 일치해야한다.
 	for (size_t i = 0; i < swapChainImages.size(); i++)
@@ -255,15 +255,15 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 
 		// position
-		VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(position.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(deferred.position.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &positionImageInfo, nullptr, descriptorWrites);
 
 		// normal 
-		VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(normal.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(deferred.normal.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &normalImageInfo, nullptr, descriptorWrites);
 
 		// color + specular
-		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(colorSpecular.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(deferred.colorSpecular.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &colorSpecularImageInfo, nullptr, descriptorWrites);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -311,10 +311,10 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	objectTransformUniformBuffer.CopyData(currentImage, { ubo });
 
 	ColorUBO colorUbo;
-	colorUbo.objectColor = glm::vec3(1.0f, 0.5f, 0.31f);
-	colorUbo.lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+	colorUbo.objectColor = glm::vec3(1.0f, 0.0f, 0.0f);
+	colorUbo.lightColor = glm::vec3(0.0f, 0.0f, 0.0f);
 	colorUbo.viewPos = camera.Position;
-
+	colorUbo.Debug.x = debugGBuffers;
 	colorUniformBuffer.CopyData(currentImage, { colorUbo });
 
 	// Material 
@@ -429,6 +429,13 @@ void VulkanTutorialExtension::createDescriptorSetLayoutsForObjects()
 void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
+
+	//	colorUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	dirLightUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	pointLightsUniformBuffer
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	//	position
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	//	normal
@@ -447,7 +454,65 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
 	createPipelineLayout(lightingPassDescriptorSetLayout, lightingPassPipelineLayout);
 	
-	VkGraphicsPipelineCreateInfo GraphicsPipelineCreateInfo = getGraphicsPipelineCreateInfo();
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = (float)swapChainExtent.width;
+	viewport.height = (float)swapChainExtent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent = swapChainExtent;
+
+	VkPipelineViewportStateCreateInfo viewportState{};
+	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportState.viewportCount = 1;
+	viewportState.pViewports = &viewport;
+	viewportState.scissorCount = 1;
+	viewportState.pScissors = &scissor;
+
+	VkPipelineRasterizationStateCreateInfo rasterizer{};
+	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizer.depthClampEnable = VK_FALSE;
+	rasterizer.rasterizerDiscardEnable = VK_FALSE;
+	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizer.lineWidth = 1.0f;
+	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	rasterizer.depthBiasEnable = VK_FALSE;
+
+	VkPipelineMultisampleStateCreateInfo multisampling{};
+	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampling.sampleShadingEnable = VK_FALSE;
+	multisampling.rasterizationSamples = msaaSamples;
+
+	VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
+	depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilInfo.depthTestEnable = VK_TRUE;
+	depthStencilInfo.depthWriteEnable = VK_TRUE;
+	depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS; // lower depth == closer
+	depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
+	depthStencilInfo.stencilTestEnable = VK_FALSE;
+
+	VkGraphicsPipelineCreateInfo pipelineInfo{};
+	// shader modules
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineInfo.pInputAssemblyState = &inputAssembly;
+	pipelineInfo.pViewportState = &viewportState;
+	pipelineInfo.pRasterizationState = &rasterizer;
+	pipelineInfo.pMultisampleState = &multisampling;
+	pipelineInfo.pDepthStencilState = &depthStencilInfo;
+	pipelineInfo.pDynamicState = nullptr;
+	pipelineInfo.subpass = 0; // index of the subpass where this graphics pipeline will be used.
+	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineInfo.basePipelineIndex = -1;
 
 	// point light objects
 	auto vertShaderCode = readFile("shaders/shadervert.spv");
@@ -509,14 +574,14 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	colorBlending.blendConstants[2] = 0.0f;
 	colorBlending.blendConstants[3] = 0.0f;
 
-	GraphicsPipelineCreateInfo.stageCount = 2;
-	GraphicsPipelineCreateInfo.pStages = shaderStages;
-	GraphicsPipelineCreateInfo.pVertexInputState = &vertexInputInfo;
-	GraphicsPipelineCreateInfo.layout = pipelineLayoutPointLights;
-	GraphicsPipelineCreateInfo.renderPass = deferred.renderPass;
-	GraphicsPipelineCreateInfo.pColorBlendState = &colorBlending;
+	pipelineInfo.stageCount = 2;
+	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.pVertexInputState = &vertexInputInfo;
+	pipelineInfo.layout = pipelineLayoutPointLights;
+	pipelineInfo.renderPass = deferred.renderPass;
+	pipelineInfo.pColorBlendState = &colorBlending;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &graphicsPipelinePointLights) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelinePointLights) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline");
 	}
@@ -526,8 +591,11 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 	// objects
 
-	vertShaderCode = readFile("shaders/shadervert.spv");
-	fragShaderCode = readFile("shaders/shaderfrag.spv");
+	Instance::getBindingDescriptions(bindingDescriptions);
+	Instance::getAttributeDescriptions(attributeDescriptions);
+
+	vertShaderCode = readFile("shaders/ObjectShadervert.spv");
+	fragShaderCode = readFile("shaders/ObjectShaderfrag.spv");
 
 	vertShaderModule = createShaderModule(vertShaderCode);
 	fragShaderModule = createShaderModule(fragShaderCode);
@@ -538,14 +606,21 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	shaderStages[0] = vertShaderStageInfo;
 	shaderStages[1] = fragShaderStageInfo;
 
-	GraphicsPipelineCreateInfo.stageCount = 2;
-	GraphicsPipelineCreateInfo.pStages = shaderStages;
-	GraphicsPipelineCreateInfo.pVertexInputState = &vertexInputInfo;
-	GraphicsPipelineCreateInfo.layout = pipelineLayoutObject;
-	GraphicsPipelineCreateInfo.renderPass = deferred.renderPass;
-	GraphicsPipelineCreateInfo.pColorBlendState = &colorBlending;
+	vertexInputInfo = {};
+	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
+	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+	vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
+	pipelineInfo.stageCount = 2;
+	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.pVertexInputState = &vertexInputInfo;
+	pipelineInfo.layout = pipelineLayoutObject;
+	pipelineInfo.renderPass = deferred.renderPass;
+	pipelineInfo.pColorBlendState = &colorBlending;
+
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline");
 	}
@@ -554,18 +629,24 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
 
 	// lightpass
-
+	vertShaderCode = readFile("shaders/LightingPassvert.spv");
 	fragShaderCode = readFile("shaders/LightingPassfrag.spv");
 
+	vertShaderModule = createShaderModule(vertShaderCode);
 	fragShaderModule = createShaderModule(fragShaderCode);
 
+	vertShaderStageInfo.module = vertShaderModule;
 	fragShaderStageInfo.module = fragShaderModule;
 
-	GraphicsPipelineCreateInfo.stageCount = 1;
-	GraphicsPipelineCreateInfo.pStages = &fragShaderStageInfo;
-	GraphicsPipelineCreateInfo.pVertexInputState = nullptr;
-	GraphicsPipelineCreateInfo.layout = lightingPassPipelineLayout;
-	GraphicsPipelineCreateInfo.renderPass = renderPass;
+	shaderStages[0] = vertShaderStageInfo;
+	shaderStages[1] = fragShaderStageInfo;
+
+	// empty input state
+	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInputInfo.vertexBindingDescriptionCount = 0;
+	vertexInputInfo.pVertexBindingDescriptions = nullptr;
+	vertexInputInfo.vertexAttributeDescriptionCount = 0;
+	vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -574,18 +655,21 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	colorBlending.attachmentCount = 1;
 	colorBlending.pAttachments = &colorBlendAttachment;
 
-	GraphicsPipelineCreateInfo.pColorBlendState = &colorBlending;
+	// NOTE : 이게 핵심이다. BACK_FACE_CULLING으로 하니까 안나오네. 
+	rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &GraphicsPipelineCreateInfo, nullptr, &lightingPassPipeline) != VK_SUCCESS)
+	pipelineInfo.stageCount = 2;
+	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.layout = lightingPassPipelineLayout;
+	pipelineInfo.renderPass = renderPass;
+
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &lightingPassPipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline");
 	}
 
+	vkDestroyShaderModule(device, vertShaderModule, nullptr);
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
-
-	//createPointLightsGraphicsPipeline();
-	//createObjectGraphicsPipelines();
-	//createLightingPassGraphicsPipelines();
 }
 
 void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
@@ -625,10 +709,9 @@ void VulkanTutorialExtension::createLightingPassGraphicsPipelines()
 	createGraphicsPipeline(std::vector<char>(), ShaderFragCode, lightingPassPipelineLayout, std::vector<VkVertexInputBindingDescription>(), std::vector<VkVertexInputAttributeDescription>(), lightingPassPipeline);
 }
 
-
-void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
+void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
 {
-	VulkanTutorial::RecordRenderPassCommands(commandBuffer, i);
+	VulkanTutorial::recordRenderPassCommands(commandBuffer, i);
 
 	VkBuffer vertexBuffers[]{ vertexBuffer };
 	VkDeviceSize offsets[]{ 0 };
@@ -656,15 +739,6 @@ void VulkanTutorialExtension::RecordRenderPassCommands(VkCommandBuffer commandBu
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
 	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
 	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instanceCount), 0, 0, 0);
-
-	// Lighting Pass
-	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPassPipeline);
-	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPassPipelineLayout, 0, 1, &lightingPassDescriptorSets[i], 0, nullptr);
-	// Final composition
-	// This is done by simply drawing a full screen quad
-	// The fragment shader then combines the deferred attachments into the final image
-	// Note: Also used for debug display if debugDisplayTarget > 0
-	vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
 }
 
 void VulkanTutorialExtension::createInstanceBuffer(uint32_t imageIndex)

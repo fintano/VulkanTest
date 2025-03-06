@@ -26,3 +26,7 @@ ipch
 *.spv
 VulkanTest/shaders/compile.bat
 VulkanTest/imgui.ini
+
+*.patch
+*.exe
+*.pdb

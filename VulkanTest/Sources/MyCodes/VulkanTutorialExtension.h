@@ -19,6 +19,7 @@ public:
 	static int instanceCount;
 	static int maxInstanceCount;
 	static bool useDirectionalLight;
+	static bool debugGBuffers;
 	static bool usePointLights;
 	static std::array<bool, NR_POINT_LIGHTS> pointLightsSwitch;
 	static float pointLightlinear;
@@ -39,7 +40,7 @@ private:
 	void clearUniformBuffer(uint32_t i) override;
 	void createDescriptorSetLayouts() override;
 	void createGraphicsPipelines() override;
-	void RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
+	void recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
 	void loadModel() override;
 	void createBuffers() override;
 	void recreateSwapChain() override;
@@ -117,12 +118,6 @@ private:
 	std::array<std::vector<VkDescriptorSet>, NR_POINT_LIGHTS> descriptorSetsPointLights;
 	std::vector<int> previousActivePointLightsMask;
 	int activePointLightsMask = 0;
-
-	// 라이팅 패스
-	VkPipeline lightingPassPipeline;
-	VkPipelineLayout lightingPassPipelineLayout;
-	VkDescriptorSetLayout lightingPassDescriptorSetLayout;
-	std::vector<VkDescriptorSet> lightingPassDescriptorSets;
 
 	Camera camera;
 

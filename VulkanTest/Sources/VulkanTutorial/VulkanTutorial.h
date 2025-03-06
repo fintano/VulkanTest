@@ -81,7 +81,7 @@ protected:
 	virtual void clearUniformBuffer(uint32_t i);
 	virtual void createDescriptorSetLayouts();
 	virtual void createGraphicsPipelines();
-	virtual void RecordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
+	virtual void recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	virtual void cleanUpSwapchain();
 	virtual void loadModel();
 	virtual void createBuffers();
@@ -105,7 +105,6 @@ protected:
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice  device);
 	void createLogicalDevice();
 	void createSwapchain();
@@ -116,9 +115,7 @@ protected:
 	void createTextureImageView();
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createTextureSampler();
-	VkRenderPassCreateInfo getRenderPassInfo();
 	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings);
-	VkGraphicsPipelineCreateInfo getGraphicsPipelineCreateInfo();
 	void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& inPipelineLayout,
 		std::vector<VkVertexInputBindingDescription> bindingDescriptions, std::vector<VkVertexInputAttributeDescription> attributeDescriptions, VkPipeline& OutPipeline);
 	void createPipelineLayout(const VkDescriptorSetLayout& inDescriptorSetLayout, VkPipelineLayout& outPipelineLayout);
@@ -130,6 +127,7 @@ protected:
 	bool hasStencilComponent(VkFormat format);
 	void createTextureImage();
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
+	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
@@ -144,6 +142,7 @@ protected:
 	void copyBuffer(VkBuffer& srcBuffer, VkBuffer& dstBuffer, VkDeviceSize size);
 	VkCommandBuffer beginSingleTimeCommands();
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+	void recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	void createSyncObjects();
 	void mainLoop();
 
@@ -203,6 +202,12 @@ protected:
 	VkDeviceMemory textureImageMemory;
 	VkImageView textureImageView;
 	VkSampler textureSampler;
+
+	// 라이팅 패스
+	VkPipeline lightingPassPipeline;
+	VkPipelineLayout lightingPassPipelineLayout;
+	VkDescriptorSetLayout lightingPassDescriptorSetLayout;
+	std::vector<VkDescriptorSet> lightingPassDescriptorSets;
 
 	// GBuffers - 일단 이렇게 진행해본다.
 	struct FrameBufferAttachment

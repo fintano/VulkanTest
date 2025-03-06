@@ -10,10 +10,12 @@ struct Transform {
 };
 
 struct ColorUBO {
+
 	alignas(16) glm::vec3 objectColor;
 	alignas(16) glm::vec3 lightColor;
 	//alignas(16) glm::vec3 lightPos;
 	alignas(16) glm::vec3 viewPos;
+	alignas(16) glm::u32vec4 Debug;
 };
 
 struct Material {
