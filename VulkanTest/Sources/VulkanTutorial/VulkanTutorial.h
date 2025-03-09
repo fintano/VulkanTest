@@ -116,8 +116,9 @@ protected:
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createTextureSampler();
 	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings);
-	void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& inPipelineLayout,
+	/*void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& inPipelineLayout,
 		std::vector<VkVertexInputBindingDescription> bindingDescriptions, std::vector<VkVertexInputAttributeDescription> attributeDescriptions, VkPipeline& OutPipeline);
+	*/
 	void createPipelineLayout(const VkDescriptorSetLayout& inDescriptorSetLayout, VkPipelineLayout& outPipelineLayout);
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createColorResources();
@@ -204,12 +205,14 @@ protected:
 	VkSampler textureSampler;
 
 	// 라이팅 패스
-	VkPipeline lightingPassPipeline;
-	VkPipelineLayout lightingPassPipelineLayout;
-	VkDescriptorSetLayout lightingPassDescriptorSetLayout;
-	std::vector<VkDescriptorSet> lightingPassDescriptorSets;
+	struct LightingPass
+	{
+		VkPipeline Pipeline;
+		VkPipelineLayout PipelineLayout;
+		VkDescriptorSetLayout DescriptorSetLayout;
+		std::vector<VkDescriptorSet> DescriptorSets;
+	} lightingPass;
 
-	// GBuffers - 일단 이렇게 진행해본다.
 	struct FrameBufferAttachment
 	{
 		VkImage Image;
@@ -219,13 +222,13 @@ protected:
 		void Destroy(VkDevice device);
 	};
 
-	struct DeferredRenderer
+	struct GeometryPass
 	{
 		FrameBufferAttachment position, normal, colorSpecular;
 		VkRenderPass renderPass;
 		VkFramebuffer frameBuffer;
 
-	} deferred;
+	} geometry;
 	
 	VkImage colorImage;
 	VkDeviceMemory colorImageMemory;

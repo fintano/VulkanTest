@@ -155,7 +155,7 @@ void VulkanTutorialExtension::createDescriptorSets()
 		createDescriptorSetsPointLights(lightTransformUniformBuffer[lightIndex], descriptorSetsPointLights[lightIndex]);
 	}
 	createDescriptorSetsObject(descriptorSetsObject);
-	createLightingPassDescriptorSets(lightingPassDescriptorSets);
+	createLightingPassDescriptorSets(lightingPass.DescriptorSets);
 }
 
 void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets)
@@ -225,7 +225,7 @@ void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescripto
 
 void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets)
 {
-	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), lightingPassDescriptorSetLayout);
+	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), lightingPass.DescriptorSetLayout);
 
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -255,15 +255,15 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 
 		// position
-		VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(deferred.position.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(geometry.position.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &positionImageInfo, nullptr, descriptorWrites);
 
 		// normal 
-		VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(deferred.normal.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(geometry.normal.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &normalImageInfo, nullptr, descriptorWrites);
 
 		// color + specular
-		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(deferred.colorSpecular.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(geometry.colorSpecular.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &colorSpecularImageInfo, nullptr, descriptorWrites);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -443,7 +443,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 	//	color + specular 
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
-	createDescriptorSetLayout(bindings, lightingPassDescriptorSetLayout);
+	createDescriptorSetLayout(bindings, lightingPass.DescriptorSetLayout);
 }
 
 void VulkanTutorialExtension::createGraphicsPipelines()
@@ -452,8 +452,12 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 	createPipelineLayout(descriptorSetLayoutPointLights, pipelineLayoutPointLights);
 	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
-	createPipelineLayout(lightingPassDescriptorSetLayout, lightingPassPipelineLayout);
+	createPipelineLayout(lightingPass.DescriptorSetLayout, lightingPass.PipelineLayout);
 	
+	/*
+	* Default 
+	*/
+
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -578,7 +582,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.pStages = shaderStages;
 	pipelineInfo.pVertexInputState = &vertexInputInfo;
 	pipelineInfo.layout = pipelineLayoutPointLights;
-	pipelineInfo.renderPass = deferred.renderPass;
+	pipelineInfo.renderPass = geometry.renderPass;
 	pipelineInfo.pColorBlendState = &colorBlending;
 
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelinePointLights) != VK_SUCCESS)
@@ -589,7 +593,9 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vkDestroyShaderModule(device, vertShaderModule, nullptr);
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
 
-	// objects
+	/**
+	* For objects
+	*/ 
 
 	Instance::getBindingDescriptions(bindingDescriptions);
 	Instance::getAttributeDescriptions(attributeDescriptions);
@@ -617,7 +623,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.pStages = shaderStages;
 	pipelineInfo.pVertexInputState = &vertexInputInfo;
 	pipelineInfo.layout = pipelineLayoutObject;
-	pipelineInfo.renderPass = deferred.renderPass;
+	pipelineInfo.renderPass = geometry.renderPass;
 	pipelineInfo.pColorBlendState = &colorBlending;
 
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
@@ -628,7 +634,9 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vkDestroyShaderModule(device, vertShaderModule, nullptr);
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
 
-	// lightpass
+	/**
+	* For lightpass
+	*/
 	vertShaderCode = readFile("shaders/LightingPassvert.spv");
 	fragShaderCode = readFile("shaders/LightingPassfrag.spv");
 
@@ -660,10 +668,11 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 	pipelineInfo.stageCount = 2;
 	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.layout = lightingPassPipelineLayout;
+	pipelineInfo.layout = lightingPass.PipelineLayout;
 	pipelineInfo.renderPass = renderPass;
+	pipelineInfo.pDepthStencilState = nullptr;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &lightingPassPipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &lightingPass.Pipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline");
 	}
@@ -672,42 +681,42 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
 }
 
-void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
-{
-	auto vertShaderCode = readFile("shaders/shadervert.spv");
-	auto fragShaderCode = readFile("shaders/shaderfrag.spv");
+//void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
+//{
+//	auto vertShaderCode = readFile("shaders/shadervert.spv");
+//	auto fragShaderCode = readFile("shaders/shaderfrag.spv");
+//
+//	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
+//	Vertex::getBindingDescriptions(bindingDescriptions);
+//
+//	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+//	Vertex::getAttributeDescriptions(attributeDescriptions);
+//
+//	createGraphicsPipeline(vertShaderCode, fragShaderCode, pipelineLayoutPointLights, bindingDescriptions, attributeDescriptions, graphicsPipelinePointLights);
+//}
 
-	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
-	Vertex::getBindingDescriptions(bindingDescriptions);
+//void VulkanTutorialExtension::createObjectGraphicsPipelines()
+//{
+//	auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
+//	auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
+//
+//	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
+//	Vertex::getBindingDescriptions(bindingDescriptions);
+//	Instance::getBindingDescriptions(bindingDescriptions);
+//
+//	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+//	Vertex::getAttributeDescriptions(attributeDescriptions);
+//	Instance::getAttributeDescriptions(attributeDescriptions);
+//
+//	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, bindingDescriptions, attributeDescriptions, graphicsPipelineObject);
+//}
 
-	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-	Vertex::getAttributeDescriptions(attributeDescriptions);
-
-	createGraphicsPipeline(vertShaderCode, fragShaderCode, pipelineLayoutPointLights, bindingDescriptions, attributeDescriptions, graphicsPipelinePointLights);
-}
-
-void VulkanTutorialExtension::createObjectGraphicsPipelines()
-{
-	auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
-	auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
-
-	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
-	Vertex::getBindingDescriptions(bindingDescriptions);
-	Instance::getBindingDescriptions(bindingDescriptions);
-
-	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-	Vertex::getAttributeDescriptions(attributeDescriptions);
-	Instance::getAttributeDescriptions(attributeDescriptions);
-
-	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, bindingDescriptions, attributeDescriptions, graphicsPipelineObject);
-}
-
-void VulkanTutorialExtension::createLightingPassGraphicsPipelines()
-{
-	auto ShaderFragCode = readFile("shaders/LightingPassfrag.spv");
-
-	createGraphicsPipeline(std::vector<char>(), ShaderFragCode, lightingPassPipelineLayout, std::vector<VkVertexInputBindingDescription>(), std::vector<VkVertexInputAttributeDescription>(), lightingPassPipeline);
-}
+//void VulkanTutorialExtension::createLightingPassGraphicsPipelines()
+//{
+//	auto ShaderFragCode = readFile("shaders/LightingPassfrag.spv");
+//
+//	createGraphicsPipeline(std::vector<char>(), ShaderFragCode, lightingPassPipelineLayout, std::vector<VkVertexInputBindingDescription>(), std::vector<VkVertexInputAttributeDescription>(), lightingPassPipeline);
+//}
 
 void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
 {

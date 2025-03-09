@@ -55,9 +55,9 @@ private:
 	void cleanUp() override;
 
 	
-	void createObjectGraphicsPipelines();
-	void createLightingPassGraphicsPipelines();
-	void createPointLightsGraphicsPipeline();
+	//void createObjectGraphicsPipelines();
+	//void createLightingPassGraphicsPipelines();
+	//void createPointLightsGraphicsPipeline();
 	void createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createLightingPassDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets);

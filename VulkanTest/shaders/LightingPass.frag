@@ -73,34 +73,32 @@ void main()
         fragSpecular_Debug *= (1.0 - xInFirstHalf) * (1.0 - yInFirstHalf);
 
         outColor = vec4(fragPos_Debug + fragNormal_Debug + fragColor_Debug + fragSpecular_Debug, 1.0);
-
-        return;
     }
     else
     {
-    vec3 fragPos = texture(position, texCoords * 2).rgb;
-    vec3 fragNormal = texture(normal, texCoords).rgb;
-    vec4 fragColorSpecular = texture(colorSpecular, texCoords);
-    vec3 fragColor = fragColorSpecular.rgb;
-    float fragSpecular = fragColorSpecular.a;
+        vec3 fragPos = texture(position, texCoords).rgb;
+        vec3 fragNormal = texture(normal, texCoords).rgb;
+        vec4 fragColorSpecular = texture(colorSpecular, texCoords);
+        vec3 fragColor = fragColorSpecular.rgb;
+        float fragSpecular = fragColorSpecular.a;
 
-    vec3 norm = normalize(fragNormal);
-    vec3 viewDir = normalize(colorUbo.viewPos - fragPos);
+        vec3 norm = normalize(fragNormal);
+        vec3 viewDir = normalize(colorUbo.viewPos - fragPos);
 
-    // phase 1: Directinal lighting
-    vec3 result = CalcDirLight(dirLight, norm, viewDir, fragColor, fragSpecular);
-    // phase 2: Point lights
-    for(int i = 0 ; i < NR_POINT_LIGHTS; i++)
-    {
-        if((activeLightMask & (1 << i)) > 0)
+        // phase 1: Directinal lighting
+        vec3 result = CalcDirLight(dirLight, norm, viewDir, fragColor, fragSpecular);
+        // phase 2: Point lights
+        for(int i = 0 ; i < NR_POINT_LIGHTS; i++)
         {
-            result += CalcPointLight(pointLights[i], norm, fragPos, viewDir, fragColor, fragSpecular);
-       }
-    }
-    // phase 3: Spot Light 
+            if((activeLightMask & (1 << i)) > 0)
+            {
+                result += CalcPointLight(pointLights[i], norm, fragPos, viewDir, fragColor, fragSpecular);
+           }
+        }
+        // phase 3: Spot Light 
      
 
-     outColor = vec4(result, 1.0);
+         outColor = vec4(result, 1.0);
      }
 }
 
@@ -113,7 +111,7 @@ vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec3 albedo, float 
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), /*material.shininess.x*/ 32.0);
     // combine results
-    vec3 resultAmbient = light.ambient /* * material.diffuse*/;
+    vec3 resultAmbient = light.ambient * albedo;
     vec3 resultDiffuse = light.diffuse * diff * albedo;
     vec3 resultSpecular = light.specular * spec * specular;
     return (resultDiffuse + resultAmbient + resultSpecular);
