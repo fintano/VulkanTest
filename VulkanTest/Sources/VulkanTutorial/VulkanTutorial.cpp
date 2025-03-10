@@ -94,7 +94,7 @@ VulkanTutorial::VulkanTutorial()
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
-		loadModel();
+		loadModels();
 		createBuffers();
 		createUniformBuffers();
 		createDescriptorPool();
@@ -716,6 +716,27 @@ VulkanTutorial::VulkanTutorial()
 		}
 
 		/*
+		 * Create a render pass for forward rendering
+		 */
+
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		std::array<VkAttachmentDescription, 2> forwardAttachments = { colorAttachment, depthAttachment};
+
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+		renderPassInfo.attachmentCount = static_cast<uint32_t>(forwardAttachments.size());
+		renderPassInfo.pAttachments = forwardAttachments.data();
+		renderPassInfo.pSubpasses = &subpass;
+
+		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &forward.renderPass) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create forward render pass!");
+		}
+
+		/*
 		 * Create a render pass for deferred rendering (Basepass)
 		 */ 
 
@@ -741,6 +762,9 @@ VulkanTutorial::VulkanTutorial()
 			{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		} };
+
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 		depthAttachmentRef.attachment = 3;
 
@@ -1006,6 +1030,21 @@ VulkanTutorial::VulkanTutorial()
 		{
 			std::runtime_error("failed to create framebuffer!");
 		}
+
+		/**
+		* For ForwardPass
+		*/
+
+		std::array<VkImageView, 2> forwardAttachments = { colorImageView,depthImageView };
+
+		framebufferInfo.renderPass = forward.renderPass;
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(forwardAttachments.size());
+		framebufferInfo.pAttachments = forwardAttachments.data();
+
+		if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &forward.frameBuffer) != VK_SUCCESS)
+		{
+			std::runtime_error("failed to create framebuffer!");
+		}
 	}
 
 	void VulkanTutorial::createCommandPool()
@@ -1202,6 +1241,13 @@ VulkanTutorial::VulkanTutorial()
 			srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 			dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		}
+		else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+		{
+			barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		}
 		else
 		{
@@ -1434,15 +1480,20 @@ VulkanTutorial::VulkanTutorial()
 
 		vkBindImageMemory(device, image, imageMemory, 0);
 	}
-
-	void VulkanTutorial::loadModel()
+	
+	void VulkanTutorial::loadModels()
+	{
+		loadModel(MODEL_PATH, vertices, indices);
+	}
+	
+	void VulkanTutorial::loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices)
 	{
 		tinyobj::attrib_t attrib;
 		std::vector < tinyobj::shape_t> shapes;
 		std::vector <tinyobj::material_t> materials;
 		std::string warn, err;
 
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str()))
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str()))
 		{
 			throw std::runtime_error(warn + err);
 		}
@@ -1479,22 +1530,22 @@ VulkanTutorial::VulkanTutorial()
 
 				if (uniqueVertices.count(vertex) == 0)
 				{
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
+					uniqueVertices[vertex] = static_cast<uint32_t>(outVertices.size());
+					outVertices.push_back(vertex);
 				}
 
-				indices.push_back(uniqueVertices[vertex]);
+				outIndices.push_back(uniqueVertices[vertex]);
 			}
 		}
 	}
 
 	void VulkanTutorial::createBuffers()
 	{
-		createVertexBuffer();
-		createIndexBuffer();
+		createVertexBuffer(vertices, vertexBuffer, vertexBufferMemory);
+		createIndexBuffer(indices, indexBuffer, indexBufferMemory);
 	}
 
-	void VulkanTutorial::createVertexBuffer()
+	void VulkanTutorial::createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory)
 	{
 		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 		VkBuffer stagingBuffer;
@@ -1506,8 +1557,8 @@ VulkanTutorial::VulkanTutorial()
 		memcpy(data, vertices.data(), (size_t)bufferSize);
 		vkUnmapMemory(device, stagingBufferMemory);
 
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-		copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outVertexBuffer, outVertexBufferMemory);
+		copyBuffer(stagingBuffer, outVertexBuffer, bufferSize);
 
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -1518,7 +1569,7 @@ VulkanTutorial::VulkanTutorial()
 		// cpu accessible memory to device local memory(vertexBuffer)
 	}
 
-	void VulkanTutorial::createIndexBuffer()
+	void VulkanTutorial::createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory)
 	{
 		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 		VkBuffer stagingBuffer;
@@ -1530,8 +1581,8 @@ VulkanTutorial::VulkanTutorial()
 		memcpy(data, indices.data(), (size_t)bufferSize);
 		vkUnmapMemory(device, stagingBufferMemory);
 
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-		copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outIndexBuffer, outIndexBufferMemory);
+		copyBuffer(stagingBuffer, outIndexBuffer, bufferSize);
 
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -1768,6 +1819,21 @@ VulkanTutorial::VulkanTutorial()
 		recordLightingRenderPassCommands(commandBuffers[i], i);
 		vkCmdEndRenderPass(commandBuffers[i]);
 
+		/**
+		* ForwardPass
+		*/
+
+		transitionImageLayout(commandBuffers[i], colorImage, swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
+
+		renderPassInfo.renderPass = forward.renderPass;
+		renderPassInfo.framebuffer = forward.frameBuffer;
+		renderPassInfo.clearValueCount = 0;
+		renderPassInfo.pClearValues = nullptr;
+
+		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		recordForwardPassCommands(commandBuffers[i], i);
+		vkCmdEndRenderPass(commandBuffers[i]);
+
 		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to record command buffer!");
@@ -1788,6 +1854,11 @@ VulkanTutorial::VulkanTutorial()
 		// The fragment shader then combines the geometry attachments into the final image
 		// Note: Also used for debug display if debugDisplayTarget > 0
 		vkCmdDraw(commandBuffers[index], 3, 1, 0, 0);
+	}
+
+	void VulkanTutorial::recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t index)
+	{
+
 	}
 
 	void VulkanTutorial::createSyncObjects()

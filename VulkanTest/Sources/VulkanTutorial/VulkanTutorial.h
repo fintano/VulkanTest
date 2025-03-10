@@ -33,6 +33,19 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+struct Model
+{
+	std::vector<Vertex> vertices;
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
+
+	std::vector<uint32_t> indices;
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
+
+	std::string objPath;
+};
+
 struct QueueFamilyIndices
 {
 	std::optional<uint32_t> graphicsFamily;
@@ -83,7 +96,7 @@ protected:
 	virtual void createGraphicsPipelines();
 	virtual void recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	virtual void cleanUpSwapchain();
-	virtual void loadModel();
+	virtual void loadModels();
 	virtual void createBuffers();
 	virtual void recreateSwapChain();
 	virtual void preDrawFrame(uint32_t imageIndex);
@@ -132,8 +145,9 @@ protected:
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-	void createVertexBuffer();
-	void createIndexBuffer();
+	void loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
+	void createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory);
+	void createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory);
 	void createCommandBuffer(int32_t i);
 	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
 	VkDescriptorImageInfo CreateDescriptorImageInfo(VkImageView& imageView, VkSampler& sampler, VkImageLayout layout);
@@ -144,6 +158,7 @@ protected:
 	VkCommandBuffer beginSingleTimeCommands();
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
+	virtual void recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	void createSyncObjects();
 	void mainLoop();
 
@@ -227,9 +242,16 @@ protected:
 		FrameBufferAttachment position, normal, colorSpecular;
 		VkRenderPass renderPass;
 		VkFramebuffer frameBuffer;
-
 	} geometry;
 	
+	struct ForwardPass
+	{
+		VkRenderPass renderPass;
+		VkFramebuffer frameBuffer;
+		VkPipeline pipeline;
+		VkPipelineLayout pipelineLayout;
+	} forward;
+
 	VkImage colorImage;
 	VkDeviceMemory colorImageMemory;
 	VkImageView colorImageView;

@@ -20,6 +20,8 @@ VulkanTutorialExtension::VulkanTutorialExtension()
 	: camera({ 5.f, 5.f, 5.f }, { 0.f,1.f,0.f })
 {
 	pointLightsSwitch[0] = true;
+
+	cube.objPath = "models/cube.obj";
 }
 
 void VulkanTutorialExtension::initVulkan()
@@ -289,7 +291,7 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
 		if (isLightOn(lightIndex))
-		{
+		{ 
 			std::vector<Transform> pointLightTransforms{};
 			Transform transform;
 			transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
@@ -520,7 +522,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 	// point light objects
 	auto vertShaderCode = readFile("shaders/shadervert.spv");
-	auto fragShaderCode = readFile("shaders/shaderfrag.spv");
+	auto fragShaderCode = readFile("shaders/ForwardPassfrag.spv");
 
 	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
 	Vertex::getBindingDescriptions(bindingDescriptions);
@@ -560,12 +562,19 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 		return State;
 	};
 
-	std::array<VkPipelineColorBlendAttachmentState, 3> colorBlendAttachments =
-	{
-		DefaultPipelineColorBlendAttachmentState(),
-		DefaultPipelineColorBlendAttachmentState(),
+	std::array<VkPipelineColorBlendAttachmentState, 1> colorBlendAttachments = {
 		DefaultPipelineColorBlendAttachmentState()
 	};
+	auto& colorBlendAttachment = colorBlendAttachments[0];
+	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.blendEnable = VK_TRUE;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;  // 소스 색상 블렌딩 팩터
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;  // 대상 색상 블렌딩 팩터
+	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;  // 색상 블렌딩 연산
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // 소스 알파 블렌딩 팩터
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;  // 대상 알파 블렌딩 팩터
+	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;  // 알파 블렌딩 연산
+
 
 	VkPipelineColorBlendStateCreateInfo colorBlending{};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -582,10 +591,10 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.pStages = shaderStages;
 	pipelineInfo.pVertexInputState = &vertexInputInfo;
 	pipelineInfo.layout = pipelineLayoutPointLights;
-	pipelineInfo.renderPass = geometry.renderPass;
+	pipelineInfo.renderPass = forward.renderPass;
 	pipelineInfo.pColorBlendState = &colorBlending;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelinePointLights) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &forward.pipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline");
 	}
@@ -618,6 +627,16 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
 	vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+	std::array<VkPipelineColorBlendAttachmentState, 3> deferredColorBlendAttachments =
+	{
+		DefaultPipelineColorBlendAttachmentState(),
+		DefaultPipelineColorBlendAttachmentState(),
+		DefaultPipelineColorBlendAttachmentState()
+	};
+
+	colorBlending.attachmentCount = deferredColorBlendAttachments.size();
+	colorBlending.pAttachments = deferredColorBlendAttachments.data();
 
 	pipelineInfo.stageCount = 2;
 	pipelineInfo.pStages = shaderStages;
@@ -656,12 +675,12 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vertexInputInfo.vertexAttributeDescriptionCount = 0;
 	vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
-	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlendAttachment.blendEnable = VK_FALSE;
+	VkPipelineColorBlendAttachmentState lightingColorBlendAttachment{};
+	lightingColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	lightingColorBlendAttachment.blendEnable = VK_FALSE;
 
 	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &colorBlendAttachment;
+	colorBlending.pAttachments = &lightingColorBlendAttachment;
 
 	// NOTE : 이게 핵심이다. BACK_FACE_CULLING으로 하니까 안나오네. 
 	rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT;
@@ -724,19 +743,9 @@ void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBu
 
 	VkBuffer vertexBuffers[]{ vertexBuffer };
 	VkDeviceSize offsets[]{ 0 };
+
 	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 	vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-	// Point Lights
-	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelinePointLights);
-	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
-	{
-		if (isLightOn(lightIndex))
-		{
-			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutPointLights, 0, 1, &descriptorSetsPointLights[lightIndex][i], 0, nullptr);
-			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-		}
-	}
 
 	VkBuffer instanceBuffersToBind[]{ instanceBuffers[usingInstanceBufferIndex] };
 	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffersToBind, offsets);
@@ -748,6 +757,27 @@ void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBu
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
 	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
 	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instanceCount), 0, 0, 0);
+}
+
+void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t i)
+{
+	VulkanTutorial::recordForwardPassCommands(commandBuffer, i);
+
+	VkBuffer vertexBuffers[]{ cube.vertexBuffer };
+	VkDeviceSize offsets[]{ 0 };
+	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+	vkCmdBindIndexBuffer(commandBuffers[i], cube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+	// Point Lights
+	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, forward.pipeline);
+	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	{
+		if (isLightOn(lightIndex))
+		{
+			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutPointLights, 0, 1, &descriptorSetsPointLights[lightIndex][i], 0, nullptr);
+			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(cube.indices.size()), 1, 0, 0, 0);
+		}
+	}
 }
 
 void VulkanTutorialExtension::createInstanceBuffer(uint32_t imageIndex)
@@ -774,9 +804,11 @@ void VulkanTutorialExtension::setWindowFocused(int inFocused)
 	focused = inFocused;
 }
 
-void VulkanTutorialExtension::loadModel()
+void VulkanTutorialExtension::loadModels()
 {
-	VulkanTutorial::loadModel();
+	VulkanTutorial::loadModels();
+
+	loadModel(cube.objPath, cube.vertices, cube.indices);
 
 	static glm::vec3 cubePositions[] = {
 			glm::vec3(0.0f,  0.0f,  0.0f),
@@ -816,6 +848,9 @@ void VulkanTutorialExtension::loadModel()
 void VulkanTutorialExtension::createBuffers()
 {
 	VulkanTutorial::createBuffers();
+
+	createVertexBuffer(cube.vertices, cube.vertexBuffer, cube.vertexBufferMemory);
+	createIndexBuffer(cube.indices, cube.indexBuffer, cube.indexBufferMemory);
 
 	for (int i = 0; i < INSTANCE_BUFFER_COUNT; i++)
 	{

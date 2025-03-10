@@ -41,7 +41,8 @@ private:
 	void createDescriptorSetLayouts() override;
 	void createGraphicsPipelines() override;
 	void recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
-	void loadModel() override;
+	void recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
+	void loadModels() override;
 	void createBuffers() override;
 	void recreateSwapChain() override;
 	void preDrawFrame(uint32_t imageIndex) override;
@@ -53,7 +54,6 @@ private:
 	void createRenderPass() override;
 	void cleanUpSwapchain() override;
 	void cleanUp() override;
-
 	
 	//void createObjectGraphicsPipelines();
 	//void createLightingPassGraphicsPipelines();
@@ -93,6 +93,8 @@ private:
 	void cleanUpImGui();
 
 private:
+	Model cube;
+
 	std::vector<Instance> instances;
 	std::array<VkBuffer, INSTANCE_BUFFER_COUNT> instanceBuffers;
 	std::array<VkDeviceMemory, INSTANCE_BUFFER_COUNT> instanceBufferMemories;

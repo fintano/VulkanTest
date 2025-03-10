@@ -14,7 +14,7 @@ void main()
 {
     outPosition = fragPos;
     outNormal = fragNormal;
-    outColorSpecular.rgb = fragColor.rgb;
+    outColorSpecular.rgb = vec3(1.0, 0.0, 0.0);
     outColorSpecular.a = 1.0;
     //outColor = vec4(1.0);
 }
