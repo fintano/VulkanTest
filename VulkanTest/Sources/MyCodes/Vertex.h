@@ -4,10 +4,10 @@
 
 struct Vertex
 {
-	glm::vec3 pos;
-	glm::vec3 color;
-	glm::vec2 texCoord;
-	glm::vec3 normal;
+	alignas(16) glm::vec3 pos;
+	alignas(16) glm::vec3 color;
+	alignas(16) glm::vec2 texCoord;
+	alignas(16) glm::vec3 normal;
 
 	// Bindings: spacing between data and whether the data is per-vertex or
 	// per - instance(see instancing)

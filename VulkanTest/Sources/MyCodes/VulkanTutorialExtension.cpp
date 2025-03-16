@@ -3,6 +3,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "VulkanTutorialExtensionImGui.h"
+#include "Vk_loader.h"	
 
 /**
 * GUI에서 사용할 변수들을 모아놓는다. 
@@ -762,10 +763,10 @@ void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandB
 {
 	VulkanTutorial::recordForwardPassCommands(commandBuffer, i);
 
-	VkBuffer vertexBuffers[]{ cube.vertexBuffer };
+	VkBuffer vertexBuffers[]{ testMeshes[0]->meshBuffers.vertexBuffer.Buffer};
 	VkDeviceSize offsets[]{ 0 };
 	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffers[i], cube.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(commandBuffers[i], testMeshes[0]->meshBuffers.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
 	// Point Lights
 	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, forward.pipeline);
@@ -774,7 +775,7 @@ void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandB
 		if (isLightOn(lightIndex))
 		{
 			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutPointLights, 0, 1, &descriptorSetsPointLights[lightIndex][i], 0, nullptr);
-			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(cube.indices.size()), 1, 0, 0, 0);
+			vkCmdDrawIndexed(commandBuffers[i], testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
 		}
 	}
 }

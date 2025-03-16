@@ -73,10 +73,7 @@
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtensionImGui.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\MyCodes\GPUMarker.cpp">
-      <Filter>MyCodes</Filter>
-    </ClCompile>
-    <ClCompile Include="Sources\MyCodes\VkLoader.cpp">
+    <ClCompile Include="Sources\MyCodes\Vk_loader.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
   </ItemGroup>
@@ -102,10 +99,10 @@
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h">
       <Filter>MyCodes</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\MyCodes\GPUMarker.h">
+    <ClInclude Include="Sources\MyCodes\Vk_loader.h">
       <Filter>MyCodes</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\MyCodes\VkLoader.h">
+    <ClInclude Include="Sources\MyCodes\vk_types.h">
       <Filter>MyCodes</Filter>
     </ClInclude>
   </ItemGroup>

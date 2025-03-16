@@ -1,5 +1,6 @@
 #include "VulkanTutorial.h"
-#include "GPUMarker.h"
+//#include "GPUMarker.h"
+#include "Vk_loader.h"
 
 #ifndef USE_MSAA 
 #define USE_MSAA 0
@@ -181,7 +182,7 @@ VulkanTutorial::VulkanTutorial()
 			throw std::runtime_error("failed to create instance!");
 		}
 
-		GPUMarker::setup(instance);
+		//GPUMarker::setup(instance);
 	}
 
 	std::vector<const char*> VulkanTutorial::getRequiredExtensions()
@@ -1548,6 +1549,8 @@ VulkanTutorial::VulkanTutorial()
 	{
 		createVertexBuffer(vertices, vertexBuffer, vertexBufferMemory);
 		createIndexBuffer(indices, indexBuffer, indexBufferMemory);
+
+		testMeshes = loadGltfMeshes(this, "models/Box.glb").value();
 	}
 
 	void VulkanTutorial::createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory)
@@ -1799,7 +1802,7 @@ VulkanTutorial::VulkanTutorial()
 		renderPassInfo.pClearValues = clearValues.data();
 
 		{
-			GPUMarker Marker(commandBuffers[i], "Geometry Pass");
+			//GPUMarker Marker(commandBuffers[i], "Geometry Pass");
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			recordRenderPassCommands(commandBuffers[i], i);
 			vkCmdEndRenderPass(commandBuffers[i]);
@@ -1814,7 +1817,7 @@ VulkanTutorial::VulkanTutorial()
 		*/
 
 		{
-			GPUMarker Marker(commandBuffers[i], "Lighting Pass");
+			//GPUMarker Marker(commandBuffers[i], "Lighting Pass");
 			renderPassInfo.renderPass = renderPass;
 			renderPassInfo.framebuffer = swapChainFrameBuffers[i];
 
@@ -1837,7 +1840,7 @@ VulkanTutorial::VulkanTutorial()
 		transitionImageLayout(commandBuffers[i], swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
 
 		{
-			GPUMarker Marker(commandBuffers[i], "Forward Pass");
+			//GPUMarker Marker(commandBuffers[i], "Forward Pass");
 			renderPassInfo.renderPass = forward.renderPass;
 			renderPassInfo.framebuffer = forward.frameBuffers[i];
 			renderPassInfo.clearValueCount = 0;

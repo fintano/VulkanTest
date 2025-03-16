@@ -107,6 +107,7 @@ protected:
 	virtual void createFrameBuffers();
 	virtual void cleanUp();
 
+public:
 	bool checkValidationLayerSupport();
 	void createInstance();
 	std::vector<const char*> getRequiredExtensions();
@@ -287,6 +288,8 @@ protected:
 	const std::vector<const char*> deviceExtensions = {
 		"VK_KHR_swapchain"
 	};
+
+	std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
 };
 
 extern std::vector<char> readFile(const std::string& filename);

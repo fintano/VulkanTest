@@ -124,14 +124,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)Libraries\DearImGui;$(ProjectDir)Sources\MyCodes;$(ProjectDir)Sources\VulkanTutorial;$(ProjectDir)Libraries\tinyobjloader-master;$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\include;$(ProjectDir)Libraries\stb-master;$(ProjectDir)Libraries\glm-master;$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Libraries\DearImGui;$(ProjectDir)Sources\MyCodes;$(ProjectDir)Sources\VulkanTutorial;$(ProjectDir)Libraries\tinyobjloader-master;$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\include;$(ProjectDir)Libraries\stb-master;$(ProjectDir)Libraries\glm-master;$(VULKAN_SDK)\Include;$(ProjectDir)Libraries\fastgltf\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\lib-vc2019;$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\lib-vc2019;$(VULKAN_SDK)\Lib;$(ProjectDir)Libraries\fastgltf\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;fastgltf.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>CD $(ProjectDir)Shaders
@@ -184,17 +184,16 @@ CALL compile.bat</Command>
     <ClCompile Include="Libraries\DearImGui\imgui_tables.cpp" />
     <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\main.cpp" />
-    <ClCompile Include="Sources\MyCodes\GPUMarker.cpp" />
-    <ClCompile Include="Sources\MyCodes\VkLoader.cpp" />
+    <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtension.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtensionImGui.cpp" />
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\MyCodes\Camera.h" />
-    <ClInclude Include="Sources\MyCodes\GPUMarker.h" />
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h" />
-    <ClInclude Include="Sources\MyCodes\VkLoader.h" />
+    <ClInclude Include="Sources\MyCodes\Vk_loader.h" />
+    <ClInclude Include="Sources\MyCodes\vk_types.h" />
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtensionImGui.h" />
     <ClInclude Include="Sources\MyCodes\UniformBuffer.h" />
     <ClInclude Include="Sources\MyCodes\Vertex.h" />
