@@ -157,7 +157,7 @@ void VulkanTutorialExtension::createDescriptorSets()
 		createDescriptorSetsPointLights(lightTransformUniformBuffer[lightIndex], descriptorSetsPointLights[lightIndex]);
 	}
 	createDescriptorSetsObject(descriptorSetsObject);
-	createLightingPassDescriptorSets(lightingPass.DescriptorSets);
+	createLightingPassDescriptorSets(lightingPass.descriptorSets);
 }
 
 void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets)
@@ -227,7 +227,7 @@ void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescripto
 
 void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets)
 {
-	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), lightingPass.DescriptorSetLayout);
+	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), lightingPass.descriptorSetLayout);
 
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -257,15 +257,15 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 
 		// position
-		VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(geometry.position.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(geometry.position.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &positionImageInfo, nullptr, descriptorWrites);
 
 		// normal 
-		VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(geometry.normal.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(geometry.normal.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &normalImageInfo, nullptr, descriptorWrites);
 
 		// color + specular
-		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(geometry.colorSpecular.ImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(geometry.colorSpecular.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &colorSpecularImageInfo, nullptr, descriptorWrites);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -445,7 +445,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 	//	color + specular 
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
-	createDescriptorSetLayout(bindings, lightingPass.DescriptorSetLayout);
+	createDescriptorSetLayout(bindings, lightingPass.descriptorSetLayout);
 }
 
 void VulkanTutorialExtension::createGraphicsPipelines()
@@ -454,7 +454,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 	createPipelineLayout(descriptorSetLayoutPointLights, pipelineLayoutPointLights);
 	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
-	createPipelineLayout(lightingPass.DescriptorSetLayout, lightingPass.PipelineLayout);
+	createPipelineLayout(lightingPass.descriptorSetLayout, lightingPass.pipelineLayout);
 	
 	/*
 	* Default 
@@ -568,13 +568,12 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	auto& colorBlendAttachment = colorBlendAttachments[0];
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;  // ¼Ò½º »ö»ó ºí·»µù ÆÑÅÍ
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;  // ¼Ò½º »ö»ó ºí·»µù ÆÑÅÍ
 	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;  // ´ë»ó »ö»ó ºí·»µù ÆÑÅÍ
 	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;  // »ö»ó ºí·»µù ¿¬»ê
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // ¼Ò½º ¾ËÆÄ ºí·»µù ÆÑÅÍ
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;  // ´ë»ó ¾ËÆÄ ºí·»µù ÆÑÅÍ
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;  // ¼Ò½º ¾ËÆÄ ºí·»µù ÆÑÅÍ
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // ´ë»ó ¾ËÆÄ ºí·»µù ÆÑÅÍ
 	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;  // ¾ËÆÄ ºí·»µù ¿¬»ê
-
 
 	VkPipelineColorBlendStateCreateInfo colorBlending{};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -687,11 +686,11 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 	pipelineInfo.stageCount = 2;
 	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.layout = lightingPass.PipelineLayout;
+	pipelineInfo.layout = lightingPass.pipelineLayout;
 	pipelineInfo.renderPass = renderPass;
 	pipelineInfo.pDepthStencilState = nullptr;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &lightingPass.Pipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &lightingPass.pipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline");
 	}

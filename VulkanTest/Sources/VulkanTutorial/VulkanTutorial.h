@@ -222,19 +222,19 @@ protected:
 	// 라이팅 패스
 	struct LightingPass
 	{
-		VkPipeline Pipeline;
-		VkPipelineLayout PipelineLayout;
-		VkDescriptorSetLayout DescriptorSetLayout;
-		std::vector<VkDescriptorSet> DescriptorSets;
+		VkPipeline pipeline;
+		VkPipelineLayout pipelineLayout;
+		VkDescriptorSetLayout descriptorSetLayout;
+		std::vector<VkDescriptorSet> descriptorSets;
 	} lightingPass;
 
 	struct FrameBufferAttachment
 	{
-		VkImage Image;
-		VkDeviceMemory ImageMemory;
-		VkImageView ImageView;
+		VkImage image;
+		VkDeviceMemory imageMemory;
+		VkImageView imageView;
 
-		void Destroy(VkDevice device);
+		void Destroy(VkDevice device); 
 	};
 
 	struct GeometryPass
@@ -247,14 +247,10 @@ protected:
 	struct ForwardPass
 	{
 		VkRenderPass renderPass;
-		VkFramebuffer frameBuffer;
+		std::vector<VkFramebuffer> frameBuffers;
 		VkPipeline pipeline;
 		VkPipelineLayout pipelineLayout;
 	} forward;
-
-	VkImage colorImage;
-	VkDeviceMemory colorImageMemory;
-	VkImageView colorImageView;
 
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;

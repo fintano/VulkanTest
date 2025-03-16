@@ -1,4 +1,5 @@
 #include "VulkanTutorial.h"
+#include "GPUMarker.h"
 
 #ifndef USE_MSAA 
 #define USE_MSAA 0
@@ -179,6 +180,8 @@ VulkanTutorial::VulkanTutorial()
 		{
 			throw std::runtime_error("failed to create instance!");
 		}
+
+		GPUMarker::setup(instance);
 	}
 
 	std::vector<const char*> VulkanTutorial::getRequiredExtensions()
@@ -653,7 +656,7 @@ VulkanTutorial::VulkanTutorial()
 		depthAttachment.format = findDepthFormat();
 		depthAttachment.samples = msaaSamples;
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -1020,7 +1023,7 @@ VulkanTutorial::VulkanTutorial()
 		* For GeometryPass
 		*/
 
-		std::array<VkImageView, 4> attachments = { geometry.position.ImageView, geometry.normal.ImageView, geometry.colorSpecular.ImageView, depthImageView };
+		std::array<VkImageView, 4> attachments = { geometry.position.imageView, geometry.normal.imageView, geometry.colorSpecular.imageView, depthImageView };
 
 		framebufferInfo.renderPass = geometry.renderPass;
 		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -1035,15 +1038,20 @@ VulkanTutorial::VulkanTutorial()
 		* For ForwardPass
 		*/
 
-		std::array<VkImageView, 2> forwardAttachments = { colorImageView,depthImageView };
+		forward.frameBuffers.resize(swapChainImageViews.size());
 
-		framebufferInfo.renderPass = forward.renderPass;
-		framebufferInfo.attachmentCount = static_cast<uint32_t>(forwardAttachments.size());
-		framebufferInfo.pAttachments = forwardAttachments.data();
-
-		if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &forward.frameBuffer) != VK_SUCCESS)
+		for (size_t i = 0; i < swapChainImageViews.size(); i++)
 		{
-			std::runtime_error("failed to create framebuffer!");
+			std::array<VkImageView, 2> forwardAttachments = { swapChainImageViews[i],depthImageView };
+
+			framebufferInfo.renderPass = forward.renderPass;
+			framebufferInfo.attachmentCount = static_cast<uint32_t>(forwardAttachments.size());
+			framebufferInfo.pAttachments = forwardAttachments.data();
+
+			if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &forward.frameBuffers[i]) != VK_SUCCESS)
+			{
+				std::runtime_error("failed to create framebuffer!");
+			}
 		}
 	}
 
@@ -1069,17 +1077,14 @@ VulkanTutorial::VulkanTutorial()
 		// 먼저 렌더 타겟으로 사용되고 (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 		// 나중에 쉐이더에서 샘플링됩니다(VK_IMAGE_USAGE_SAMPLED_BIT)
 		// VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT는 특별한 용도로, 이미지 데이터가 렌더 패스 내에서만 일시적으로 필요하고 나중에 접근할 필요가 없을 때 사용됩니다. 
-		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, geometry.position.Image, geometry.position.ImageMemory);
-		geometry.position.ImageView = createImageView(geometry.position.Image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, geometry.position.image, geometry.position.imageMemory);
+		geometry.position.imageView = createImageView(geometry.position.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, geometry.normal.Image, geometry.normal.ImageMemory);
-		geometry.normal.ImageView = createImageView(geometry.normal.Image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, geometry.normal.image, geometry.normal.imageMemory);
+		geometry.normal.imageView = createImageView(geometry.normal.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, geometry.colorSpecular.Image, geometry.colorSpecular.ImageMemory);
-		geometry.colorSpecular.ImageView = createImageView(geometry.colorSpecular.Image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-
-		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
-		colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, geometry.colorSpecular.image, geometry.colorSpecular.imageMemory);
+		geometry.colorSpecular.imageView = createImageView(geometry.colorSpecular.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
 	void VulkanTutorial::createDepthResources()
@@ -1793,46 +1798,55 @@ VulkanTutorial::VulkanTutorial()
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		recordRenderPassCommands(commandBuffers[i], i);
-		vkCmdEndRenderPass(commandBuffers[i]);
+		{
+			GPUMarker Marker(commandBuffers[i], "Geometry Pass");
+			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			recordRenderPassCommands(commandBuffers[i], i);
+			vkCmdEndRenderPass(commandBuffers[i]);
+		}
 
-		transitionImageLayout(commandBuffers[i], geometry.position.Image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
-		transitionImageLayout(commandBuffers[i], geometry.normal.Image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
-		transitionImageLayout(commandBuffers[i], geometry.colorSpecular.Image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffers[i], geometry.position.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffers[i], geometry.normal.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffers[i], geometry.colorSpecular.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
 		/**
 		* LightingPass
 		*/
 
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = swapChainFrameBuffers[i];
+		{
+			GPUMarker Marker(commandBuffers[i], "Lighting Pass");
+			renderPassInfo.renderPass = renderPass;
+			renderPassInfo.framebuffer = swapChainFrameBuffers[i];
 
-		// define the clear values for vk_attachment_load_op_clear.
-		std::array<VkClearValue, 1> lightingPassClearValues{};
-		lightingPassClearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
-		//lightingPassClearValues[1].depthStencil = { 1.f, 0 };
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(lightingPassClearValues.size());
-		renderPassInfo.pClearValues = lightingPassClearValues.data();
+			// define the clear values for vk_attachment_load_op_clear.
+			std::array<VkClearValue, 1> lightingPassClearValues{};
+			lightingPassClearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+			//lightingPassClearValues[1].depthStencil = { 1.f, 0 };
+			renderPassInfo.clearValueCount = static_cast<uint32_t>(lightingPassClearValues.size());
+			renderPassInfo.pClearValues = lightingPassClearValues.data();
 
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		recordLightingRenderPassCommands(commandBuffers[i], i);
-		vkCmdEndRenderPass(commandBuffers[i]);
+			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			recordLightingRenderPassCommands(commandBuffers[i], i);
+			vkCmdEndRenderPass(commandBuffers[i]);
+		}
 
 		/**
 		* ForwardPass
 		*/
 
-		transitionImageLayout(commandBuffers[i], colorImage, swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
+		transitionImageLayout(commandBuffers[i], swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
 
-		renderPassInfo.renderPass = forward.renderPass;
-		renderPassInfo.framebuffer = forward.frameBuffer;
-		renderPassInfo.clearValueCount = 0;
-		renderPassInfo.pClearValues = nullptr;
+		{
+			GPUMarker Marker(commandBuffers[i], "Forward Pass");
+			renderPassInfo.renderPass = forward.renderPass;
+			renderPassInfo.framebuffer = forward.frameBuffers[i];
+			renderPassInfo.clearValueCount = 0;
+			renderPassInfo.pClearValues = nullptr;
 
-		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		recordForwardPassCommands(commandBuffers[i], i);
-		vkCmdEndRenderPass(commandBuffers[i]);
+			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			recordForwardPassCommands(commandBuffers[i], i);
+			vkCmdEndRenderPass(commandBuffers[i]);
+		}
 
 		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
 		{
@@ -1847,8 +1861,8 @@ VulkanTutorial::VulkanTutorial()
 	void VulkanTutorial::recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index)
 	{
 		// Lighting Pass
-		vkCmdBindPipeline(commandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.Pipeline);
-		vkCmdBindDescriptorSets(commandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.PipelineLayout, 0, 1, &lightingPass.DescriptorSets[index], 0, nullptr);
+		vkCmdBindPipeline(commandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.pipeline);
+		vkCmdBindDescriptorSets(commandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.pipelineLayout, 0, 1, &lightingPass.descriptorSets[index], 0, nullptr);
 		// Final composition
 		// This is done by simply drawing a full screen quad
 		// The fragment shader then combines the geometry attachments into the final image
@@ -2003,7 +2017,7 @@ VulkanTutorial::VulkanTutorial()
 		vkDestroyImage(device, textureImage, nullptr);
 		vkFreeMemory(device, textureImageMemory, nullptr);
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-		vkDestroyDescriptorSetLayout(device, lightingPass.DescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(device, lightingPass.descriptorSetLayout, nullptr);
 		vkDestroyBuffer(device, vertexBuffer, nullptr);
 		vkFreeMemory(device, vertexBufferMemory, nullptr);
 		vkDestroyBuffer(device, indexBuffer, nullptr);
@@ -2051,23 +2065,27 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::FrameBufferAttachment::Destroy(VkDevice device)
 	{
-		vkDestroyImageView(device, ImageView, nullptr);
-		vkDestroyImage(device, Image, nullptr);
-		vkFreeMemory(device, ImageMemory, nullptr);
+		vkDestroyImageView(device, imageView, nullptr);
+		vkDestroyImage(device, image, nullptr);
+		vkFreeMemory(device, imageMemory, nullptr);
 	}
 
 	void VulkanTutorial::cleanUpSwapchain()
 	{
-		vkDestroyPipelineLayout(device, lightingPass.PipelineLayout, nullptr);
-		vkDestroyPipeline(device, lightingPass.Pipeline, nullptr);
+		vkDestroyPipelineLayout(device, lightingPass.pipelineLayout, nullptr);
+		vkDestroyPipeline(device, lightingPass.pipeline, nullptr);
 
 		geometry.position.Destroy(device);
 		geometry.normal.Destroy(device);
 		geometry.colorSpecular.Destroy(device);
 
-		vkDestroyImageView(device, colorImageView, nullptr);
-		vkDestroyImage(device, colorImage, nullptr);
-		vkFreeMemory(device, colorImageMemory, nullptr);
+		vkDestroyPipelineLayout(device, forward.pipelineLayout, nullptr);
+		vkDestroyPipeline(device, forward.pipeline, nullptr);
+		for (size_t i = 0; i < swapChainFrameBuffers.size(); i++)
+		{
+			vkDestroyFramebuffer(device, forward.frameBuffers[i], nullptr);
+		}
+
 		vkDestroyImageView(device, depthImageView, nullptr);
 		vkDestroyImage(device, depthImage, nullptr);
 		vkFreeMemory(device, depthImageMemory, nullptr);
@@ -2080,6 +2098,7 @@ VulkanTutorial::VulkanTutorial()
 		//vkDestroyPipeline(device, graphicsPipeline, nullptr);
 		vkDestroyRenderPass(device, renderPass, nullptr);
 		vkDestroyRenderPass(device, geometry.renderPass, nullptr);
+		vkDestroyRenderPass(device, forward.renderPass, nullptr);
 		for (auto imageView : swapChainImageViews)
 		{
 			vkDestroyImageView(device, imageView, nullptr);
