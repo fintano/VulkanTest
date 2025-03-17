@@ -101,7 +101,8 @@ public:
 	std::vector<int> previousActivePointLightsMask;
 	int activePointLightsMask = 0;
 
-	int getSwapChainImageNum() {return swapChainImages.size(); }
+	int getSwapchainImageNum() { return swapChainImages.size(); }
+	VkExtent2D getSwapchainExtent() { return swapChainExtent; }
 
 private:
 	Model cube;

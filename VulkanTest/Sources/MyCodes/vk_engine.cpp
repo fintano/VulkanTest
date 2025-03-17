@@ -8,6 +8,8 @@ namespace vkinit = vkb::initializers;
 
 void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 {
+	VkExtent2D swapchainExtent = engine->getSwapchainExtent();
+
 	//VkPushConstantRange matrixRange{};
 	//matrixRange.offset = 0;
 	//matrixRange.size = sizeof(GPUDrawPushConstants);
@@ -47,20 +49,25 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 	// Pipelines
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vkinit::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
 	VkPipelineViewportStateCreateInfo viewportState = vkinit::pipeline_viewport_state_create_info(1, 1, 0);
-	std::vector<VkDynamicState> dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR }; // 내가 안썼던 옵션
-	VkPipelineDynamicStateCreateInfo dynamicState = vkinit::pipeline_dynamic_state_create_info(dynamicStateEnables); // 내가 안썼던 옵션
+	//std::vector<VkDynamicState> dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR }; // 내가 안썼던 옵션
+	//VkPipelineDynamicStateCreateInfo dynamicState = vkinit::pipeline_dynamic_state_create_info(dynamicStateEnables); // 내가 안썼던 옵션
 	VkPipelineRasterizationStateCreateInfo rasterizationState = vkinit::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
 	VkPipelineMultisampleStateCreateInfo multisampleState = vkinit::pipeline_multisample_state_create_info(VK_SAMPLE_COUNT_1_BIT, 0);
 	VkPipelineDepthStencilStateCreateInfo depthStencilState = vkinit::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
 	
-
 	VkGraphicsPipelineCreateInfo pipelineCI = vkinit::pipeline_create_info(newLayout, engine->forward.renderPass);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pMultisampleState = &multisampleState;
 	pipelineCI.pViewportState = &viewportState;
 	pipelineCI.pDepthStencilState = &depthStencilState;
-	pipelineCI.pDynamicState = &dynamicState;
+	//pipelineCI.pDynamicState = &dynamicState;
+
+	// Viewport
+	VkViewport viewport = vkinit::viewport((float)swapchainExtent.width, (float)swapchainExtent.height, 0.f, 1.f);
+	VkRect2D scissor = vkinit::rect2D(swapchainExtent.width, swapchainExtent.height, 0, 0);
+	viewportState.pViewports = &viewport;
+	viewportState.pScissors = &scissor;
 
 	// ColorBlending	
 	VkPipelineColorBlendAttachmentState blendAttachmentState = vkinit::pipeline_color_blend_attachment_state(0xf, VK_FALSE);
@@ -169,7 +176,7 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VulkanTutorialExtension*
 		matData.pipeline = &opaquePipeline;
 	}
 
-	int swapChainImageNum = engine->getSwapChainImageNum();
+	int swapChainImageNum = engine->getSwapchainImageNum();
 
 	std::vector<VkDescriptorSetLayout> layouts(swapChainImageNum, materialLayout);
 	VkDescriptorSetAllocateInfo allocInfo = vkinit::descriptor_set_allocate_info(engine->descriptorPool, layouts.data(), layouts.size());
@@ -201,11 +208,11 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VulkanTutorialExtension*
 	{
 		writeDescriptorSets = {
 			// Binding 1 : 
-			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &bufDescriptor),
+			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &bufDescriptor),
 			// Binding 2 : 
-			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &texDescriptorColor),
+			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &texDescriptorColor),
 			// Binding 3 : 
-			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &texDescriptorMetalRough),
+			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &texDescriptorMetalRough),
 		};
 
 		//writer.clear();

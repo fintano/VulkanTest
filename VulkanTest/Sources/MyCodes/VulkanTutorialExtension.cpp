@@ -628,10 +628,11 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.renderPass = forward.renderPass;
 	pipelineInfo.pColorBlendState = &colorBlending;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &forward.pipeline) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create graphics pipeline");
-	}
+	// vk_engine의 코드로 일단은 갈음한다.
+	//if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &forward.pipeline) != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("failed to create graphics pipeline");
+	//}
 
 	vkDestroyShaderModule(device, vertShaderModule, nullptr);
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
@@ -803,12 +804,14 @@ void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandB
 	vkCmdBindIndexBuffer(commandBuffers[i], testMeshes[0]->meshBuffers.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
 	// Point Lights
-	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, forward.pipeline);
+	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, metalRoughMaterial.opaquePipeline.pipeline);
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
 		if (isLightOn(lightIndex))
 		{
-			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutPointLights, 0, 1, &descriptorSetsPointLights[lightIndex][i], 0, nullptr);
+			VkDescriptorSet descriptorSets[] = { descriptorSetsPointLights[lightIndex][i], defaultData.materialSet[i]};
+
+			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, metalRoughMaterial.opaquePipeline.layout, 0, 2, descriptorSets, 0, nullptr);
 			vkCmdDrawIndexed(commandBuffers[i], testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
 		}
 	}
