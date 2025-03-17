@@ -24,6 +24,7 @@
 
 #include "Camera.h"
 #include "UniformBuffer.h"
+#include "UniformBufferTypes.h"
 #include "Vertex.h"
 #include <mutex>
 
@@ -285,7 +286,8 @@ protected:
 	std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
 	MaterialInstance defaultData;
 	GLTFMetallic_Roughness metalRoughMaterial;
-	UniformBuffer<GLTFMetallic_Roughness::MaterialConstants> MaterialConstant;
+	UniformBuffer<GPUSceneData> sceneData;
+	UniformBuffer<GLTFMetallic_Roughness::MaterialConstants> materialConstant;
 };
 
 extern std::vector<char> readFile(const std::string& filename);

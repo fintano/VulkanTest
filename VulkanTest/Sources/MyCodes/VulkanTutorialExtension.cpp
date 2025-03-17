@@ -132,7 +132,8 @@ void VulkanTutorialExtension::createUniformBuffers()
 	VulkanTutorial::createUniformBuffers();
 
 	{
-		MaterialConstant.createUniformBuffer(1, device, physicalDevice, 1);
+		sceneData.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+		materialConstant.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	}
 
 	objectTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
@@ -177,7 +178,7 @@ void VulkanTutorialExtension::createDescriptorSets()
 		//	destroy_buffer(materialConstants);
 		//	});
 
-		materialResources.dataBuffer = MaterialConstant.getUniformBuffer(0); //materialConstants.buffer;
+		materialResources.dataBuffer = materialConstant.getUniformBuffer(0); //materialConstants.buffer;
 		materialResources.dataBufferOffset = 0;
 
 		defaultData = metalRoughMaterial.write_material(this, MaterialPass::MainColor, materialResources);
@@ -323,15 +324,25 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	{
 		if (isLightOn(lightIndex))
 		{ 
-			std::vector<Transform> pointLightTransforms{};
-			Transform transform;
-			transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
-			transform.model = glm::scale(transform.model, glm::vec3(0.005f));
-			transform.view = viewMat;
-			transform.proj = persMat;
-			pointLightTransforms.emplace_back(std::move(transform));
+			//std::vector<Transform> pointLightTransforms{};
+			//Transform transform;
+			//transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
+			//transform.model = glm::scale(transform.model, glm::vec3(0.005f));
+			//transform.view = viewMat;
+			//transform.proj = persMat;
+			//pointLightTransforms.emplace_back(std::move(transform));
 
-			lightTransformUniformBuffer[lightIndex].CopyData(currentImage, pointLightTransforms);
+			//lightTransformUniformBuffer[lightIndex].CopyData(currentImage, pointLightTransforms);
+
+			std::vector<GPUSceneData> sceneData_local_list;
+			GPUSceneData sceneData_local;
+			sceneData_local.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
+			sceneData_local.model = glm::scale(sceneData_local.model, glm::vec3(0.005f));
+			sceneData_local.view = viewMat;
+			sceneData_local.proj = persMat;
+			sceneData_local_list.emplace_back(std::move(sceneData_local));
+
+			sceneData.CopyData(currentImage, sceneData_local_list);
 		}
 	}
 

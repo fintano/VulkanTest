@@ -168,6 +168,7 @@ CALL compile.bat</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="shaders\ForwardPass.frag" />
+    <None Include="shaders\input_structures.glsl" />
     <None Include="shaders\LightingPass.frag" />
     <None Include="shaders\LightingPass.vert" />
     <None Include="shaders\ObjectShader.frag" />
