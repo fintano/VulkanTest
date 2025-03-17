@@ -2,35 +2,40 @@
 #include <iostream>
 #include <vk_loader.h>
 
-#include "VulkanTutorial.h"
 //#include "vk_engine.h"
 //#include "vk_initializers.h"
-#include "vk_types.h"
+//#include "vk_types.h"
 #include <glm/gtx/quaternion.hpp>
 
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 
+#include "Vertex.h"
+#include "VulkanTutorial.h"
+
 std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanTutorial* engine, std::filesystem::path filePath)
 {
-    std::cout << "Loading GLTF: " << filePath << std::endl;
+	std::cout << "Loading GLTF : " << filePath << std::endl;
 
-    auto data = fastgltf::GltfDataBuffer::FromPath(filePath);
+	//fastgltf::GltfDataBuffer data(filePath);
+    fastgltf::Expected<fastgltf::GltfDataBuffer> data = fastgltf::GltfDataBuffer::FromPath(filePath);
 
-    constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers;
+	constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers;
 
-    fastgltf::Asset gltf;
-    fastgltf::Parser parser{};
+	fastgltf::Asset gltf;
+	fastgltf::Parser parser{};
 
-    auto load = parser.loadGltfBinary(data.get(), filePath.parent_path(), gltfOptions);
-    if (load) {
-        gltf = std::move(load.get());
-    }
-    else {
-        //fmt::print("Failed to load glTF: {} \n", fastgltf::to_underlying(load.error()));
-        return {};
-    }
+	auto load = parser.loadGltfBinary(data.get(), filePath.parent_path(), gltfOptions);
+	if (load) 
+	{
+		gltf = std::move(load.get());
+	}
+	else 
+	{
+		std::printf("Failed to load glTF: %s \n", fastgltf::to_underlying(load.error()));
+		return {};
+	}
 
     std::vector<std::shared_ptr<MeshAsset>> meshes;
 
@@ -75,9 +80,8 @@ std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanTuto
                         Vertex newvtx;
                         newvtx.pos = v;
                         newvtx.normal = { 1, 0, 0 };
-                        newvtx.color = glm::vec4{ 1.f };
-                        newvtx.texCoord.x = 0;
-                        newvtx.texCoord.y = 0;
+						newvtx.color = glm::vec4{ 1.f };
+						newvtx.texCoord = { 0,0 };
                         vertices[initial_vtx + index] = newvtx;
                     });
             }
@@ -122,9 +126,11 @@ std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanTuto
                 vtx.color = glm::vec4(vtx.normal, 1.f);
             }
         }
-
+        
         engine->createVertexBuffer(vertices, newmesh.meshBuffers.vertexBuffer.Buffer, newmesh.meshBuffers.vertexBuffer.BufferMemory);
         engine->createIndexBuffer(indices, newmesh.meshBuffers.indexBuffer.Buffer, newmesh.meshBuffers.indexBuffer.BufferMemory);
+
+        //newmesh.meshBuffers.vertexBuffer  = engine->uploadMesh(indices, vertices);
 
         meshes.emplace_back(std::make_shared<MeshAsset>(std::move(newmesh)));
     }

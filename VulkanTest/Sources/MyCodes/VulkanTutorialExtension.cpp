@@ -131,6 +131,10 @@ void VulkanTutorialExtension::createUniformBuffers()
 {
 	VulkanTutorial::createUniformBuffers();
 
+	{
+		MaterialConstant.createUniformBuffer(1, device, physicalDevice, 1);
+	}
+
 	objectTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	materialUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
@@ -152,6 +156,32 @@ void VulkanTutorialExtension::createDescriptorPool()
 void VulkanTutorialExtension::createDescriptorSets()
 {
 	VulkanTutorial::createDescriptorSets();
+
+	{
+		GLTFMetallic_Roughness::MaterialResources materialResources;
+		//default the material textures
+		materialResources.colorImage = textureImageView;
+		materialResources.colorSampler = textureSampler;
+		materialResources.metalRoughImage = textureImageView;
+		materialResources.metalRoughSampler = textureSampler;
+
+		//set the uniform buffer for the material data
+		//AllocatedBuffer materialConstants = create_buffer(sizeof(GLTFMetallic_Roughness::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+		//write the buffer
+		//GLTFMetallic_Roughness::MaterialConstants* sceneUniformData = (GLTFMetallic_Roughness::MaterialConstants*)materialConstants.allocation->GetMappedData();
+		//MaterialConstant.colorFactors = glm::vec4{ 1,1,1,1 };
+		//MaterialConstant.metal_rough_factors = glm::vec4{ 1,0.5,0,0 };
+
+		//_mainDeletionQueue.push_function([=, this]() {
+		//	destroy_buffer(materialConstants);
+		//	});
+
+		materialResources.dataBuffer = MaterialConstant.getUniformBuffer(0); //materialConstants.buffer;
+		materialResources.dataBufferOffset = 0;
+
+		defaultData = metalRoughMaterial.write_material(this, MaterialPass::MainColor, materialResources);
+	}
 
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
@@ -296,7 +326,7 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 			std::vector<Transform> pointLightTransforms{};
 			Transform transform;
 			transform.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
-			transform.model = glm::scale(transform.model, glm::vec3(0.2f));
+			transform.model = glm::scale(transform.model, glm::vec3(0.005f));
 			transform.view = viewMat;
 			transform.proj = persMat;
 			pointLightTransforms.emplace_back(std::move(transform));
@@ -405,7 +435,7 @@ void VulkanTutorialExtension::createDescriptorSetLayoutsForPointLights()
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	//	Transform
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, bindings);
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
 	createDescriptorSetLayout(bindings, descriptorSetLayoutPointLights);
 }
@@ -452,6 +482,10 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 void VulkanTutorialExtension::createGraphicsPipelines()
 {
 	VulkanTutorial::createGraphicsPipelines();
+
+	{
+		metalRoughMaterial.build_pipelines(this);
+	}
 
 	createPipelineLayout(descriptorSetLayoutPointLights, pipelineLayoutPointLights);
 	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
@@ -504,7 +538,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencilInfo.depthTestEnable = VK_TRUE;
 	depthStencilInfo.depthWriteEnable = VK_TRUE;
-	depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS; // lower depth == closer
+	depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // lower depth == closer
 	depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
 	depthStencilInfo.stencilTestEnable = VK_FALSE;
 

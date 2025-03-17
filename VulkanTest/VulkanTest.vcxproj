@@ -158,8 +158,8 @@ CALL Compile.bat</Command>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\lib-vc2019;$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\lib-vc2019;$(VULKAN_SDK)\Lib;$(ProjectDir)Libraries\fastgltf-main\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;fastgltf.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>CD $(ProjectDir)Shaders
@@ -184,20 +184,30 @@ CALL compile.bat</Command>
     <ClCompile Include="Libraries\DearImGui\imgui_tables.cpp" />
     <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\main.cpp" />
+    <ClCompile Include="Sources\MyCodes\Buffer.cpp" />
+    <ClCompile Include="Sources\MyCodes\GPUMarker.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_engine.cpp" />
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtension.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtensionImGui.cpp" />
+    <ClCompile Include="Sources\VulkanTutorial\VulkanTools.cpp" />
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\MyCodes\Buffer.h" />
     <ClInclude Include="Sources\MyCodes\Camera.h" />
+    <ClInclude Include="Sources\MyCodes\GPUMarker.h" />
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h" />
+    <ClInclude Include="Sources\MyCodes\vk_descriptor.h" />
+    <ClInclude Include="Sources\MyCodes\vk_engine.h" />
     <ClInclude Include="Sources\MyCodes\Vk_loader.h" />
     <ClInclude Include="Sources\MyCodes\vk_types.h" />
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtensionImGui.h" />
     <ClInclude Include="Sources\MyCodes\UniformBuffer.h" />
     <ClInclude Include="Sources\MyCodes\Vertex.h" />
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtension.h" />
+    <ClInclude Include="Sources\VulkanTutorial\vk_initializers.h" />
+    <ClInclude Include="Sources\VulkanTutorial\VulkanTools.h" />
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

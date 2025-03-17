@@ -27,6 +27,8 @@
 #include "Vertex.h"
 #include <mutex>
 
+#include "vk_engine.h"
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -63,17 +65,6 @@ struct SwapChainSupportDetails
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
 };
-
-namespace std {
-	template<> struct hash<Vertex> {
-		size_t operator()(Vertex const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.pos) ^
-				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-				(hash<glm::vec2>()(vertex.texCoord) << 1);
-		}
-	};
-}
-
 
 class VulkanTutorial {
 public:
@@ -181,12 +172,23 @@ public:
 		app->frameBufferResized = true;
 	}
 
+	VkDevice device;
+	
+	struct ForwardPass
+	{
+		VkRenderPass renderPass;
+		std::vector<VkFramebuffer> frameBuffers;
+		VkPipeline pipeline;
+		VkPipelineLayout pipelineLayout;
+	} forward;
+
+	VkDescriptorPool descriptorPool;
+
 protected:
 	GLFWwindow* window;
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VkDevice device;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 	// represents an abstract type of surface to present rendered images to. It's optional if you just need off-screen rendering.
@@ -211,7 +213,6 @@ protected:
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
 
-	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
 
 	uint32_t mipLevels;
@@ -245,14 +246,6 @@ protected:
 		VkFramebuffer frameBuffer;
 	} geometry;
 	
-	struct ForwardPass
-	{
-		VkRenderPass renderPass;
-		std::vector<VkFramebuffer> frameBuffers;
-		VkPipeline pipeline;
-		VkPipelineLayout pipelineLayout;
-	} forward;
-
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;
 	VkImageView depthImageView;
@@ -290,6 +283,9 @@ protected:
 	};
 
 	std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
+	MaterialInstance defaultData;
+	GLTFMetallic_Roughness metalRoughMaterial;
+	UniformBuffer<GLTFMetallic_Roughness::MaterialConstants> MaterialConstant;
 };
 
 extern std::vector<char> readFile(const std::string& filename);

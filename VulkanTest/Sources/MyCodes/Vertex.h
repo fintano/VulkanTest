@@ -1,6 +1,10 @@
 #pragma once
 
+#define GLFW_INCLUDE_VULKAN
+#include <glfw/glfw3.h>
 #include <glm/glm.hpp>
+
+#include <vector>
 
 struct Vertex
 {
@@ -43,6 +47,61 @@ struct Vertex
 		return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
 	}
 };
+
+namespace std {
+	// Hash specialization for glm::vec2
+	template<> struct hash<glm::vec2> {
+		size_t operator()(const glm::vec2& v) const {
+			size_t hash = 0;
+			hash_combine(hash, v.x);
+			hash_combine(hash, v.y);
+			return hash;
+		}
+
+		// Helper function to combine hash values
+		static void hash_combine(size_t& seed, float v) {
+			seed ^= std::hash<float>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		}
+	};
+
+	// Hash specialization for glm::vec3
+	template<> struct hash<glm::vec3> {
+		size_t operator()(const glm::vec3& v) const {
+			size_t hash = 0;
+			hash_combine(hash, v.x);
+			hash_combine(hash, v.y);
+			hash_combine(hash, v.z);
+			return hash;
+		}
+
+		// Helper function to combine hash values
+		static void hash_combine(size_t& seed, float v) {
+			seed ^= std::hash<float>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		}
+	};
+
+	// Now we can define the hash for Vertex
+	template<> struct hash<Vertex> {
+		size_t operator()(const Vertex& vertex) const {
+			size_t seed = 0;
+			hash_combine(seed, vertex.pos);
+			hash_combine(seed, vertex.color);
+			hash_combine(seed, vertex.texCoord);
+			hash_combine(seed, vertex.normal);
+			return seed;
+		}
+
+		// Helper function to combine hash values with vec3
+		static void hash_combine(size_t& seed, const glm::vec3& v) {
+			seed ^= std::hash<glm::vec3>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		}
+
+		// Helper function to combine hash values with vec2
+		static void hash_combine(size_t& seed, const glm::vec2& v) {
+			seed ^= std::hash<glm::vec2>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		}
+	};
+}
 
 struct Instance 
 {

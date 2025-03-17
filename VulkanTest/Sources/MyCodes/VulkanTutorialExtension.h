@@ -92,6 +92,17 @@ private:
 	void cleanUpImGuiSwapchain();
 	void cleanUpImGui();
 
+public:
+	// 포인트라이트용
+	VkPipeline graphicsPipelinePointLights;
+	VkPipelineLayout pipelineLayoutPointLights;
+	VkDescriptorSetLayout descriptorSetLayoutPointLights;
+	std::array<std::vector<VkDescriptorSet>, NR_POINT_LIGHTS> descriptorSetsPointLights;
+	std::vector<int> previousActivePointLightsMask;
+	int activePointLightsMask = 0;
+
+	int getSwapChainImageNum() {return swapChainImages.size(); }
+
 private:
 	Model cube;
 
@@ -112,14 +123,6 @@ private:
 	VkPipeline graphicsPipelineObject;
 	VkPipelineLayout pipelineLayoutObject;
 	std::vector<VkDescriptorSet> descriptorSetsObject;
-
-	// 포인트라이트용
-	VkPipeline graphicsPipelinePointLights;
-	VkPipelineLayout pipelineLayoutPointLights;
-	VkDescriptorSetLayout descriptorSetLayoutPointLights;
-	std::array<std::vector<VkDescriptorSet>, NR_POINT_LIGHTS> descriptorSetsPointLights;
-	std::vector<int> previousActivePointLightsMask;
-	int activePointLightsMask = 0;
 
 	Camera camera;
 
