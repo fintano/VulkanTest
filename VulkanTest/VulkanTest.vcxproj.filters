@@ -40,6 +40,15 @@
     <None Include="shaders\ForwardPass.frag">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\input_structures.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\mesh.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\mesh.frag">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp">
@@ -76,6 +85,15 @@
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\MyCodes\vk_engine.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\VulkanTutorial\VulkanTools.cpp">
+      <Filter>VulkanTutorial</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h">
@@ -104,6 +122,19 @@
     </ClInclude>
     <ClInclude Include="Sources\MyCodes\vk_types.h">
       <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="vk_engine.h" />
+    <ClInclude Include="Sources\MyCodes\vk_engine.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\VulkanTutorial\vk_initializers.h">
+      <Filter>VulkanTutorial</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\vk_descriptor.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\VulkanTutorial\VulkanTools.h">
+      <Filter>VulkanTutorial</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

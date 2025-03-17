@@ -4,6 +4,7 @@
 #include "imgui_impl_vulkan.h"
 #include "VulkanTutorialExtensionImGui.h"
 #include "Vk_loader.h"	
+#include "vk_engine.h"
 
 /**
 * GUI에서 사용할 변수들을 모아놓는다. 
@@ -522,17 +523,14 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.basePipelineIndex = -1;
 
 	// point light objects
-	auto vertShaderCode = readFile("shaders/shadervert.spv");
-	auto fragShaderCode = readFile("shaders/ForwardPassfrag.spv");
-
 	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
 	Vertex::getBindingDescriptions(bindingDescriptions);
 
 	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
 	Vertex::getAttributeDescriptions(attributeDescriptions);
 
-	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+	VkShaderModule vertShaderModule = createShaderModule("shaders/shadervert.spv");
+	VkShaderModule fragShaderModule = createShaderModule("shaders/ForwardPassfrag.spv");
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -609,11 +607,8 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	Instance::getBindingDescriptions(bindingDescriptions);
 	Instance::getAttributeDescriptions(attributeDescriptions);
 
-	vertShaderCode = readFile("shaders/ObjectShadervert.spv");
-	fragShaderCode = readFile("shaders/ObjectShaderfrag.spv");
-
-	vertShaderModule = createShaderModule(vertShaderCode);
-	fragShaderModule = createShaderModule(fragShaderCode);
+	vertShaderModule = createShaderModule("shaders/ObjectShadervert.spv");
+	fragShaderModule = createShaderModule("shaders/ObjectShaderfrag.spv");
 
 	vertShaderStageInfo.module = vertShaderModule;
 	fragShaderStageInfo.module = fragShaderModule;
@@ -656,11 +651,8 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	/**
 	* For lightpass
 	*/
-	vertShaderCode = readFile("shaders/LightingPassvert.spv");
-	fragShaderCode = readFile("shaders/LightingPassfrag.spv");
-
-	vertShaderModule = createShaderModule(vertShaderCode);
-	fragShaderModule = createShaderModule(fragShaderCode);
+	vertShaderModule = createShaderModule("shaders/LightingPassvert.spv");
+	fragShaderModule = createShaderModule("shaders/LightingPassfrag.spv");
 
 	vertShaderStageInfo.module = vertShaderModule;
 	fragShaderStageInfo.module = fragShaderModule;
@@ -778,6 +770,22 @@ void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandB
 			vkCmdDrawIndexed(commandBuffers[i], testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
 		}
 	}
+
+	//for (const RenderObject& draw : mainDrawContext.OpaqueSurfaces) {
+
+	//	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+	//	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 0, 1, &globalDescriptor, 0, nullptr);
+	//	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 1, 1, &draw.material->materialSet, 0, nullptr);
+
+	//	vkCmdBindIndexBuffer(commandBuffers[i], draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+	//	GPUDrawPushConstants pushConstants;
+	//	pushConstants.vertexBuffer = draw.vertexBufferAddress;
+	//	pushConstants.worldMatrix = draw.transform;
+	//	vkCmdPushConstants(commandBuffers[i], draw.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+
+	//	vkCmdDrawIndexed(commandBuffers[i], draw.indexCount, 1, draw.firstIndex, 0, 0);
+	//}
 }
 
 void VulkanTutorialExtension::createInstanceBuffer(uint32_t imageIndex)

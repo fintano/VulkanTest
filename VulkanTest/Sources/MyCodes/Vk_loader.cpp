@@ -12,6 +12,8 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 
+#include "vk_engine.h"
+
 std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanTutorial* engine, std::filesystem::path filePath)
 {
     std::cout << "Loading GLTF: " << filePath << std::endl;
@@ -130,4 +132,25 @@ std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanTuto
     }
 
     return meshes;
+}
+
+void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
+{
+    glm::mat4 nodeMatrix = topMatrix * worldTransform;
+
+    for (auto& s : mesh->surfaces) {
+        RenderObject def;
+        def.indexCount = s.count;
+        def.firstIndex = s.startIndex;
+        def.indexBuffer = mesh->meshBuffers.indexBuffer.Buffer;
+        def.material = &s.material->data;
+
+        def.transform = nodeMatrix;
+       // def.vertexBufferAddress = mesh->meshBuffers.vertexBufferAddress;
+
+        ctx.OpaqueSurfaces.push_back(def);
+    }
+
+    // recurse down
+    Node::Draw(topMatrix, ctx);
 }

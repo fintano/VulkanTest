@@ -168,8 +168,11 @@ CALL compile.bat</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="shaders\ForwardPass.frag" />
+    <None Include="shaders\input_structures.glsl" />
     <None Include="shaders\LightingPass.frag" />
     <None Include="shaders\LightingPass.vert" />
+    <None Include="shaders\mesh.frag" />
+    <None Include="shaders\mesh.vert" />
     <None Include="shaders\ObjectShader.frag" />
     <None Include="shaders\ObjectShader.vert" />
     <None Include="shaders\shader.frag" />
@@ -184,21 +187,29 @@ CALL compile.bat</Command>
     <ClCompile Include="Libraries\DearImGui\imgui_tables.cpp" />
     <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\main.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_engine.cpp" />
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtension.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtensionImGui.cpp" />
+    <ClCompile Include="Sources\VulkanTutorial\VulkanTools.cpp" />
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\MyCodes\Camera.h" />
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h" />
+    <ClInclude Include="Sources\MyCodes\vk_descriptor.h" />
+    <ClInclude Include="Sources\MyCodes\vk_engine.h" />
     <ClInclude Include="Sources\MyCodes\Vk_loader.h" />
     <ClInclude Include="Sources\MyCodes\vk_types.h" />
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtensionImGui.h" />
     <ClInclude Include="Sources\MyCodes\UniformBuffer.h" />
     <ClInclude Include="Sources\MyCodes\Vertex.h" />
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtension.h" />
+    <ClInclude Include="Sources\VulkanTutorial\vk_initializers.h" />
+    <ClInclude Include="Sources\VulkanTutorial\VulkanTools.h" />
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h" />
+    <ClInclude Include="vk_engine.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

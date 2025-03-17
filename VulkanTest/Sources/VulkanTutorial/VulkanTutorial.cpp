@@ -973,12 +973,14 @@ VulkanTutorial::VulkanTutorial()
 		}
 	}
 
-	VkShaderModule VulkanTutorial::createShaderModule(const std::vector<char>& code)
+	VkShaderModule VulkanTutorial::createShaderModule(const std::string& filename)
 	{
+		auto shaderCode = readFile(filename);
+
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = code.size();
-		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+		createInfo.codeSize = shaderCode.size();
+		createInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
 
 		VkShaderModule shaderModule;
 		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
@@ -2112,4 +2114,56 @@ VulkanTutorial::VulkanTutorial()
 			clearUniformBuffer(i);
 		}
 		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+	}
+
+	void VulkanTutorial::update_scene()
+	{
+
+	}
+
+	void VulkanTutorial::createMaterialDescriptorSets(VkDescriptorSetLayout materialLayout, VkDescriptorSet outDescriptorSet)
+	{
+		std::vector<VkDescriptorSetLayout> layouts(1, materialLayout);
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = descriptorPool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+		allocInfo.pSetLayouts = layouts.data();
+
+		//outDescriptorSets.resize(swapChainImages.size());
+		// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
+		if (vkAllocateDescriptorSets(device, &allocInfo, &outDescriptorSet) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate descriptor sets!");
+		}
+		// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
+		// binding 순서대로 index가 부여된다. shader와 일치해야한다.
+		//for (size_t i = 0; i < swapChainImages.size(); i++)
+		{
+			std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+			// colorUBO
+			colorUniformBuffer.createWriteDescriptorSet(i, outDescriptorSet, descriptorWrites);
+
+			// dirLightUniform
+			dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSet, descriptorWrites);
+
+			// pointLightsUniform
+			pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSet, descriptorWrites);
+
+			// position
+			VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(geometry.position.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSet, &positionImageInfo, nullptr, descriptorWrites);
+
+			// normal 
+			VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(geometry.normal.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSet, &normalImageInfo, nullptr, descriptorWrites);
+
+			// color + specular
+			VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(geometry.colorSpecular.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSet, &colorSpecularImageInfo, nullptr, descriptorWrites);
+
+			vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		}
 	}

@@ -134,7 +134,7 @@ public:
 		std::vector<VkVertexInputBindingDescription> bindingDescriptions, std::vector<VkVertexInputAttributeDescription> attributeDescriptions, VkPipeline& OutPipeline);
 	*/
 	void createPipelineLayout(const VkDescriptorSetLayout& inDescriptorSetLayout, VkPipelineLayout& outPipelineLayout);
-	VkShaderModule createShaderModule(const std::vector<char>& code);
+	VkShaderModule createShaderModule(const std::string& filename);
 	void createColorResources();
 	void createDepthResources();
 	VkFormat findDepthFormat();
@@ -181,12 +181,22 @@ public:
 		app->frameBufferResized = true;
 	}
 
+	VkDevice device;
+	VkDescriptorSetLayout gpuSceneDataDescriptorLayout; // 이거 만들어야됨
+
+	struct ForwardPass
+	{
+		VkRenderPass renderPass;
+		std::vector<VkFramebuffer> frameBuffers;
+		VkPipeline pipeline;
+		VkPipelineLayout pipelineLayout;
+	} forward;
+
 protected:
 	GLFWwindow* window;
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VkDevice device;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 	// represents an abstract type of surface to present rendered images to. It's optional if you just need off-screen rendering.
@@ -244,14 +254,6 @@ protected:
 		VkRenderPass renderPass;
 		VkFramebuffer frameBuffer;
 	} geometry;
-	
-	struct ForwardPass
-	{
-		VkRenderPass renderPass;
-		std::vector<VkFramebuffer> frameBuffers;
-		VkPipeline pipeline;
-		VkPipelineLayout pipelineLayout;
-	} forward;
 
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;
@@ -290,6 +292,13 @@ protected:
 	};
 
 	std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
+
+	//DrawContext mainDrawContext;
+	//std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+
+	void update_scene();
+public:
+	void createMaterialDescriptorSets(VkDescriptorSetLayout materialLayout, VkDescriptorSet outDescriptorSet);
 };
 
 extern std::vector<char> readFile(const std::string& filename);
