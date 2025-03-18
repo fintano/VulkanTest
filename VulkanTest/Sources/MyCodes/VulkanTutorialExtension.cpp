@@ -31,6 +31,7 @@ VulkanTutorialExtension::VulkanTutorialExtension()
 void VulkanTutorialExtension::initVulkan()
 {
 	VulkanTutorial::initVulkan();
+	init_default_data();
 
 	createImGui();
 	ImGui_ImplVulkan_CreateFontsTexture();
@@ -361,7 +362,7 @@ void VulkanTutorialExtension::update_scene()
 	mainDrawContext.OpaqueSurfaces.clear();
 
 	//loadedNodes["Suzanne"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
-	loadedNodes["Box"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
+	loadedNodes["Mesh"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
 
 	glm::mat4 viewMat = camera.GetViewMatrix();
 	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
@@ -995,8 +996,6 @@ void VulkanTutorialExtension::loadModels()
 
 void VulkanTutorialExtension::createBuffers()
 {
-	init_default_data();
-
 	VulkanTutorial::createBuffers();
 
 	createVertexBuffer(cube.vertices, cube.vertexBuffer, cube.vertexBufferMemory);

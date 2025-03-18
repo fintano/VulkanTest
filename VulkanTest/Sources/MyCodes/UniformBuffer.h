@@ -131,7 +131,15 @@ public:
 	const std::vector<T>& getData() const { return data; }
 	std::vector<T>& getData() { return data; }
 
-	T& getFirstData() { return data[0]; }
+	T& getFirstData()
+	{
+		if (data.empty())
+		{
+			data.resize(bufferCount);
+		}
+		return data[0];
+	}
+
 	T& clearAndGetFirstInstanceData()
 	{
 		data.clear();

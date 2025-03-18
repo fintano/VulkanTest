@@ -184,7 +184,7 @@ VulkanTutorial::VulkanTutorial()
 			throw std::runtime_error("failed to create instance!");
 		}
 
-		//GPUMarker::setup(instance);
+		GPUMarker::setup(instance);
 	}
 
 	std::vector<const char*> VulkanTutorial::getRequiredExtensions()
