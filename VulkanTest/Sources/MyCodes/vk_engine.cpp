@@ -6,14 +6,18 @@
 
 namespace vkinit = vkb::initializers;
 
-void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
+void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEngine)
 {
-	VkExtent2D swapchainExtent = engine->getSwapchainExtent();
+	std::cout << "build_pipelines first: " << extendedEngine->globalDescriptorSetLayout << std::endl;
+	std::cout << "build_pipelines first extendedEngine: " << extendedEngine << std::endl;
+	const VkExtent2D swapchainExtent = extendedEngine->getSwapchainExtent();
 
 	//VkPushConstantRange matrixRange{};
 	//matrixRange.offset = 0;
 	//matrixRange.size = sizeof(GPUDrawPushConstants);
 	//matrixRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	materialLayout = {};
 
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 
@@ -21,19 +25,40 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 	vk::desc::createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	vk::desc::createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
-	vk::desc::createDescriptorSetLayout(engine->device, bindings, materialLayout);
+	materialLayout = vk::desc::createDescriptorSetLayout(extendedEngine->device, bindings);
 
 	//DescriptorLayoutBuilder layoutBuilder;
 	//layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 	//layoutBuilder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 	//layoutBuilder.add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
-	//materialLayout = layoutBuilder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+	//materialLayout = layoutBuilder.build(extendedEngine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
-	//VkDescriptorSetLayout layouts[] = { engine->descriptorSetLayoutPointLights /*engine->_gpuSceneDataDescriptorLayout*/,
+	//VkDescriptorSetLayout layouts[] = { extendedEngine->descriptorSetLayoutPointLights /*extendedEngine->_gpuSceneDataDescriptorLayout*/,
 	//	materialLayout };
+	std::cout << "build_pipelines: " << extendedEngine->globalDescriptorSetLayout << std::endl;
+	if (extendedEngine->globalDescriptorSetLayout == VK_NULL_HANDLE)
+	{
+		std::cout << "ERROR!" << " globalDescriptorSetLayout" << std::endl;
+	}
 
-	std::array<VkDescriptorSetLayout, 2> layouts = { engine->descriptorSetLayoutPointLights , materialLayout };
+	if (extendedEngine->descriptorSetLayoutPointLights == VK_NULL_HANDLE)
+	{
+		std::runtime_error("Error!");
+	}
+
+	bindings.clear();
+
+	VkDescriptorSetLayout TempLayout = {};
+
+	vk::desc::createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	TempLayout = vk::desc::createDescriptorSetLayout(extendedEngine->device, bindings);
+
+
+	//std::array<VkDescriptorSetLayout, 1> layouts = { TempLayout };
+	std::array<VkDescriptorSetLayout, 1> layouts = { extendedEngine->getGlobalDescriptorSetLayout()};
+
+
 
 	VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info(layouts.size());
 	mesh_layout_info.pSetLayouts = layouts.data();
@@ -41,7 +66,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 	//mesh_layout_info.pushConstantRangeCount = 1;
 
 	VkPipelineLayout newLayout;
-	VK_CHECK_RESULT(vkCreatePipelineLayout(engine->device, &mesh_layout_info, nullptr, &newLayout));
+	VK_CHECK_RESULT(vkCreatePipelineLayout(extendedEngine->device, &mesh_layout_info, nullptr, &newLayout));
 
 	opaquePipeline.layout = newLayout;
 	transparentPipeline.layout = newLayout;
@@ -55,7 +80,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 	VkPipelineMultisampleStateCreateInfo multisampleState = vkinit::pipeline_multisample_state_create_info(VK_SAMPLE_COUNT_1_BIT, 0);
 	VkPipelineDepthStencilStateCreateInfo depthStencilState = vkinit::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
 	
-	VkGraphicsPipelineCreateInfo pipelineCI = vkinit::pipeline_create_info(newLayout, engine->forward.renderPass);
+	VkGraphicsPipelineCreateInfo pipelineCI = vkinit::pipeline_create_info(newLayout, extendedEngine->forward.renderPass);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pMultisampleState = &multisampleState;
@@ -74,9 +99,8 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 	VkPipelineColorBlendStateCreateInfo colorBlendState = vkinit::pipeline_color_blend_state_create_info(1, &blendAttachmentState);
 	pipelineCI.pColorBlendState = &colorBlendState;
 
-
-	VkShaderModule meshVertexShader = vks::tools::loadShader("shaders/shadervert.spv", engine->device);
-	VkShaderModule meshFragShader = vks::tools::loadShader("shaders/ForwardPassfrag.spv", engine->device);
+	VkShaderModule meshVertexShader = vks::tools::loadShader("shaders/shadervert.spv", extendedEngine->device);
+	VkShaderModule meshFragShader = vks::tools::loadShader("shaders/ForwardPassfrag.spv", extendedEngine->device);
 
 	// Shaders
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -115,7 +139,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 			bindings[i].binding, bindings[i].descriptorType, bindings[i].stageFlags);
 	}
 
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(engine->device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &opaquePipeline.pipeline));
+	VK_CHECK_RESULT(vkCreateGraphicsPipelines(extendedEngine->device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &opaquePipeline.pipeline));
 
 	// build the stage-create-info for both vertex and fragment stages. This lets
 	// the pipeline know the shader modules per stage
@@ -129,14 +153,14 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 	//pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 	//render format
-	//pipelineBuilder.set_color_attachment_format(engine->_drawImage.imageFormat);
-	//pipelineBuilder.set_depth_format(engine->_depthImage.imageFormat);
+	//pipelineBuilder.set_color_attachment_format(extendedEngine->_drawImage.imageFormat);
+	//pipelineBuilder.set_depth_format(extendedEngine->_depthImage.imageFormat);
 
 	// use the triangle layout we created
 	//pipelineBuilder._pipelineLayout = newLayout;
 
 	// finally build the pipeline
-	//opaquePipeline.pipeline = pipelineBuilder.build_pipeline(engine->_device);
+	//opaquePipeline.pipeline = pipelineBuilder.build_pipeline(extendedEngine->_device);
 
 	// ColorBlending
 	{
@@ -157,12 +181,23 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* engine)
 
 	//pipelineBuilder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(engine->device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &transparentPipeline.pipeline));
+	VK_CHECK_RESULT(vkCreateGraphicsPipelines(extendedEngine->device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &transparentPipeline.pipeline));
 
-	//transparentPipeline.pipeline = pipelineBuilder.build_pipeline(engine->_device);
+	//transparentPipeline.pipeline = pipelineBuilder.build_pipeline(extendedEngine->_device);
 
-	vkDestroyShaderModule(engine->device, meshFragShader, nullptr);
-	vkDestroyShaderModule(engine->device, meshVertexShader, nullptr);
+	vkDestroyShaderModule(extendedEngine->device, meshFragShader, nullptr);
+	vkDestroyShaderModule(extendedEngine->device, meshVertexShader, nullptr);
+}
+
+void GLTFMetallic_Roughness::clear_resources(VkDevice device)
+{	
+	vkDestroyPipeline(device, opaquePipeline.pipeline, nullptr);
+	vkDestroyPipeline(device, transparentPipeline.pipeline, nullptr);
+
+	vkDestroyPipelineLayout(device, opaquePipeline.layout, nullptr);
+	vkDestroyPipelineLayout(device, transparentPipeline.layout, nullptr);
+
+	vkDestroyDescriptorSetLayout(device, materialLayout, nullptr);
 }
 
 MaterialInstance GLTFMetallic_Roughness::write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources)
@@ -207,11 +242,8 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VulkanTutorialExtension*
 	for (size_t i = 0; i < swapChainImageNum; i++)
 	{
 		writeDescriptorSets = {
-			// Binding 1 : 
 			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &bufDescriptor),
-			// Binding 2 : 
 			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &texDescriptorColor),
-			// Binding 3 : 
 			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &texDescriptorMetalRough),
 		};
 

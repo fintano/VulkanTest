@@ -4,6 +4,9 @@
 #include "imgui_impl_vulkan.h"
 #include "VulkanTutorialExtensionImGui.h"
 #include "Vk_loader.h"	
+#include "vk_descriptor.h"
+
+static int UniqueBufferIndex = 0;
 
 /**
 * GUI에서 사용할 변수들을 모아놓는다. 
@@ -132,8 +135,8 @@ void VulkanTutorialExtension::createUniformBuffers()
 	VulkanTutorial::createUniformBuffers();
 
 	{
-		sceneData.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-		materialConstant.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+		globalSceneData.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+		materialConstants.createUniformBuffer(1, device, physicalDevice);
 	}
 
 	objectTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
@@ -169,6 +172,11 @@ void VulkanTutorialExtension::createDescriptorSets()
 		//set the uniform buffer for the material data
 		//AllocatedBuffer materialConstants = create_buffer(sizeof(GLTFMetallic_Roughness::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
+		GLTFMetallic_Roughness::MaterialConstants& materialData = materialConstants.clearAndGetFirstInstanceData();
+		materialData.colorFactors = glm::vec4{ 1,1,1,1 };
+		materialData.metal_rough_factors = glm::vec4{ 1,0.5,0,0 };
+		materialConstants.CopyData(UniqueBufferIndex);
+
 		//write the buffer
 		//GLTFMetallic_Roughness::MaterialConstants* sceneUniformData = (GLTFMetallic_Roughness::MaterialConstants*)materialConstants.allocation->GetMappedData();
 		//MaterialConstant.colorFactors = glm::vec4{ 1,1,1,1 };
@@ -178,18 +186,43 @@ void VulkanTutorialExtension::createDescriptorSets()
 		//	destroy_buffer(materialConstants);
 		//	});
 
-		materialResources.dataBuffer = materialConstant.getUniformBuffer(0); //materialConstants.buffer;
+
+		materialResources.dataBuffer = materialConstants.getUniformBuffer(UniqueBufferIndex); //materialConstants.buffer;
 		materialResources.dataBufferOffset = 0;
 
-		defaultData = metalRoughMaterial.write_material(this, MaterialPass::MainColor, materialResources);
+		defaultData.data = metalRoughMaterial.write_material(this, MaterialPass::MainColor, materialResources);
 	}
 
-	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	{
+		createGlobalDescriptorSets();
+	}
+
+	/*for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
 		createDescriptorSetsPointLights(lightTransformUniformBuffer[lightIndex], descriptorSetsPointLights[lightIndex]);
-	}
+	}*/
 	createDescriptorSetsObject(descriptorSetsObject);
 	createLightingPassDescriptorSets(lightingPass.descriptorSets);
+}
+
+void VulkanTutorialExtension::createGlobalDescriptorSets()
+{
+	VkDescriptorSetAllocateInfo allocInfo = vkb::initializers::descriptor_set_allocate_info(descriptorPool, &globalDescriptorSetLayout, 1);
+	VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &globalDescriptorSet));
+
+	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
+
+	VkDescriptorBufferInfo bufDescriptor =
+		vkb::initializers::descriptor_buffer_info(
+			globalSceneData.getUniformBuffer(UniqueBufferIndex),
+			0,
+			sizeof(globalSceneData));
+
+	writeDescriptorSets = {
+		vkb::initializers::write_descriptor_set(globalDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &bufDescriptor),
+	};
+	
+	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
 
 void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets)
@@ -304,8 +337,52 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 	}
 }
 
+void VulkanTutorialExtension::init_default_data()
+{
+	testMeshes = loadGltfMeshes(this, "models/Box.glb").value();
+
+	for (auto& m : testMeshes) {
+		std::shared_ptr<MeshNode> newNode = std::make_shared<MeshNode>();
+		newNode->mesh = m;
+
+		newNode->localTransform = glm::mat4{ 1.f };
+		newNode->worldTransform = glm::mat4{ 1.f };
+
+		for (auto& s : newNode->mesh->surfaces) {
+			s.material = std::make_shared<GLTFMaterial>(defaultData);
+		}
+
+		loadedNodes[m->name] = std::move(newNode);
+	}
+}
+
+void VulkanTutorialExtension::update_scene()
+{
+	mainDrawContext.OpaqueSurfaces.clear();
+
+	//loadedNodes["Suzanne"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
+	loadedNodes["Box"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
+
+	glm::mat4 viewMat = camera.GetViewMatrix();
+	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
+	persMat[1][1] *= -1;
+
+	GPUSceneData& sceneData = globalSceneData.clearAndGetFirstInstanceData();
+
+	sceneData.view = viewMat;//glm::translate(glm::vec3{ 0,0,-5 });
+	// camera projection
+	sceneData.proj = persMat;//glm::perspective(glm::radians(70.f), (float)_windowExtent.width / (float)_windowExtent.height, 10000.f, 0.1f);
+
+	//some default lighting parameters
+	sceneData.ambientColor = glm::vec4(.1f);
+	sceneData.sunlightColor = glm::vec4(1.f);
+	sceneData.sunlightDirection = glm::vec4(0, 1, 0.5, 1.f);
+}
+
 void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 {
+	update_scene();
+
 	VulkanTutorial::updateUniformBuffer(currentImage);
 
 	static glm::vec3 pointLightPositions[] = {
@@ -334,35 +411,32 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 
 			//lightTransformUniformBuffer[lightIndex].CopyData(currentImage, pointLightTransforms);
 
-			std::vector<GPUSceneData> sceneData_local_list;
-			GPUSceneData sceneData_local;
+			// view와 proj는 update_scene에서 받는다.
+			GPUSceneData& sceneData_local = globalSceneData.getFirstData();
 			sceneData_local.model = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
 			sceneData_local.model = glm::scale(sceneData_local.model, glm::vec3(0.005f));
-			sceneData_local.view = viewMat;
-			sceneData_local.proj = persMat;
-			sceneData_local_list.emplace_back(std::move(sceneData_local));
 
-			sceneData.CopyData(currentImage, sceneData_local_list);
+			globalSceneData.CopyData(currentImage);
 		}
 	}
 
 	// Object
-	Transform ubo{};
+	Transform& ubo = objectTransformUniformBuffer.clearAndGetFirstInstanceData();
 	ubo.model = glm::mat4(1.f);
 	ubo.view = viewMat;
 	ubo.proj = persMat;
 
-	objectTransformUniformBuffer.CopyData(currentImage, { ubo });
+	objectTransformUniformBuffer.CopyData(currentImage);
 
-	ColorUBO colorUbo;
+	ColorUBO& colorUbo = colorUniformBuffer.clearAndGetFirstInstanceData();
 	colorUbo.objectColor = glm::vec3(1.0f, 0.0f, 0.0f);
 	colorUbo.lightColor = glm::vec3(0.0f, 0.0f, 0.0f);
 	colorUbo.viewPos = camera.Position;
 	colorUbo.Debug.x = debugGBuffers;
-	colorUniformBuffer.CopyData(currentImage, { colorUbo });
+	colorUniformBuffer.CopyData(currentImage);
 
 	// Material 
-	Material material;
+	Material& material = materialUniformBuffer.clearAndGetFirstInstanceData();
 	material.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
 	material.diffuse = glm::vec3(1.0f, 0.5f, 0.31f);
 	material.specular = glm::vec3(1.0f, 0.5f, 0.31f);
@@ -370,10 +444,10 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	// float을 할거면 vec3/vec4로 해서 컴포넌트로 넘겨주는 것만 작동한다. 
 	material.shininess = glm::vec3(32.0f, 0.5f, 0.31f);
 
-	materialUniformBuffer.CopyData(currentImage, { material });
+	materialUniformBuffer.CopyData(currentImage);
 
 	// Directional Light;
-	DirLight dirLight;
+	DirLight& dirLight = dirLightUniformBuffer.clearAndGetFirstInstanceData();
 	if (useDirectionalLight)
 	{
 		dirLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
@@ -381,8 +455,6 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 		dirLight.specular = glm::vec3(0.5f, 0.5f, 0.5f);
 	}
 	dirLight.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
-
-	dirLightUniformBuffer.CopyData(currentImage, { dirLight });
 
 	// Point Lights
 	std::array<PointLight, NR_POINT_LIGHTS > pointLights;
@@ -403,7 +475,8 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 		turnPointLightOn(i);
 	}
 
-	std::vector<PointLightsUniform> pointLightUniform;
+	std::vector<PointLightsUniform>& pointLightUniform = pointLightsUniformBuffer.getData();
+	pointLightUniform.clear();
 	pointLightUniform.emplace_back();
 	PointLightsUniform& newElement = pointLightUniform.back();
 	newElement.activeLightMask = activePointLightsMask;
@@ -415,7 +488,7 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	* 따라서 쉐이더가 UBO 배열로 선언되어 있지 않으면 제대로 동작하지 않을 수 있습니다.
 	*/
 
-	pointLightsUniformBuffer.CopyData(currentImage, pointLightUniform);
+	pointLightsUniformBuffer.CopyData(currentImage);
 }
 
 void VulkanTutorialExtension::clearUniformBuffer(uint32_t i)
@@ -437,18 +510,40 @@ void VulkanTutorialExtension::createDescriptorSetLayouts()
 {
 	VulkanTutorial::createDescriptorSetLayouts();
 
+	createGlobalDescriptorSetLayout();
+
 	createDescriptorSetLayoutsForPointLights();
 	createDescriptorSetLayoutsForObjects();
 	createLightingPassDescriptorSetLayout();
 }
 
+void VulkanTutorialExtension::createGlobalDescriptorSetLayout()
+{
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	
+	std::cout << "Before creation: " << globalDescriptorSetLayout << std::endl;
+	createDescriptorSetLayout(bindings, globalDescriptorSetLayout);
+	std::cout << "Before creation: " << globalDescriptorSetLayout << std::endl;
+
+	//globalDescriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
+	if (globalDescriptorSetLayout == VK_NULL_HANDLE)
+	{
+		std::cout << "ERROR!" << " createGlobalDescriptorSetLayout" << std::endl;
+	}
+
+	//createDescriptorSetLayout(bindings, globalDescriptorSetLayout);
+}
+
 void VulkanTutorialExtension::createDescriptorSetLayoutsForPointLights()
 {
+	std::cout << "Before createDescriptorSetLayoutsForPointLights: " << globalDescriptorSetLayout << std::endl;
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	//	Transform
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
 	createDescriptorSetLayout(bindings, descriptorSetLayoutPointLights);
+	std::cout << "Before createDescriptorSetLayoutsForPointLights: " << globalDescriptorSetLayout << std::endl;
 }
 
 void VulkanTutorialExtension::createDescriptorSetLayoutsForObjects()
@@ -467,7 +562,7 @@ void VulkanTutorialExtension::createDescriptorSetLayoutsForObjects()
 	//	pointLightsUniformBuffer
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
-	createDescriptorSetLayout(bindings, descriptorSetLayout);
+	descriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
 }
 
 void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
@@ -487,14 +582,17 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 	//	color + specular 
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
-	createDescriptorSetLayout(bindings, lightingPass.descriptorSetLayout);
+	lightingPass.descriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
 }
 
 void VulkanTutorialExtension::createGraphicsPipelines()
 {
+	std::cout << "createGraphicsPipelines first: " << globalDescriptorSetLayout << std::endl;
 	VulkanTutorial::createGraphicsPipelines();
 
 	{
+		std::cout << "before build_pipelines: " << this->globalDescriptorSetLayout << std::endl;
+		std::cout << "before build_pipelines engine : " << this << std::endl;
 		metalRoughMaterial.build_pipelines(this);
 	}
 
@@ -809,23 +907,42 @@ void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandB
 {
 	VulkanTutorial::recordForwardPassCommands(commandBuffer, i);
 
-	VkBuffer vertexBuffers[]{ testMeshes[0]->meshBuffers.vertexBuffer.Buffer};
-	VkDeviceSize offsets[]{ 0 };
-	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffers[i], testMeshes[0]->meshBuffers.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
-
-	// Point Lights
-	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, metalRoughMaterial.opaquePipeline.pipeline);
-	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	for (const RenderObject& draw : mainDrawContext.OpaqueSurfaces) 
 	{
-		if (isLightOn(lightIndex))
-		{
-			VkDescriptorSet descriptorSets[] = { descriptorSetsPointLights[lightIndex][i], defaultData.materialSet[i]};
+		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 0, 1, &globalDescriptorSet, 0, nullptr);
+		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 1, 1, &draw.material->materialSet[i], 0, nullptr);
 
-			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, metalRoughMaterial.opaquePipeline.layout, 0, 2, descriptorSets, 0, nullptr);
-			vkCmdDrawIndexed(commandBuffers[i], testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
-		}
+		VkBuffer vertexBuffers[]{ draw.vertexBuffer };
+		VkDeviceSize offsets[]{ 0 };
+		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(commandBuffers[i], draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+		//GPUDrawPushConstants pushConstants;
+		//pushConstants.vertexBuffer = draw.vertexBufferAddress;
+		//pushConstants.worldMatrix = draw.transform;
+		//vkCmdPushConstants(commandBuffers[i], draw.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+
+		vkCmdDrawIndexed(commandBuffers[i], draw.indexCount, 1, draw.firstIndex, 0, 0);
 	}
+
+	//VkBuffer vertexBuffers[]{ testMeshes[0]->meshBuffers.vertexBuffer.Buffer};
+	//VkDeviceSize offsets[]{ 0 };
+	//vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+	//vkCmdBindIndexBuffer(commandBuffers[i], testMeshes[0]->meshBuffers.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+	//// Point Lights
+	//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, metalRoughMaterial.opaquePipeline.pipeline);
+	//for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	//{
+	//	if (isLightOn(lightIndex))
+	//	{
+	//		VkDescriptorSet descriptorSets[] = { descriptorSetsPointLights[lightIndex][i], defaultData.materialSet[i]};
+
+	//		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, metalRoughMaterial.opaquePipeline.layout, 0, 2, descriptorSets, 0, nullptr);
+	//		vkCmdDrawIndexed(commandBuffers[i], testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
+	//	}
+	//}
 }
 
 void VulkanTutorialExtension::createInstanceBuffer(uint32_t imageIndex)
@@ -895,6 +1012,8 @@ void VulkanTutorialExtension::loadModels()
 
 void VulkanTutorialExtension::createBuffers()
 {
+	init_default_data();
+
 	VulkanTutorial::createBuffers();
 
 	createVertexBuffer(cube.vertices, cube.vertexBuffer, cube.vertexBufferMemory);
@@ -1014,6 +1133,7 @@ void VulkanTutorialExtension::cleanUp()
 		vkFreeMemory(device, instanceBufferMemory, nullptr);
 	}
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayoutPointLights, nullptr);
+	vkDestroyDescriptorSetLayout(device, globalDescriptorSetLayout, nullptr);
 	VulkanTutorial::cleanUp();
 }
 

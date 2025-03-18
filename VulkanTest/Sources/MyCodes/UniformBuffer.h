@@ -45,7 +45,7 @@ struct UniformBuffer
 		descriptorWrites.emplace_back(std::move(DescriptorWrite));
 	}
 
-	void CopyData(uint32_t currentImage, std::vector<T> data)
+	void CopyData(uint32_t currentImage)
 	{
 		for (int i = 0; i < bufferCount; i++)
 		{
@@ -128,6 +128,16 @@ public:
 
 	const VkBuffer& getUniformBuffer(int index) { return uniformBuffers[index]; }
 
+	const std::vector<T>& getData() const { return data; }
+	std::vector<T>& getData() { return data; }
+
+	T& getFirstData() { return data[0]; }
+	T& clearAndGetFirstInstanceData()
+	{
+		data.clear();
+		return getFirstData();
+	}
+
 private:
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
@@ -138,4 +148,7 @@ private:
 	std::vector<VkDescriptorBufferInfo> uniformBufferInfo;
 	size_t size;
 	int bufferCount;
+
+	// the data to copy to gpu.
+	std::vector<T> data;
 };

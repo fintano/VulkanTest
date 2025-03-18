@@ -91,6 +91,12 @@
     <ClCompile Include="Sources\VulkanTutorial\VulkanTools.cpp">
       <Filter>VulkanTutorial</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MyCodes\vk_types.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h">

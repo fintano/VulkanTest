@@ -29,6 +29,7 @@
 #include <mutex>
 
 #include "vk_engine.h"
+#include "Vk_loader.h"
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -75,6 +76,7 @@ public:
 	void run();
 
 protected:
+	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return nullptr; }
 	virtual void initWindow();
 	virtual void initVulkan();
 	virtual void processInput();
@@ -283,11 +285,8 @@ protected:
 		"VK_KHR_swapchain"
 	};
 
-	std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
-	MaterialInstance defaultData;
-	GLTFMetallic_Roughness metalRoughMaterial;
-	UniformBuffer<GPUSceneData> sceneData;
-	UniformBuffer<GLTFMetallic_Roughness::MaterialConstants> materialConstant;
+	//VkDescriptorSetLayout globalDescriptorSetLayout = {};
+
 };
 
 extern std::vector<char> readFile(const std::string& filename);

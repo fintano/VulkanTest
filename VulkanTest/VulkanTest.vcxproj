@@ -187,8 +187,10 @@ CALL compile.bat</Command>
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MyCodes\Buffer.cpp" />
     <ClCompile Include="Sources\MyCodes\GPUMarker.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_engine.cpp" />
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_types.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtension.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtensionImGui.cpp" />
     <ClCompile Include="Sources\VulkanTutorial\VulkanTools.cpp" />

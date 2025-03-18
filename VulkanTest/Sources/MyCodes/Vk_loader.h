@@ -2,15 +2,22 @@
 
 #include <unordered_map>
 #include <filesystem>
-#include "Buffer.h"
 #include <optional>
 
+#include "vk_types.h"
+#include "Buffer.h"
+
 class VulkanTutorial;
+
+struct GLTFMaterial {
+	MaterialInstance data;
+};
 
 struct GeoSurface 
 {
 	uint32_t startIndex;
 	uint32_t count;
+	std::shared_ptr<GLTFMaterial> material;
 };
 
 struct MeshAsset

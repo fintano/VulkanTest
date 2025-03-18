@@ -58,9 +58,11 @@ private:
 	//void createObjectGraphicsPipelines();
 	//void createLightingPassGraphicsPipelines();
 	//void createPointLightsGraphicsPipeline();
+	void createGlobalDescriptorSets();
 	void createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createLightingPassDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets);
+	void createGlobalDescriptorSetLayout();
 	void createDescriptorSetLayoutsForObjects();
 	void createLightingPassDescriptorSetLayout();
 	void createDescriptorSetLayoutsForPointLights();
@@ -101,8 +103,9 @@ public:
 	std::vector<int> previousActivePointLightsMask;
 	int activePointLightsMask = 0;
 
-	int getSwapchainImageNum() { return swapChainImages.size(); }
+	int getSwapchainImageNum() { return static_cast<int>(swapChainImages.size()); }
 	VkExtent2D getSwapchainExtent() { return swapChainExtent; }
+	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() override { return globalDescriptorSetLayout; }
 
 private:
 	Model cube;
@@ -140,4 +143,25 @@ private:
 
 	double deltaTime = 0.0f; // Time between current frame and last frame
 	double lastFrame = 0.0f; // Time of last frame
+	
+	/** material system */
+	std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
+	DrawContext mainDrawContext;
+	std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+
+	/** 머터리얼 */
+	GLTFMaterial defaultData;
+	GLTFMetallic_Roughness metalRoughMaterial;
+	// 바뀌지 않으므로 굳이 프레임마다 다른 유니폼 버퍼를 갖고 있을 이유가 없다.
+	UniformBuffer<GLTFMetallic_Roughness::MaterialConstants> materialConstants;
+
+	/** 글로벌 데이터 */
+	UniformBuffer<GPUSceneData> globalSceneData;
+	VkDescriptorSet globalDescriptorSet;
+
+	void init_default_data();
+	void update_scene();
+public:
+	public:
+		VkDescriptorSetLayout globalDescriptorSetLayout;
 };

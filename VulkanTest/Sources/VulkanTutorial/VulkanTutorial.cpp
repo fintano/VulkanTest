@@ -90,19 +90,32 @@ VulkanTutorial::VulkanTutorial()
 		createImageViews();
 		createRenderPass();
 		createDescriptorSetLayouts();
+		std::cout << "Before createDescriptorSetLayouts: " << getGlobalDescriptorSetLayout() << std::endl;
 		createGraphicsPipelines();
+		std::cout << "Before createGraphicsPipelines: " << getGlobalDescriptorSetLayout() << std::endl;
 		createCommandPool();
+		std::cout << "Before createCommandPool: " << getGlobalDescriptorSetLayout() << std::endl;
 		createColorResources();
+		std::cout << "Before createColorResources: " << getGlobalDescriptorSetLayout() << std::endl;
 		createDepthResources();
+		std::cout << "Before createDepthResources: " << getGlobalDescriptorSetLayout() << std::endl;
 		createFrameBuffers();
+		std::cout << "Before createFrameBuffers: " << getGlobalDescriptorSetLayout() << std::endl;
 		createTextureImage();
+		std::cout << "Before createTextureImage: " << getGlobalDescriptorSetLayout() << std::endl;
 		createTextureImageView();
+		std::cout << "Before createTextureImageView: " << getGlobalDescriptorSetLayout() << std::endl;
 		createTextureSampler();
+		std::cout << "Before createTextureSampler: " << getGlobalDescriptorSetLayout() << std::endl;
 		loadModels();
+		std::cout << "Before loadModels: " << getGlobalDescriptorSetLayout() << std::endl;
 		createBuffers();
+		std::cout << "Before createBuffers: " << getGlobalDescriptorSetLayout() << std::endl;
 		createUniformBuffers();
+		std::cout << "Before createUniformBuffers: " << getGlobalDescriptorSetLayout() << std::endl;
 		createDescriptorPool();
 		createDescriptorSets();
+		std::cout << "Before createDescriptorPool: " << getGlobalDescriptorSetLayout() << std::endl;
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -1551,8 +1564,6 @@ VulkanTutorial::VulkanTutorial()
 	{
 		createVertexBuffer(vertices, vertexBuffer, vertexBufferMemory);
 		createIndexBuffer(indices, indexBuffer, indexBufferMemory);
-
-		testMeshes = loadGltfMeshes(this, "models/Box.glb").value();
 	}
 
 	void VulkanTutorial::createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory)
