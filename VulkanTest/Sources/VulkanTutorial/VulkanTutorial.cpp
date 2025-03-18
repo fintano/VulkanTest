@@ -1,5 +1,5 @@
 #include "VulkanTutorial.h"
-//#include "GPUMarker.h"
+#include "GPUMarker.h"
 #include "Vk_loader.h"
 
 #ifndef USE_MSAA 
@@ -90,32 +90,19 @@ VulkanTutorial::VulkanTutorial()
 		createImageViews();
 		createRenderPass();
 		createDescriptorSetLayouts();
-		std::cout << "Before createDescriptorSetLayouts: " << getGlobalDescriptorSetLayout() << std::endl;
 		createGraphicsPipelines();
-		std::cout << "Before createGraphicsPipelines: " << getGlobalDescriptorSetLayout() << std::endl;
 		createCommandPool();
-		std::cout << "Before createCommandPool: " << getGlobalDescriptorSetLayout() << std::endl;
 		createColorResources();
-		std::cout << "Before createColorResources: " << getGlobalDescriptorSetLayout() << std::endl;
 		createDepthResources();
-		std::cout << "Before createDepthResources: " << getGlobalDescriptorSetLayout() << std::endl;
 		createFrameBuffers();
-		std::cout << "Before createFrameBuffers: " << getGlobalDescriptorSetLayout() << std::endl;
 		createTextureImage();
-		std::cout << "Before createTextureImage: " << getGlobalDescriptorSetLayout() << std::endl;
 		createTextureImageView();
-		std::cout << "Before createTextureImageView: " << getGlobalDescriptorSetLayout() << std::endl;
 		createTextureSampler();
-		std::cout << "Before createTextureSampler: " << getGlobalDescriptorSetLayout() << std::endl;
 		loadModels();
-		std::cout << "Before loadModels: " << getGlobalDescriptorSetLayout() << std::endl;
 		createBuffers();
-		std::cout << "Before createBuffers: " << getGlobalDescriptorSetLayout() << std::endl;
 		createUniformBuffers();
-		std::cout << "Before createUniformBuffers: " << getGlobalDescriptorSetLayout() << std::endl;
 		createDescriptorPool();
 		createDescriptorSets();
-		std::cout << "Before createDescriptorPool: " << getGlobalDescriptorSetLayout() << std::endl;
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -803,14 +790,14 @@ VulkanTutorial::VulkanTutorial()
 		}
 	}
 
-	void VulkanTutorial::createDescriptorSetLayout(std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout& outDescriptorSetLayout)
+	void VulkanTutorial::createDescriptorSetLayout(std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout* outDescriptorSetLayout)
 	{
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 		layoutInfo.pBindings = bindings.data();
 
-		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &outDescriptorSetLayout) != VK_SUCCESS)
+		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, outDescriptorSetLayout) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create descriptor set layout.");
 		}
@@ -1815,7 +1802,7 @@ VulkanTutorial::VulkanTutorial()
 		renderPassInfo.pClearValues = clearValues.data();
 
 		{
-			//GPUMarker Marker(commandBuffers[i], "Geometry Pass");
+			GPUMarker Marker(commandBuffers[i], "Geometry Pass");
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			recordRenderPassCommands(commandBuffers[i], i);
 			vkCmdEndRenderPass(commandBuffers[i]);
@@ -1830,7 +1817,7 @@ VulkanTutorial::VulkanTutorial()
 		*/
 
 		{
-			//GPUMarker Marker(commandBuffers[i], "Lighting Pass");
+			GPUMarker Marker(commandBuffers[i], "Lighting Pass");
 			renderPassInfo.renderPass = renderPass;
 			renderPassInfo.framebuffer = swapChainFrameBuffers[i];
 
@@ -1853,7 +1840,7 @@ VulkanTutorial::VulkanTutorial()
 		transitionImageLayout(commandBuffers[i], swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
 
 		{
-			//GPUMarker Marker(commandBuffers[i], "Forward Pass");
+			GPUMarker Marker(commandBuffers[i], "Forward Pass");
 			renderPassInfo.renderPass = forward.renderPass;
 			renderPassInfo.framebuffer = forward.frameBuffers[i];
 			renderPassInfo.clearValueCount = 0;

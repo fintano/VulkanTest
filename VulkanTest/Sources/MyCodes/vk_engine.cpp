@@ -8,8 +8,6 @@ namespace vkinit = vkb::initializers;
 
 void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEngine)
 {
-	std::cout << "build_pipelines first: " << extendedEngine->globalDescriptorSetLayout << std::endl;
-	std::cout << "build_pipelines first extendedEngine: " << extendedEngine << std::endl;
 	const VkExtent2D swapchainExtent = extendedEngine->getSwapchainExtent();
 
 	//VkPushConstantRange matrixRange{};
@@ -36,30 +34,8 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 
 	//VkDescriptorSetLayout layouts[] = { extendedEngine->descriptorSetLayoutPointLights /*extendedEngine->_gpuSceneDataDescriptorLayout*/,
 	//	materialLayout };
-	std::cout << "build_pipelines: " << extendedEngine->globalDescriptorSetLayout << std::endl;
-	if (extendedEngine->globalDescriptorSetLayout == VK_NULL_HANDLE)
-	{
-		std::cout << "ERROR!" << " globalDescriptorSetLayout" << std::endl;
-	}
 
-	if (extendedEngine->descriptorSetLayoutPointLights == VK_NULL_HANDLE)
-	{
-		std::runtime_error("Error!");
-	}
-
-	bindings.clear();
-
-	VkDescriptorSetLayout TempLayout = {};
-
-	vk::desc::createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	TempLayout = vk::desc::createDescriptorSetLayout(extendedEngine->device, bindings);
-
-
-	//std::array<VkDescriptorSetLayout, 1> layouts = { TempLayout };
-	std::array<VkDescriptorSetLayout, 1> layouts = { extendedEngine->getGlobalDescriptorSetLayout()};
-
-
-
+	std::array<VkDescriptorSetLayout, 2> layouts = { extendedEngine->getGlobalDescriptorSetLayout(), materialLayout};
 	VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info(layouts.size());
 	mesh_layout_info.pSetLayouts = layouts.data();
 	//mesh_layout_info.pPushConstantRanges = &matrixRange;

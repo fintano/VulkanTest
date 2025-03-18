@@ -521,29 +521,15 @@ void VulkanTutorialExtension::createGlobalDescriptorSetLayout()
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	
-	std::cout << "Before creation: " << globalDescriptorSetLayout << std::endl;
-	createDescriptorSetLayout(bindings, globalDescriptorSetLayout);
-	std::cout << "Before creation: " << globalDescriptorSetLayout << std::endl;
-
-	//globalDescriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
-	if (globalDescriptorSetLayout == VK_NULL_HANDLE)
-	{
-		std::cout << "ERROR!" << " createGlobalDescriptorSetLayout" << std::endl;
-	}
-
-	//createDescriptorSetLayout(bindings, globalDescriptorSetLayout);
+	globalDescriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
 }
 
 void VulkanTutorialExtension::createDescriptorSetLayoutsForPointLights()
 {
-	std::cout << "Before createDescriptorSetLayoutsForPointLights: " << globalDescriptorSetLayout << std::endl;
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	//	Transform
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-
-	createDescriptorSetLayout(bindings, descriptorSetLayoutPointLights);
-	std::cout << "Before createDescriptorSetLayoutsForPointLights: " << globalDescriptorSetLayout << std::endl;
+	descriptorSetLayoutPointLights = vk::desc::createDescriptorSetLayout(device, bindings);
 }
 
 void VulkanTutorialExtension::createDescriptorSetLayoutsForObjects()
@@ -587,12 +573,9 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 
 void VulkanTutorialExtension::createGraphicsPipelines()
 {
-	std::cout << "createGraphicsPipelines first: " << globalDescriptorSetLayout << std::endl;
 	VulkanTutorial::createGraphicsPipelines();
 
 	{
-		std::cout << "before build_pipelines: " << this->globalDescriptorSetLayout << std::endl;
-		std::cout << "before build_pipelines engine : " << this << std::endl;
 		metalRoughMaterial.build_pipelines(this);
 	}
 
