@@ -67,3 +67,12 @@ struct GPUDrawPushConstants
 {
 	glm::mat4 model;
 };
+
+struct AllocatedImage
+{
+	VkImage image;
+	VkDeviceMemory imageMemory;
+	VkImageView imageView;
+
+	void Destroy(VkDevice device);
+};

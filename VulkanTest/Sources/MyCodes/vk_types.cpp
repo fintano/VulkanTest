@@ -7,3 +7,10 @@ void Node::refreshTransform(const glm::mat4& parentMatrix)
 		c->refreshTransform(worldTransform);
 	}
 }
+
+void AllocatedImage::Destroy(VkDevice device)
+{
+	vkDestroyImage(device, image, nullptr);
+	vkDestroyImageView(device, imageView, nullptr);
+	vkFreeMemory(device, imageMemory, nullptr);
+}

@@ -48,6 +48,114 @@ VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
     }
 }
 
+std::optional<AllocatedImage> load_image(VulkanTutorialExtension* engine, fastgltf::Asset& asset, fastgltf::Image& image)
+{
+    AllocatedImage newImage{};
+
+    int width, height, nrChannels;
+
+    std::visit(
+        fastgltf::visitor
+        {
+            [](auto& arg) {},
+            [&](fastgltf::sources::URI& filePath)
+            {
+                assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
+                assert(filePath.uri.isLocalPath()); // We're only capable of loading
+                // local files.
+
+                const std::string path(filePath.uri.path().begin(), filePath.uri.path().end()); // Thanks C++.
+                stbi_uc* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
+                if (data) {
+                    VkExtent3D imagesize;
+                    imagesize.width = width;
+                    imagesize.height = height;
+                    imagesize.depth = 1;
+
+                    newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+                    //stbi_image_free(data);
+                }
+            },
+
+            [&](fastgltf::sources::Vector& vector)
+            {
+                stbi_uc* data = stbi_load_from_memory(reinterpret_cast<stbi_uc*>(vector.bytes.data()), static_cast<int>(vector.bytes.size()),
+                    &width, &height, &nrChannels, 4);
+                if (data) {
+                    VkExtent3D imagesize;
+                    imagesize.width = width;
+                    imagesize.height = height;
+                    imagesize.depth = 1;
+
+                    newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+                    //stbi_image_free(data);
+                }
+            },
+
+            [&](fastgltf::sources::BufferView& view)
+            {
+                auto& bufferView = asset.bufferViews[view.bufferViewIndex];
+                auto& buffer = asset.buffers[bufferView.bufferIndex];
+
+                std::visit(fastgltf::visitor
+                {
+                        // We only care about VectorWithMime here, because we
+                        // specify LoadExternalBuffers, meaning all buffers
+                        // are already loaded into a vector.
+                        [](auto& arg) 
+                        {
+                            // for debugging type
+                            //std::cout << "Type: " << typeid(arg).name() << std::endl;
+                        },
+
+                        [&](fastgltf::sources::Vector& vector)
+                        {
+                            stbi_uc* data = stbi_load_from_memory(reinterpret_cast<stbi_uc*>(vector.bytes.data() + bufferView.byteOffset),
+                                static_cast<int>(bufferView.byteLength),
+                                &width, &height, &nrChannels, 4);
+                            if (data)
+                            {
+                                VkExtent3D imagesize;
+                                imagesize.width = width;
+                                imagesize.height = height;
+                                imagesize.depth = 1;
+
+                                newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+                                //stbi_image_free(data);
+                            }
+                        },
+                        [&](fastgltf::sources::Array& array)
+                        {
+                            stbi_uc* data = stbi_load_from_memory(reinterpret_cast<stbi_uc*>(array.bytes.data() + bufferView.byteOffset),
+                                static_cast<int>(bufferView.byteLength),
+                                &width, &height, &nrChannels, 4);
+                            if (data)
+                            {
+                                VkExtent3D imagesize;
+                                imagesize.width = width;
+                                imagesize.height = height;
+                                imagesize.depth = 1;
+                                newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+                                //stbi_image_free(data);
+                            }
+                        }
+                    }, buffer.data);
+                },
+        }, image.data);
+
+    // if any of the attempts to load the data failed, we havent written the image
+    // so handle is null
+    if (newImage.image == VK_NULL_HANDLE) {
+        return {};
+    }
+    else {
+        return newImage;
+    }
+}
+
 std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* engine, std::string_view filePath)
 {
 	std::cout << "Loading GLTF : " << filePath << std::endl;
@@ -123,14 +231,23 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     // temporal arrays for all the objects to use while creating the GLTF data
     std::vector<std::shared_ptr<MeshAsset>> meshes;
     std::vector<std::shared_ptr<Node>> nodes;
-    std::vector<VkImageView> images;
+    std::vector<AllocatedImage> images;
     std::vector<std::shared_ptr<GLTFMaterial>> materials;
 
     // load all textures
-    for (fastgltf::Image& image : gltf.images)
-    {
-        //images.push_back(engine->_errorCheckerboardImage);
-        images.push_back(engine->getDefaultTextureImageView());
+    for (fastgltf::Image& image : gltf.images) {
+        std::optional<AllocatedImage> img = load_image(engine, gltf, image);
+
+        if (img.has_value()) {
+            images.push_back(*img);
+            file.images[image.name.c_str()] = *img;
+        }
+        else {
+            // we failed to load, so lets give the slot a default white texture to not
+            // completely break loading
+            images.push_back(engine->getDefaultTexture2D());
+            std::cout << "gltf failed to load texture " << image.name << std::endl;
+        }
     }
 
     // create buffer to hold the material data
@@ -161,14 +278,15 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
         MaterialPass passType = MaterialPass::MainColor;
         if (mat.alphaMode == fastgltf::AlphaMode::Blend) {
             passType = MaterialPass::Transparent;
-        }
+		}
 
-        GLTFMetallic_Roughness::MaterialResources materialResources;
-        // default the material textures
-        materialResources.colorImage = engine->getDefaultTextureImageView();
-        materialResources.colorSampler = engine->getDefaultTextureSampler();
-        materialResources.metalRoughImage = engine->getDefaultTextureImageView();
-        materialResources.metalRoughSampler = engine->getDefaultTextureSampler();
+		GLTFMetallic_Roughness::MaterialResources materialResources;
+		// default the material textures
+		AllocatedImage defaultTexture = engine->getDefaultTexture2D();
+		materialResources.colorImage = defaultTexture.imageView;
+		materialResources.colorSampler = engine->getDefaultTextureSampler();
+		materialResources.metalRoughImage = defaultTexture.imageView;
+		materialResources.metalRoughSampler = engine->getDefaultTextureSampler();
 
         // set the uniform buffer for the material data
         materialResources.dataBuffer = file.materialDataBuffer.getUniformBuffer();
@@ -178,7 +296,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
             size_t img = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
             size_t sampler = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
 
-            materialResources.colorImage = images[img];
+            materialResources.colorImage = images[img].imageView;
             materialResources.colorSampler = file.samplers[sampler];
         }
         // build material
@@ -356,9 +474,9 @@ void LoadedGLTF::clearAll()
 
     materialDataBuffer.destroy(0);
 
-    for (const auto& each : meshes)
+    for (auto& [k, v] : meshes)
     {
-        std::shared_ptr<MeshAsset> mesh = each.second;
+        std::shared_ptr<MeshAsset> mesh = v;
         if (mesh.get())
         {
             vkDestroyBuffer(creator->device, mesh->meshBuffers.vertexBuffer.Buffer, nullptr);
@@ -367,6 +485,15 @@ void LoadedGLTF::clearAll()
             vkDestroyBuffer(creator->device, mesh->meshBuffers.indexBuffer.Buffer, nullptr);
             vkFreeMemory(creator->device, mesh->meshBuffers.indexBuffer.BufferMemory, nullptr);
         }
+    }
+
+    for (auto& [k, v] : images) {
+
+        if (v.image == creator->getDefaultTexture2D().image) {
+            //dont destroy the default images
+            continue;
+        }
+        v.Destroy(creator->device);
     }
 
     for (VkSampler sampler : samplers)

@@ -106,7 +106,7 @@ public:
 	int getSwapchainImageNum() { return static_cast<int>(swapChainImages.size()); }
 	VkExtent2D getSwapchainExtent() { return swapChainExtent; }
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() override { return globalDescriptorSetLayout; }
-	VkImageView getDefaultTextureImageView() { return textureImageView; }
+	AllocatedImage getDefaultTexture2D() { return { textureImage, textureImageMemory, textureImageView }; }
 	VkSampler getDefaultTextureSampler() { return textureSampler; }
 
 private:

@@ -23,6 +23,8 @@
 #include "vk_engine.h"
 #include "Vk_loader.h"
 
+typedef unsigned char stbi_uc;
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -67,6 +69,23 @@ public:
 
 	void run();
 
+	VkDevice device;
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
+	struct ForwardPass
+	{
+		VkRenderPass renderPass;
+		std::vector<VkFramebuffer> frameBuffers;
+		VkPipeline pipeline;
+		VkPipelineLayout pipelineLayout;
+	} forward;
+
+	VkDescriptorPool descriptorPool;
+
+	void createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory);
+	void createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory);
+	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag);
+
 protected:
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return nullptr; }
 	virtual void initWindow();
@@ -92,8 +111,9 @@ protected:
 	virtual void createCommandBuffers();
 	virtual void createFrameBuffers();
 	virtual void cleanUp();
+	virtual void recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t index);
 
-public:
+protected:
 	bool checkValidationLayerSupport();
 	void createInstance();
 	std::vector<const char*> getRequiredExtensions();
@@ -116,9 +136,6 @@ public:
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createTextureSampler();
 	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings);
-	/*void createGraphicsPipeline(const std::vector<char>& vertShaderCode, const std::vector<char>& fragShaderCode, VkPipelineLayout& inPipelineLayout,
-		std::vector<VkVertexInputBindingDescription> bindingDescriptions, std::vector<VkVertexInputAttributeDescription> attributeDescriptions, VkPipeline& OutPipeline);
-	*/
 	void createPipelineLayout(const VkDescriptorSetLayout& inDescriptorSetLayout, VkPipelineLayout& outPipelineLayout);
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createColorResources();
@@ -131,10 +148,8 @@ public:
 	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	AllocatedImage createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	void loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
-	void createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory);
-	void createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory);
 	void createCommandBuffer(int32_t i);
 	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
 	VkDescriptorImageInfo CreateDescriptorImageInfo(VkImageView& imageView, VkSampler& sampler, VkImageLayout layout);
@@ -145,7 +160,6 @@ public:
 	VkCommandBuffer beginSingleTimeCommands();
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
-	virtual void recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	void createSyncObjects();
 	void mainLoop();
 
@@ -166,19 +180,6 @@ public:
 		auto app = reinterpret_cast<VulkanTutorial*>(glfwGetWindowUserPointer(window));
 		app->frameBufferResized = true;
 	}
-
-	VkDevice device;
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-
-	struct ForwardPass
-	{
-		VkRenderPass renderPass;
-		std::vector<VkFramebuffer> frameBuffers;
-		VkPipeline pipeline;
-		VkPipelineLayout pipelineLayout;
-	} forward;
-
-	VkDescriptorPool descriptorPool;
 
 protected:
 	GLFWwindow* window;
