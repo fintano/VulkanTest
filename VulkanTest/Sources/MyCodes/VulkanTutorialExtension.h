@@ -106,9 +106,11 @@ public:
 	int getSwapchainImageNum() { return static_cast<int>(swapChainImages.size()); }
 	VkExtent2D getSwapchainExtent() { return swapChainExtent; }
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() override { return globalDescriptorSetLayout; }
+	VkImageView getDefaultTextureImageView() { return textureImageView; }
+	VkSampler getDefaultTextureSampler() { return textureSampler; }
 
 private:
-	Model cube;
+	//Model cube;
 
 	std::vector<Instance> instances;
 	std::array<VkBuffer, INSTANCE_BUFFER_COUNT> instanceBuffers;
@@ -144,10 +146,12 @@ private:
 	double deltaTime = 0.0f; // Time between current frame and last frame
 	double lastFrame = 0.0f; // Time of last frame
 	
+public:
 	/** material system */
-	std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
+	//std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
 	DrawContext mainDrawContext;
-	std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+	//std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
+	std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 
 	/** 머터리얼 */
 	GLTFMaterial defaultData;
@@ -158,10 +162,8 @@ private:
 	/** 글로벌 데이터 */
 	UniformBuffer<GPUSceneData> globalSceneData;
 	VkDescriptorSet globalDescriptorSet;
+	VkDescriptorSetLayout globalDescriptorSetLayout;
 
 	void init_default_data();
-	void update_scene();
-public:
-	public:
-		VkDescriptorSetLayout globalDescriptorSetLayout;
+	void update_scene(uint32_t currentImage);
 };

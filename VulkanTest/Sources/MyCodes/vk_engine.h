@@ -1,7 +1,8 @@
 #pragma once
 
 #include "vk_types.h"
-#include "Vk_loader.h"
+
+struct MeshAsset;
 
 struct GLTFMetallic_Roughness {
 	MaterialPipeline opaquePipeline;
@@ -33,7 +34,7 @@ struct GLTFMetallic_Roughness {
 	void clear_resources(VkDevice device);
 
 	//MaterialInstance write_material(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator);
-	MaterialInstance write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources);
+	MaterialInstance write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources, VkDescriptorPool descriptorPool);
 };
 
 struct RenderObject {
@@ -53,27 +54,7 @@ struct DrawContext {
 
 struct MeshNode : public Node {
 
-	std::shared_ptr<struct MeshAsset> mesh;
+	std::shared_ptr<MeshAsset> mesh;
 
-	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override
-	{
-		glm::mat4 nodeMatrix = topMatrix * worldTransform;
-
-		for (auto& s : mesh->surfaces) {
-			RenderObject def;
-			def.indexCount = s.count;
-			def.firstIndex = s.startIndex;
-			def.vertexBuffer = mesh->meshBuffers.vertexBuffer.Buffer;
-			def.indexBuffer = mesh->meshBuffers.indexBuffer.Buffer;
-			def.material = &s.material->data;
-
-			def.transform = nodeMatrix;
-			def.vertexBuffer = mesh->meshBuffers.vertexBuffer.Buffer;
-
-			ctx.OpaqueSurfaces.push_back(def);
-		}
-
-		// recurse down
-		Node::Draw(topMatrix, ctx);
-	}
+	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
 };

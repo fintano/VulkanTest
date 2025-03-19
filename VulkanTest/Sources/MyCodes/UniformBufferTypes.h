@@ -1,5 +1,7 @@
 #pragma once
 
+#include "vk_types.h"
+
 //  최대 포인트 라이트 개수. ObjectShader.frag 안의 NR_POINT_LIGHTS와 반드시 일치시킨다. 
 #define NR_POINT_LIGHTS 4
 
@@ -46,11 +48,10 @@ struct PointLightsUniform {
 };
 
 struct GPUSceneData {
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
-	//glm::mat4 viewproj;
-	glm::vec4 ambientColor;
-	glm::vec4 sunlightDirection; // w for sun power
-	glm::vec4 sunlightColor;
+
+	alignas(16) glm::vec4 ambientColor;
+	alignas(16) glm::vec4 sunlightDirection; // w for sun power
+	alignas(16) glm::vec4 sunlightColor;
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 proj;
 };

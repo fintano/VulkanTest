@@ -1,14 +1,6 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glfw/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/hash.hpp>
+#include "vk_types.h"
 
 #include <iostream>
 #include <stdexcept>	
@@ -37,18 +29,18 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
-struct Model
-{
-	std::vector<Vertex> vertices;
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
-
-	std::vector<uint32_t> indices;
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
-
-	std::string objPath;
-};
+//struct Model
+//{
+//	std::vector<Vertex> vertices;
+//	VkBuffer vertexBuffer;
+//	VkDeviceMemory vertexBufferMemory;
+//
+//	std::vector<uint32_t> indices;
+//	VkBuffer indexBuffer;
+//	VkDeviceMemory indexBufferMemory;
+//
+//	std::string objPath;
+//};
 
 struct QueueFamilyIndices
 {
@@ -176,7 +168,8 @@ public:
 	}
 
 	VkDevice device;
-	
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
 	struct ForwardPass
 	{
 		VkRenderPass renderPass;
@@ -191,7 +184,6 @@ protected:
 	GLFWwindow* window;
 	VkInstance instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 	// represents an abstract type of surface to present rendered images to. It's optional if you just need off-screen rendering.
@@ -284,9 +276,6 @@ protected:
 	const std::vector<const char*> deviceExtensions = {
 		"VK_KHR_swapchain"
 	};
-
-	//VkDescriptorSetLayout globalDescriptorSetLayout = {};
-
 };
 
 extern std::vector<char> readFile(const std::string& filename);

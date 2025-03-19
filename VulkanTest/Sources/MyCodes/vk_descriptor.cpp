@@ -27,12 +27,6 @@ namespace vk
 
 			VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout));
 
-			if(descriptorSetLayout == VK_NULL_HANDLE)
-			{
-				std::runtime_error("ERROR");
-			}
-
-
 			return descriptorSetLayout;
 		}
 	}

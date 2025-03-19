@@ -3,6 +3,12 @@
 
 #include "input_structures.glsl"
 
+//push constants block
+layout( push_constant ) uniform constants
+{
+	mat4 model;
+} PushConstants;
+
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
 layout(location = 2) in vec2 inTexCoord;
@@ -15,7 +21,7 @@ layout(location = 3) out vec3 fragPos;
 
 void main()
 {
-    gl_Position = sceneData.proj * sceneData.view * sceneData.model * vec4(inPosition, 1.0);
+    gl_Position = sceneData.proj * sceneData.view * PushConstants.model * vec4(inPosition, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
     fragNormal = inNormal;

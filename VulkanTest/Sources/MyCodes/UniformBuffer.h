@@ -14,6 +14,8 @@ struct UniformBuffer
 		uniformBuffers.resize(inSize);
 		uniformBufferMemory.resize(inSize);
 
+		data.resize(inBufferCount);
+
 		for (size_t i = 0; i < inSize; i++)
 		{
 			createBuffer(getSize() * bufferCount, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBufferMemory[i]);
@@ -45,7 +47,7 @@ struct UniformBuffer
 		descriptorWrites.emplace_back(std::move(DescriptorWrite));
 	}
 
-	void CopyData(uint32_t currentImage)
+	void CopyData(uint32_t currentImage = 0)
 	{
 		for (int i = 0; i < bufferCount; i++)
 		{
@@ -59,9 +61,12 @@ struct UniformBuffer
 
 	void destroy(size_t index)
 	{
-		vkDestroyBuffer(device, uniformBuffers[index], nullptr);
-		vkFreeMemory(device, uniformBufferMemory[index], nullptr);
-		uniformBufferInfo.clear();
+		if (size != 1 || (size == 1 && index == 0))
+		{
+			vkDestroyBuffer(device, uniformBuffers[index], nullptr);
+			vkFreeMemory(device, uniformBufferMemory[index], nullptr);
+			uniformBufferInfo.clear();
+		}
 	}
 
 private:
@@ -126,12 +131,12 @@ public:
 		return sizeof(T);
 	}
 
-	const VkBuffer& getUniformBuffer(int index) { return uniformBuffers[index]; }
+	const VkBuffer& getUniformBuffer(int index = 0) { return uniformBuffers[index]; }
 
 	const std::vector<T>& getData() const { return data; }
 	std::vector<T>& getData() { return data; }
 
-	T& getFirstData()
+	T& getFirstInstanceData()
 	{
 		if (data.empty())
 		{
@@ -143,7 +148,7 @@ public:
 	T& clearAndGetFirstInstanceData()
 	{
 		data.clear();
-		return getFirstData();
+		return getFirstInstanceData();
 	}
 
 private:
