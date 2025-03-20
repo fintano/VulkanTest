@@ -52,6 +52,9 @@ struct GPUSceneData {
 	alignas(16) glm::vec4 ambientColor;
 	alignas(16) glm::vec4 sunlightDirection; // w for sun power
 	alignas(16) glm::vec4 sunlightColor;
+	alignas(16) glm::vec3 viewPos;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
+
+	PointLightsUniform activePointLight;
 };

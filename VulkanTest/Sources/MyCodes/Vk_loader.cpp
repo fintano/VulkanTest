@@ -291,14 +291,38 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
         // set the uniform buffer for the material data
         materialResources.dataBuffer = file.materialDataBuffer.getUniformBuffer();
         materialResources.dataBufferOffset = data_index * sizeof(GLTFMetallic_Roughness::MaterialConstants);
-        // grab textures from gltf file
-        if (mat.pbrData.baseColorTexture.has_value()) {
-            size_t img = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
-            size_t sampler = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
 
-            materialResources.colorImage = images[img].imageView;
-            materialResources.colorSampler = file.samplers[sampler];
-        }
+        auto getSampler = [&](std::size_t textureIndex) {
+            VkSampler sampler = {};
+            auto samplerIndex = gltf.textures[textureIndex].samplerIndex;
+            if (samplerIndex.has_value())
+            {
+                size_t samplerIndex = gltf.textures[textureIndex].samplerIndex.value();
+                sampler = file.samplers[samplerIndex];
+            }
+            else
+            {
+                sampler = engine->getDefaultTextureSampler();
+            }
+
+            return sampler;
+        };
+
+		// grab textures from gltf file
+		if (mat.pbrData.baseColorTexture.has_value())
+		{
+			size_t img = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
+			materialResources.colorImage = images[img].imageView;
+			materialResources.colorSampler = getSampler(mat.pbrData.baseColorTexture.value().textureIndex);
+		}
+
+		if (mat.pbrData.metallicRoughnessTexture.has_value())
+		{
+			size_t img = gltf.textures[mat.pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.value();
+			materialResources.metalRoughImage = images[img].imageView;
+			materialResources.metalRoughSampler = getSampler(mat.pbrData.metallicRoughnessTexture.value().textureIndex);
+		}
+
         // build material
         newMat->data = engine->metalRoughMaterial.write_material(engine, passType, materialResources, file.descriptorPool);
 

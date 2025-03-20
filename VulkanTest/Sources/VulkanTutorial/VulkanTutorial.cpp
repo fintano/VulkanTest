@@ -642,7 +642,7 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::createRenderPass() {
 		/*
-		 * Create default render pass 
+		 * Create lighting pass renderpass
 		 */
 		
 		VkAttachmentDescription colorAttachment{};
@@ -746,7 +746,8 @@ VulkanTutorial::VulkanTutorial()
 		 * Create a render pass for deferred rendering (Basepass)
 		 */ 
 
-		std::array<VkAttachmentDescription, 3> colorAttachments = {};
+		// pos, normal, albedo, arm
+		std::array<VkAttachmentDescription, 4> colorAttachments = {};
 		for (VkAttachmentDescription& colorAttachment : colorAttachments)
 		{
 			colorAttachment.samples = msaaSamples;
@@ -758,28 +759,30 @@ VulkanTutorial::VulkanTutorial()
 			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
 
-		// position, normal, colorSpecular
 		colorAttachments[0].format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		colorAttachments[1].format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		colorAttachments[2].format = VK_FORMAT_R8G8B8A8_UNORM;
+		colorAttachments[3].format = VK_FORMAT_R8G8B8A8_UNORM;
 
-		std::array<VkAttachmentReference, 3> colorAttachmentRefs = { {
+		std::array<VkAttachmentReference, 4> colorAttachmentRefs = { {
 			{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-			{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+			{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+			{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		} };
 
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-		depthAttachmentRef.attachment = 3;
+		depthAttachmentRef.attachment = colorAttachments.size();
 
-		subpass.colorAttachmentCount = 3;
+		subpass.colorAttachmentCount = colorAttachments.size();
 		subpass.pColorAttachments = colorAttachmentRefs.data();
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 		subpass.pResolveAttachments = nullptr;
 
-		std::array<VkAttachmentDescription, 4> DeferredAttachments = { colorAttachments[0], colorAttachments[1], colorAttachments[2], depthAttachment };
+		std::array<VkAttachmentDescription, 5> DeferredAttachments =
+		{ colorAttachments[0], colorAttachments[1], colorAttachments[2], colorAttachments[3], depthAttachment };
 
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(DeferredAttachments.size());
 		renderPassInfo.pAttachments = DeferredAttachments.data();
@@ -1026,7 +1029,7 @@ VulkanTutorial::VulkanTutorial()
 		* For GeometryPass
 		*/
 
-		std::array<VkImageView, 4> attachments = { geometry.position.imageView, geometry.normal.imageView, geometry.colorSpecular.imageView, depthImageView };
+		std::array<VkImageView, 4> attachments = { geometry.position.imageView, geometry.normal.imageView, geometry.albedo.imageView, depthImageView };
 
 		framebufferInfo.renderPass = geometry.renderPass;
 		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -1080,20 +1083,17 @@ VulkanTutorial::VulkanTutorial()
 		// 먼저 렌더 타겟으로 사용되고 (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 		// 나중에 쉐이더에서 샘플링됩니다(VK_IMAGE_USAGE_SAMPLED_BIT)
 		// VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT는 특별한 용도로, 이미지 데이터가 렌더 패스 내에서만 일시적으로 필요하고 나중에 접근할 필요가 없을 때 사용됩니다. 
-		AllocatedImage posImage = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		geometry.position.image = posImage.image;
-		geometry.position.imageMemory = posImage.imageMemory;
+		geometry.position = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		geometry.position.imageView = createImageView(geometry.position.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-		AllocatedImage normalImage = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		geometry.normal.image = normalImage.image;
-		geometry.normal.imageMemory = normalImage.imageMemory;
+		geometry.normal = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		geometry.normal.imageView = createImageView(geometry.normal.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-		AllocatedImage colorImage = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		geometry.colorSpecular.image = colorImage.image;
-		geometry.colorSpecular.imageMemory = colorImage.imageMemory;
-		geometry.colorSpecular.imageView = createImageView(geometry.colorSpecular.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		geometry.albedo = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		geometry.albedo.imageView = createImageView(geometry.albedo.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+		geometry.arm = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		geometry.arm.imageView = createImageView(geometry.arm.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
 	void VulkanTutorial::createDepthResources()
@@ -1179,6 +1179,16 @@ VulkanTutorial::VulkanTutorial()
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 
 		generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels);
+
+		// default white texture
+
+		pixels = stbi_load(WHITE_TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!pixels)
+		{
+			throw std::runtime_error("failed to load texture image!");
+		}
+
+		whiteTexture = createTexture2D(pixels, { (uint32_t)texWidth ,(uint32_t)texHeight, 1 }, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT);
 	}
 
 	AllocatedImage VulkanTutorial::createTexture2D(stbi_uc* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag)
@@ -1190,7 +1200,6 @@ VulkanTutorial::VulkanTutorial()
 		const int texHeight = inImageSize.height;
 		const int mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight))));
 		const VkDeviceSize imageSize = texWidth * texHeight * RGBABytes;
-		
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
@@ -1845,11 +1854,12 @@ VulkanTutorial::VulkanTutorial()
 		renderPassInfo.renderArea.extent = swapChainExtent;
 
 		// define the clear values for vk_attachment_load_op_clear.
-		std::array<VkClearValue, 4> clearValues{};
+		std::array<VkClearValue, 5> clearValues{};
 		clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
 		clearValues[1].color = { { 0.f, 0.f, 0.f, 0.f } };
 		clearValues[2].color = { { 0.f, 0.f, 0.f, 0.f } };
-		clearValues[3].depthStencil = { 1.f, 0 };
+		clearValues[3].color = { { 0.f, 0.f, 0.f, 0.f } };
+		clearValues[4].depthStencil = { 1.f, 0 };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
@@ -1862,7 +1872,8 @@ VulkanTutorial::VulkanTutorial()
 
 		transitionImageLayout(commandBuffers[i], geometry.position.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 		transitionImageLayout(commandBuffers[i], geometry.normal.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
-		transitionImageLayout(commandBuffers[i], geometry.colorSpecular.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffers[i], geometry.albedo.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffers[i], geometry.arm.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
 		/**
 		* LightingPass
@@ -2067,6 +2078,7 @@ VulkanTutorial::VulkanTutorial()
 	{
 		cleanUpSwapchain();
 
+		whiteTexture.Destroy(device);
 		vkDestroySampler(device, textureSampler, nullptr);
 		vkDestroyImageView(device, textureImageView, nullptr);
 		vkDestroyImage(device, textureImage, nullptr);
@@ -2118,13 +2130,6 @@ VulkanTutorial::VulkanTutorial()
 		commandBuffersToSubmit.clear();
 	}
 
-	void VulkanTutorial::FrameBufferAttachment::Destroy(VkDevice device)
-	{
-		vkDestroyImageView(device, imageView, nullptr);
-		vkDestroyImage(device, image, nullptr);
-		vkFreeMemory(device, imageMemory, nullptr);
-	}
-
 	void VulkanTutorial::cleanUpSwapchain()
 	{
 		vkDestroyPipelineLayout(device, lightingPass.pipelineLayout, nullptr);
@@ -2132,7 +2137,8 @@ VulkanTutorial::VulkanTutorial()
 
 		geometry.position.Destroy(device);
 		geometry.normal.Destroy(device);
-		geometry.colorSpecular.Destroy(device);
+		geometry.albedo.Destroy(device);
+		geometry.arm.Destroy(device);
 
 		vkDestroyPipelineLayout(device, forward.pipelineLayout, nullptr);
 		vkDestroyPipeline(device, forward.pipeline, nullptr);

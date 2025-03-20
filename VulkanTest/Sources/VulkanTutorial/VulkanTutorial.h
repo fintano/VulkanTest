@@ -31,19 +31,6 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
-//struct Model
-//{
-//	std::vector<Vertex> vertices;
-//	VkBuffer vertexBuffer;
-//	VkDeviceMemory vertexBufferMemory;
-//
-//	std::vector<uint32_t> indices;
-//	VkBuffer indexBuffer;
-//	VkDeviceMemory indexBufferMemory;
-//
-//	std::string objPath;
-//};
-
 struct QueueFamilyIndices
 {
 	std::optional<uint32_t> graphicsFamily;
@@ -71,6 +58,13 @@ public:
 
 	VkDevice device;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
+	struct GeometryPass
+	{
+		AllocatedImage position, normal, albedo, arm; // ao, roughness, metallic
+		VkRenderPass renderPass;
+		VkFramebuffer frameBuffer;
+	} geometry;
 
 	struct ForwardPass
 	{
@@ -217,6 +211,8 @@ protected:
 	VkImageView textureImageView;
 	VkSampler textureSampler;
 
+	AllocatedImage whiteTexture;
+
 	// 라이팅 패스
 	struct LightingPass
 	{
@@ -225,22 +221,6 @@ protected:
 		VkDescriptorSetLayout descriptorSetLayout;
 		std::vector<VkDescriptorSet> descriptorSets;
 	} lightingPass;
-
-	struct FrameBufferAttachment
-	{
-		VkImage image;
-		VkDeviceMemory imageMemory;
-		VkImageView imageView;
-
-		void Destroy(VkDevice device); 
-	};
-
-	struct GeometryPass
-	{
-		FrameBufferAttachment position, normal, colorSpecular;
-		VkRenderPass renderPass;
-		VkFramebuffer frameBuffer;
-	} geometry;
 	
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;
@@ -253,6 +233,7 @@ protected:
 
 	const std::string MODEL_PATH = "models/viking_room.obj";
 	const std::string TEXTURE_PATH = "textures/viking_room.png";
+	const std::string WHITE_TEXTURE_PATH = "textures/white_texture.png";
 
 	// Draw MAX_FRAMES_IN_FLIGHT frames simultaneously. 
 	// But We may be using the frame 0 objects while frame 0 still be in flight.

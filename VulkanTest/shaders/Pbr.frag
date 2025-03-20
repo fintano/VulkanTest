@@ -1,23 +1,22 @@
 #version 450
 
-#include "input_structures.glsl"
+#include "deferred.glsl"
 
-layout(location = 0) in vec3 fragColor;
-layout(location = 1) in vec2 fragTexCoord;
-layout(location = 2) in vec3 fragNormal;
-layout(location = 3) in vec3 fragPos;
+layout(location = 0) in vec2 texCoords;
 
 layout(location = 0) out vec4 outColor;
 
 void main()
 {
-	vec3 albedo = texture(colorTex, fragTexCoord).rgb;
-	vec4 metallicRoughness = texture(metalRoughTex, fragTexCoord);
-	float metallic = metallicRoughness.b * materialData.metal_rough_factors.r;
-	float roughness = metallicRoughness.g * materialData.metal_rough_factors.g;
-	vec3 ao = vec3(1.0);
+    vec3 fragPos = texture(position, texCoords).rgb;
+    vec3 fragNormal = texture(normal, texCoords).rgb;
+    vec3 albedo = texture(albedo, texCoords).rgb;
+	vec3 arm = texture(arm, texCoords).rgb;
+    vec3 ao = vec3(arm.r);
+	float metallic = arm.b;
+	float roughness = arm.g;
 
-	vec3 N = normalize(fragNormal);
+    vec3 N = normalize(fragNormal);
 	vec3 V = normalize(sceneData.viewPos - fragPos);
 
 	// 프리넬은 Diffuse 반사와 Specular 반사의 비율을 내포하고 있다.

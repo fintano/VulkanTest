@@ -43,6 +43,15 @@
     <None Include="shaders\input_structures.glsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\light_structures.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\Pbr.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\deferred.glsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp">

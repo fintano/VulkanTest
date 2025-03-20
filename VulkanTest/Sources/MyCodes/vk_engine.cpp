@@ -8,6 +8,8 @@ namespace vkinit = vkb::initializers;
 
 void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEngine)
 {
+	/** Opaque Pipeline - deferred shading */
+
 	const VkExtent2D swapchainExtent = extendedEngine->getSwapchainExtent();
 
 	VkPushConstantRange matrixRange{};
@@ -46,7 +48,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	VkPipelineMultisampleStateCreateInfo multisampleState = vkinit::pipeline_multisample_state_create_info(VK_SAMPLE_COUNT_1_BIT, 0);
 	VkPipelineDepthStencilStateCreateInfo depthStencilState = vkinit::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
 	
-	VkGraphicsPipelineCreateInfo pipelineCI = vkinit::pipeline_create_info(newLayout, extendedEngine->forward.renderPass);
+	VkGraphicsPipelineCreateInfo pipelineCI = vkinit::pipeline_create_info(newLayout, extendedEngine->geometry.renderPass);
 	pipelineCI.pInputAssemblyState = &inputAssemblyState;
 	pipelineCI.pRasterizationState = &rasterizationState;
 	pipelineCI.pMultisampleState = &multisampleState;
@@ -60,13 +62,20 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	viewportState.pViewports = &viewport;
 	viewportState.pScissors = &scissor;
 
-	// ColorBlending	
-	VkPipelineColorBlendAttachmentState blendAttachmentState = vkinit::pipeline_color_blend_attachment_state(0xf, VK_FALSE);
-	VkPipelineColorBlendStateCreateInfo colorBlendState = vkinit::pipeline_color_blend_state_create_info(1, &blendAttachmentState);
+	// ColorBlending
+	std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates =
+	{
+		vkinit::pipeline_color_blend_attachment_state(0xf, VK_FALSE),
+		vkinit::pipeline_color_blend_attachment_state(0xf, VK_FALSE),
+		vkinit::pipeline_color_blend_attachment_state(0xf, VK_FALSE),
+		vkinit::pipeline_color_blend_attachment_state(0xf, VK_FALSE)
+	};
+
+	VkPipelineColorBlendStateCreateInfo colorBlendState = vkinit::pipeline_color_blend_state_create_info(blendAttachmentStates.size(), blendAttachmentStates.data());
 	pipelineCI.pColorBlendState = &colorBlendState;
 
 	VkShaderModule meshVertexShader = vks::tools::loadShader("shaders/shadervert.spv", extendedEngine->device);
-	VkShaderModule meshFragShader = vks::tools::loadShader("shaders/ForwardPassfrag.spv", extendedEngine->device);
+	VkShaderModule meshFragShader = vks::tools::loadShader("shaders/ObjectShaderfrag.spv", extendedEngine->device);
 
 	// Shaders
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -99,7 +108,6 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 	pipelineCI.pVertexInputState = &vertexInputInfo;
 
-
 	for (size_t i = 0; i < bindings.size(); i++) {
 		printf("Binding %zu: descriptorType=%d, stageFlags=%u\n",
 			bindings[i].binding, bindings[i].descriptorType, bindings[i].stageFlags);
@@ -107,7 +115,16 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(extendedEngine->device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &opaquePipeline.pipeline));
 
-	// ColorBlending
+	/** Translucent Pipeline - forward shading */
+
+	pipelineCI = vkinit::pipeline_create_info(newLayout, extendedEngine->forward.renderPass);
+	pipelineCI.pInputAssemblyState = &inputAssemblyState;
+	pipelineCI.pRasterizationState = &rasterizationState;
+	pipelineCI.pMultisampleState = &multisampleState;
+	pipelineCI.pViewportState = &viewportState;
+	pipelineCI.pDepthStencilState = &depthStencilState;
+	pipelineCI.pVertexInputState = &vertexInputInfo;
+
 	{
 		VkPipelineColorBlendAttachmentState blendAttachmentState = vkinit::pipeline_color_blend_attachment_state(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT, VK_TRUE);
 		blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;  // ¼Ò½º »ö»ó ºí·»µù ÆÑÅÍ
@@ -119,6 +136,14 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 		
 		VkPipelineColorBlendStateCreateInfo colorBlendState = vkinit::pipeline_color_blend_state_create_info(1, &blendAttachmentState);
 		pipelineCI.pColorBlendState = &colorBlendState;
+	}
+
+	{
+		vkDestroyShaderModule(extendedEngine->device, meshFragShader, nullptr);
+		meshFragShader = vks::tools::loadShader("shaders/ForwardPassfrag.spv", extendedEngine->device);
+		shaderStages[1].module = meshFragShader;
+		pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
+		pipelineCI.pStages = shaderStages.data();
 	}
 
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(extendedEngine->device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &transparentPipeline.pipeline));
@@ -205,7 +230,18 @@ void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
 		def.transform = nodeMatrix;
 		def.vertexBuffer = mesh->meshBuffers.vertexBuffer.Buffer;
 
-		ctx.OpaqueSurfaces.push_back(def);
+		if (s.material->data.passType == MaterialPass::MainColor)
+		{
+			ctx.OpaqueSurfaces.push_back(def);
+		}
+		else if (s.material->data.passType == MaterialPass::Transparent)
+		{
+			ctx.TranslucentSurfaces.push_back(def);
+		}
+		else
+		{
+			std::runtime_error("cannot be in here!");
+		}
 	}
 
 	// recurse down

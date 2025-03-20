@@ -333,7 +333,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &normalImageInfo, nullptr, descriptorWrites);
 
 		// color + specular
-		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(geometry.colorSpecular.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(geometry.albedo.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &colorSpecularImageInfo, nullptr, descriptorWrites);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -342,7 +342,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 
 void VulkanTutorialExtension::init_default_data()
 {
-	auto structureFile = loadGltf(this, "models/structure.glb");
+	auto structureFile = loadGltf(this, "models/CompareMetallic.glb");
 	assert(structureFile.has_value());
 
 	loadedScenes["structure"] = *structureFile;
@@ -359,6 +359,7 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 
 	// 렌더컨텍스트를 초기화 하고,
 	mainDrawContext.OpaqueSurfaces.clear();
+	mainDrawContext.TranslucentSurfaces.clear();
 
 	// 어떤 매쉬를 드로우 할지 결정하는 곳.
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
@@ -386,6 +387,7 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 
 	GPUSceneData& sceneData = globalSceneData.getFirstInstanceData();
 
+	sceneData.viewPos = camera.Position;
 	sceneData.view = viewMat;//glm::translate(glm::vec3{ 0,0,-5 });
 	// camera projection
 	sceneData.proj = persMat;//glm::perspective(glm::radians(70.f), (float)_windowExtent.width / (float)_windowExtent.height, 10000.f, 0.1f);
@@ -394,6 +396,19 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	sceneData.ambientColor = glm::vec4(.1f);
 	sceneData.sunlightColor = glm::vec4(1.f);
 	sceneData.sunlightDirection = glm::vec4(0, 1, 0.5, 1.f);
+
+	//pointLights;
+	sceneData.activePointLight.activeLightMask = activePointLightsMask;
+	auto& pointLights = sceneData.activePointLight.pointLights;
+	for (int i = 0; i < NR_POINT_LIGHTS; i++)
+	{
+		PointLight& pointLight = pointLights[i];
+		pointLight.position = pointLightPositions[i];
+		pointLight.clq = glm::vec3(1.0f, pointLightlinear, pointLightQuadratic);
+		pointLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
+		pointLight.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
+		pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+	}
 
 	globalSceneData.CopyData(currentImage);
 }
@@ -863,64 +878,56 @@ void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBu
 {
 	VulkanTutorial::recordRenderPassCommands(commandBuffer, i);
 
-	VkBuffer vertexBuffers[]{ vertexBuffer };
-	VkDeviceSize offsets[]{ 0 };
+	for (const RenderObject& r : mainDrawContext.OpaqueSurfaces)
+	{
+		drawRenderObject(commandBuffer, i, r);
+	}
 
-	vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+	//VkBuffer vertexBuffers[]{ vertexBuffer };
+	//VkDeviceSize offsets[]{ 0 };
 
-	VkBuffer instanceBuffersToBind[]{ instanceBuffers[usingInstanceBufferIndex] };
-	vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffersToBind, offsets);
+	//vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+	//vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+	//VkBuffer instanceBuffersToBind[]{ instanceBuffers[usingInstanceBufferIndex] };
+	//vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffersToBind, offsets);
 
 	// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
 	// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
 	
 	// Objects
-	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
-	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
-	vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instanceCount), 0, 0, 0);
+	//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
+	//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
+	//vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instanceCount), 0, 0, 0);
 }
 
 void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t i)
 {
 	VulkanTutorial::recordForwardPassCommands(commandBuffer, i);
 
-	for (const RenderObject& draw : mainDrawContext.OpaqueSurfaces) 
+	for (const RenderObject& r : mainDrawContext.TranslucentSurfaces)
 	{
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 0, 1, &globalDescriptorSet, 0, nullptr);
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 1, 1, &draw.material->materialSet[i], 0, nullptr);
-
-		VkBuffer vertexBuffers[]{ draw.vertexBuffer };
-		VkDeviceSize offsets[]{ 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-		GPUDrawPushConstants pushConstants;
-		//pushConstants.vertexBuffer = draw.vertexBufferAddress;
-		pushConstants.model = draw.transform;
-		vkCmdPushConstants(commandBuffer, draw.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
-
-		vkCmdDrawIndexed(commandBuffer, draw.indexCount, 1, draw.firstIndex, 0, 0);
+		drawRenderObject(commandBuffer, i, r);
 	}
+}
 
-	//VkBuffer vertexBuffers[]{ testMeshes[0]->meshBuffers.vertexBuffer.Buffer};
-	//VkDeviceSize offsets[]{ 0 };
-	//vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-	//vkCmdBindIndexBuffer(commandBuffers[i], testMeshes[0]->meshBuffers.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+void VulkanTutorialExtension::drawRenderObject(VkCommandBuffer commandBuffer, size_t i, const RenderObject& draw)
+{
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 0, 1, &globalDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 1, 1, &draw.material->materialSet[i], 0, nullptr);
 
-	//// Point Lights
-	//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, metalRoughMaterial.opaquePipeline.pipeline);
-	//for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
-	//{
-	//	if (isLightOn(lightIndex))
-	//	{
-	//		VkDescriptorSet descriptorSets[] = { descriptorSetsPointLights[lightIndex][i], defaultData.materialSet[i]};
+	VkBuffer vertexBuffers[]{ draw.vertexBuffer };
+	VkDeviceSize offsets[]{ 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+	vkCmdBindIndexBuffer(commandBuffer, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-	//		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, metalRoughMaterial.opaquePipeline.layout, 0, 2, descriptorSets, 0, nullptr);
-	//		vkCmdDrawIndexed(commandBuffers[i], testMeshes[0]->surfaces[0].count, 1, testMeshes[0]->surfaces[0].startIndex, 0, 0);
-	//	}
-	//}
+	GPUDrawPushConstants pushConstants;
+	//pushConstants.vertexBuffer = draw.vertexBufferAddress;
+	pushConstants.model = draw.transform;
+	vkCmdPushConstants(commandBuffer, draw.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+
+	vkCmdDrawIndexed(commandBuffer, draw.indexCount, 1, draw.firstIndex, 0, 0);
 }
 
 void VulkanTutorialExtension::createInstanceBuffer(uint32_t imageIndex)

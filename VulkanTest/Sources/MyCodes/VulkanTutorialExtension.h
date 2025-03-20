@@ -74,6 +74,7 @@ private:
 	void turnPointLightOn(int index);
 	bool isLightOn(int index);
 	bool pointLightSwitchChanged(uint32_t index);
+	void drawRenderObject(VkCommandBuffer commandBuffer, size_t i, const RenderObject& draw);
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 	static void mouseScrollCallback(GLFWwindow* window, double, double yoffset);
@@ -106,7 +107,7 @@ public:
 	int getSwapchainImageNum() { return static_cast<int>(swapChainImages.size()); }
 	VkExtent2D getSwapchainExtent() { return swapChainExtent; }
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() override { return globalDescriptorSetLayout; }
-	AllocatedImage getDefaultTexture2D() { return { textureImage, textureImageMemory, textureImageView }; }
+	AllocatedImage getDefaultTexture2D() { return whiteTexture; }
 	VkSampler getDefaultTextureSampler() { return textureSampler; }
 
 private:
