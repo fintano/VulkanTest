@@ -782,10 +782,10 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.renderPass = geometry.renderPass;
 	pipelineInfo.pColorBlendState = &colorBlending;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create graphics pipeline");
-	}
+	//if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("failed to create graphics pipeline");
+	//}
 
 	vkDestroyShaderModule(device, vertShaderModule, nullptr);
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
@@ -794,7 +794,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	* For lightpass
 	*/
 	vertShaderCode = readFile("shaders/LightingPassvert.spv");
-	fragShaderCode = readFile("shaders/LightingPassfrag.spv");
+	fragShaderCode = readFile("shaders/Pbrfrag.spv");
 
 	vertShaderModule = createShaderModule(vertShaderCode);
 	fragShaderModule = createShaderModule(fragShaderCode);

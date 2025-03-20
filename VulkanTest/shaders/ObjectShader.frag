@@ -21,5 +21,5 @@ void main()
     outPosition = fragPos;
     outNormal = normalize(fragNormal);
     outAlbedo = texture(colorTex, fragTexCoord).rgb;
-    outArm = vec3(1.0, metallic, roughness);
+    outArm = vec3(1.0, roughness, metallic);
 }

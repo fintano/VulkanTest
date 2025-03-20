@@ -1013,7 +1013,7 @@ VulkanTutorial::VulkanTutorial()
 #if USE_MSAA
 			std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
 #else
-			std::array<VkImageView, 1> attachments = { swapChainImageViews[i]/*, depthImageView*/ };
+			std::array<VkImageView, 1> attachments = { swapChainImageViews[i] };
 #endif
 
 			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -1029,7 +1029,8 @@ VulkanTutorial::VulkanTutorial()
 		* For GeometryPass
 		*/
 
-		std::array<VkImageView, 4> attachments = { geometry.position.imageView, geometry.normal.imageView, geometry.albedo.imageView, depthImageView };
+		std::array<VkImageView, 5> attachments = 
+		{ geometry.position.imageView, geometry.normal.imageView, geometry.albedo.imageView, geometry.arm.imageView, depthImageView };
 
 		framebufferInfo.renderPass = geometry.renderPass;
 		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
