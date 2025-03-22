@@ -1084,16 +1084,16 @@ VulkanTutorial::VulkanTutorial()
 		// 먼저 렌더 타겟으로 사용되고 (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
 		// 나중에 쉐이더에서 샘플링됩니다(VK_IMAGE_USAGE_SAMPLED_BIT)
 		// VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT는 특별한 용도로, 이미지 데이터가 렌더 패스 내에서만 일시적으로 필요하고 나중에 접근할 필요가 없을 때 사용됩니다. 
-		geometry.position = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		geometry.position = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "Gbuffer_Position");
 		geometry.position.imageView = createImageView(geometry.position.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-		geometry.normal = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		geometry.normal = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "Gbuffer_Normal");
 		geometry.normal.imageView = createImageView(geometry.normal.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-		geometry.albedo = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		geometry.albedo = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "Gbuffer_Albedo");
 		geometry.albedo.imageView = createImageView(geometry.albedo.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-		geometry.arm = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		geometry.arm = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "Gbuffer_ARM");
 		geometry.arm.imageView = createImageView(geometry.arm.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
@@ -1101,7 +1101,7 @@ VulkanTutorial::VulkanTutorial()
 	{
 		VkFormat depthFormat = findDepthFormat();
 
-		AllocatedImage allocatedDepthImage = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		AllocatedImage allocatedDepthImage = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "DepthStencil");
 		depthImage = allocatedDepthImage.image;
 		depthImageMemory = allocatedDepthImage.imageMemory;
 		depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
@@ -1169,7 +1169,7 @@ VulkanTutorial::VulkanTutorial()
 		stbi_image_free(pixels);
 
 		// VK_IMAGE_LAYOUT에 따라서 이미지 Access mask와 Pipeline Stage를 결정한다. 
-		AllocatedImage allocatedImage = createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT /* for blit */ | VK_IMAGE_USAGE_TRANSFER_DST_BIT /* for staging buffer*/ | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		AllocatedImage allocatedImage = createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT /* for blit */ | VK_IMAGE_USAGE_TRANSFER_DST_BIT /* for staging buffer*/ | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "DefaultTexture");
 		textureImage = allocatedImage.image;
 		textureImageMemory = allocatedImage.imageMemory;
 		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
@@ -1189,10 +1189,18 @@ VulkanTutorial::VulkanTutorial()
 			throw std::runtime_error("failed to load texture image!");
 		}
 
-		whiteTexture = createTexture2D(pixels, { (uint32_t)texWidth ,(uint32_t)texHeight, 1 }, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT);
+		whiteTexture = createTexture2D(pixels, { (uint32_t)texWidth ,(uint32_t)texHeight, 1 }, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT, "White");
+
+		pixels = stbi_load(HDR_TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!pixels)
+		{
+			throw std::runtime_error("failed to load texture image!");
+		}
+		
+		//HDRTexture = createTexture2D(pixels, { (uint32_t)texWidth ,(uint32_t)texHeight, 1 }, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, "HDR");
 	}
 
-	AllocatedImage VulkanTutorial::createTexture2D(stbi_uc* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag)
+	AllocatedImage VulkanTutorial::createTexture2D(stbi_uc* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name)
 	{
 		// Sampler의 maxLOD는 텍스쳐의 mipLevels와 관련있다. 
 
@@ -1214,7 +1222,7 @@ VulkanTutorial::VulkanTutorial()
 		stbi_image_free(inData);
 
 		// VK_IMAGE_LAYOUT에 따라서 이미지 Access mask와 Pipeline Stage를 결정한다. 
-		AllocatedImage allocatedImage = createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, inFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT /* for blit */ | VK_IMAGE_USAGE_TRANSFER_DST_BIT /* for staging buffer*/ | inUsageFlag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		AllocatedImage allocatedImage = createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, inFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT /* for blit */ | VK_IMAGE_USAGE_TRANSFER_DST_BIT /* for staging buffer*/ | inUsageFlag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, name);
 		transitionImageLayout(allocatedImage.image, inFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
 		copyBufferToImage(stagingBuffer, allocatedImage.image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 		//transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, mipLevels);
@@ -1508,7 +1516,7 @@ VulkanTutorial::VulkanTutorial()
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	AllocatedImage VulkanTutorial::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties)
+	AllocatedImage VulkanTutorial::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name)
 	{
 		AllocatedImage image = {};
 
@@ -1532,6 +1540,10 @@ VulkanTutorial::VulkanTutorial()
 		if (vkCreateImage(device, &imageInfo, nullptr, &image.image) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create image");
+		}
+		else
+		{
+			std::cout << "VkImage " << image.image << " " << name << std::endl;
 		}
 
 		VkMemoryRequirements memRequirements;
@@ -1733,6 +1745,10 @@ VulkanTutorial::VulkanTutorial()
 		{
 			throw std::runtime_error("failed to create vertex buffer!");
 		}
+		else
+		{
+			std::cout << "VkBuffer " << buffer << " " << std::endl;
+		}
 
 		VkMemoryRequirements memRequirements;
 		vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
@@ -1927,14 +1943,7 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index)
 	{
-		// Lighting Pass
-		vkCmdBindPipeline(commandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.pipeline);
-		vkCmdBindDescriptorSets(commandBuffers[index], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.pipelineLayout, 0, 1, &lightingPass.descriptorSets[index], 0, nullptr);
-		// Final composition
-		// This is done by simply drawing a full screen quad
-		// The fragment shader then combines the geometry attachments into the final image
-		// Note: Also used for debug display if debugDisplayTarget > 0
-		vkCmdDraw(commandBuffers[index], 3, 1, 0, 0);
+
 	}
 
 	void VulkanTutorial::recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t index)

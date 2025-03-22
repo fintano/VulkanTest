@@ -78,7 +78,7 @@ public:
 
 	void createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory);
 	void createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory);
-	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag);
+	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag, const char* name = "texture");
 
 protected:
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return nullptr; }
@@ -94,6 +94,7 @@ protected:
 	virtual void createDescriptorSetLayouts();
 	virtual void createGraphicsPipelines();
 	virtual void recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
+	virtual void recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	virtual void cleanUpSwapchain();
 	virtual void loadModels();
 	virtual void createBuffers();
@@ -142,7 +143,7 @@ protected:
 	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-	AllocatedImage createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
+	AllocatedImage createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name);
 	void loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 	void createCommandBuffer(int32_t i);
 	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
@@ -153,7 +154,6 @@ protected:
 	void copyBuffer(VkBuffer& srcBuffer, VkBuffer& dstBuffer, VkDeviceSize size);
 	VkCommandBuffer beginSingleTimeCommands();
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-	void recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	void createSyncObjects();
 	void mainLoop();
 
@@ -212,6 +212,7 @@ protected:
 	VkSampler textureSampler;
 
 	AllocatedImage whiteTexture;
+	AllocatedImage HDRTexture;
 
 	// 라이팅 패스
 	struct LightingPass
@@ -234,6 +235,7 @@ protected:
 	const std::string MODEL_PATH = "models/viking_room.obj";
 	const std::string TEXTURE_PATH = "textures/viking_room.png";
 	const std::string WHITE_TEXTURE_PATH = "textures/white_texture.png";
+	const std::string HDR_TEXTURE_PATH = "textures/photo_studio_loft_hall_4k.hdr";
 
 	// Draw MAX_FRAMES_IN_FLIGHT frames simultaneously. 
 	// But We may be using the frame 0 objects while frame 0 still be in flight.

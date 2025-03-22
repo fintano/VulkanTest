@@ -240,7 +240,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
 
         if (img.has_value()) {
             images.push_back(*img);
-            file.images[image.name.c_str()] = *img;
+            file.images.push_back(*img);
         }
         else {
             // we failed to load, so lets give the slot a default white texture to not
@@ -339,7 +339,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     for (fastgltf::Mesh& mesh : gltf.meshes) {
         std::shared_ptr<MeshAsset> newmesh = std::make_shared<MeshAsset>();
         meshes.push_back(newmesh);
-        file.meshes[mesh.name.c_str()] = newmesh;
+        file.meshes.push_back(newmesh);
         newmesh->name = mesh.name;
 
         // clear the mesh arrays each mesh, we dont want to merge them by error
@@ -424,7 +424,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
 
         engine->createVertexBuffer(vertices, newmesh->meshBuffers.vertexBuffer.Buffer, newmesh->meshBuffers.vertexBuffer.BufferMemory);
         engine->createIndexBuffer(indices, newmesh->meshBuffers.indexBuffer.Buffer, newmesh->meshBuffers.indexBuffer.BufferMemory);
-        //newmesh->meshBuffers = engine->uploadMesh(indices, vertices);
     }
 
 
@@ -481,6 +480,9 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
             node->refreshTransform(glm::mat4{ 1.f });
         }
     }
+
+    std::cout << "Loading GLTF Complete : " << filePath << std::endl;
+
     return scene;
 }
 
@@ -498,9 +500,8 @@ void LoadedGLTF::clearAll()
 
     materialDataBuffer.destroy(0);
 
-    for (auto& [k, v] : meshes)
+    for (std::shared_ptr<MeshAsset> mesh : meshes)
     {
-        std::shared_ptr<MeshAsset> mesh = v;
         if (mesh.get())
         {
             vkDestroyBuffer(creator->device, mesh->meshBuffers.vertexBuffer.Buffer, nullptr);
@@ -511,8 +512,9 @@ void LoadedGLTF::clearAll()
         }
     }
 
-    for (auto& [k, v] : images) {
-
+    //for (auto& [k, v] : images) {
+    for(auto& v : images)
+    {
         if (v.image == creator->getDefaultTexture2D().image) {
             //dont destroy the default images
             continue;

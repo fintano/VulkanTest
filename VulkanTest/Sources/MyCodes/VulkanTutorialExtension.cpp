@@ -14,11 +14,13 @@ static int UniqueBufferIndex = 0;
 int VulkanTutorialExtension::instanceCount = 2;
 int VulkanTutorialExtension::maxInstanceCount = instanceCount;
 bool VulkanTutorialExtension::useDirectionalLight = false;
-bool VulkanTutorialExtension::debugGBuffers = false;
+int VulkanTutorialExtension::debugDisplayTarget = 0;
 bool VulkanTutorialExtension::usePointLights = true;
 std::array<bool, NR_POINT_LIGHTS> VulkanTutorialExtension::pointLightsSwitch;
 float VulkanTutorialExtension::pointLightlinear = 0.09f;
 float VulkanTutorialExtension::pointLightQuadratic = 0.032f;
+float VulkanTutorialExtension::pointLightIntensity = 1.f;
+float VulkanTutorialExtension::directionalLightIntensity = 1.f;
 
 VulkanTutorialExtension::VulkanTutorialExtension()
 	: camera({ 5.f, 5.f, 5.f }, { 0.f,1.f,0.f })
@@ -180,16 +182,6 @@ void VulkanTutorialExtension::createDescriptorSets()
 		materialData.metal_rough_factors = glm::vec4{ 1,0.5,0,0 };
 		materialConstants.CopyData(UniqueBufferIndex);
 
-		//write the buffer
-		//GLTFMetallic_Roughness::MaterialConstants* sceneUniformData = (GLTFMetallic_Roughness::MaterialConstants*)materialConstants.allocation->GetMappedData();
-		//MaterialConstant.colorFactors = glm::vec4{ 1,1,1,1 };
-		//MaterialConstant.metal_rough_factors = glm::vec4{ 1,0.5,0,0 };
-
-		//_mainDeletionQueue.push_function([=, this]() {
-		//	destroy_buffer(materialConstants);
-		//	});
-
-
 		materialResources.dataBuffer = materialConstants.getUniformBuffer(UniqueBufferIndex); //materialConstants.buffer;
 		materialResources.dataBufferOffset = 0;
 
@@ -200,10 +192,6 @@ void VulkanTutorialExtension::createDescriptorSets()
 		createGlobalDescriptorSets();
 	}
 
-	/*for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
-	{
-		createDescriptorSetsPointLights(lightTransformUniformBuffer[lightIndex], descriptorSetsPointLights[lightIndex]);
-	}*/
 	createDescriptorSetsObject(descriptorSetsObject);
 	createLightingPassDescriptorSets(lightingPass.descriptorSets);
 }
@@ -311,30 +299,25 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 	}
 	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
 	// binding 순서대로 index가 부여된다. shader와 일치해야한다.
+	std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+	VkDescriptorImageInfo pos = vkb::initializers::descriptor_image_info(textureSampler, geometry.position.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo normal = vkb::initializers::descriptor_image_info(textureSampler, geometry.normal.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo albedo = vkb::initializers::descriptor_image_info(textureSampler, geometry.albedo.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo arm = vkb::initializers::descriptor_image_info(textureSampler, geometry.arm.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	auto geometryTextureDescriptor = [&](VkImageView imageView){
+		return vkb::initializers::descriptor_image_info(textureSampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	};
+
 	for (size_t i = 0; i < swapChainImages.size(); i++)
 	{
-		std::vector<VkWriteDescriptorSet> descriptorWrites;
-		
-		// colorUBO
-		colorUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		
-		// dirLightUniform
-		dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		
-		// pointLightsUniform
-		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-
-		// position
-		VkDescriptorImageInfo positionImageInfo = CreateDescriptorImageInfo(geometry.position.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &positionImageInfo, nullptr, descriptorWrites);
-
-		// normal 
-		VkDescriptorImageInfo normalImageInfo = CreateDescriptorImageInfo(geometry.normal.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &normalImageInfo, nullptr, descriptorWrites);
-
-		// color + specular
-		VkDescriptorImageInfo colorSpecularImageInfo = CreateDescriptorImageInfo(geometry.albedo.imageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &colorSpecularImageInfo, nullptr, descriptorWrites);
+		descriptorWrites = {
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &pos),
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &normal),
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &albedo),
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &arm)
+		};
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
@@ -342,10 +325,16 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 
 void VulkanTutorialExtension::init_default_data()
 {
-	auto structureFile = loadGltf(this, "models/CompareMetallic.glb");
+	auto structureFile = loadGltf(this, "models/MetalRoughSpheres.glb");
 	assert(structureFile.has_value());
 
 	loadedScenes["structure"] = *structureFile;
+
+
+	auto gizmoFile = loadGltf(this, "models/gizmo.glb");
+	assert(gizmoFile.has_value());
+
+	loadedScenes["gizmo"] = *gizmoFile;
 }
 
 void VulkanTutorialExtension::update_scene(uint32_t currentImage)
@@ -380,6 +369,7 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	}
 
 	loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
+	loadedScenes["gizmo"]->Draw(glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)), mainDrawContext);
 
 	glm::mat4 viewMat = camera.GetViewMatrix();
 	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
@@ -387,6 +377,7 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 
 	GPUSceneData& sceneData = globalSceneData.getFirstInstanceData();
 
+	sceneData.debugDisplayTarget = debugDisplayTarget;
 	sceneData.viewPos = camera.Position;
 	sceneData.view = viewMat;//glm::translate(glm::vec3{ 0,0,-5 });
 	// camera projection
@@ -397,7 +388,7 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	sceneData.sunlightColor = glm::vec4(1.f);
 	sceneData.sunlightDirection = glm::vec4(0, 1, 0.5, 1.f);
 
-	//pointLights;
+	// Point Lights
 	sceneData.activePointLight.activeLightMask = activePointLightsMask;
 	auto& pointLights = sceneData.activePointLight.pointLights;
 	for (int i = 0; i < NR_POINT_LIGHTS; i++)
@@ -405,10 +396,17 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 		PointLight& pointLight = pointLights[i];
 		pointLight.position = pointLightPositions[i];
 		pointLight.clq = glm::vec3(1.0f, pointLightlinear, pointLightQuadratic);
-		pointLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
-		pointLight.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
-		pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+		pointLight.colorIntensity = glm::vec4(1.f, 1.f, 1.f, pointLightIntensity);
 	}
+
+	// Directional Light
+	DirLight dirLight = {};
+	if (useDirectionalLight)
+	{
+		dirLight.colorIntensity = glm::vec4(0.4f, 0.4f, 0.4f, directionalLightIntensity); // darken diffuse light a bit
+	}
+	dirLight.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
+	sceneData.dirLight = std::move(dirLight);
 
 	globalSceneData.CopyData(currentImage);
 }
@@ -440,7 +438,6 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	colorUbo.objectColor = glm::vec3(1.0f, 0.0f, 0.0f);
 	colorUbo.lightColor = glm::vec3(0.0f, 0.0f, 0.0f);
 	colorUbo.viewPos = camera.Position;
-	colorUbo.Debug.x = debugGBuffers;
 	colorUniformBuffer.CopyData(currentImage);
 
 	// Material 
@@ -455,7 +452,7 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	materialUniformBuffer.CopyData(currentImage);
 
 	// Directional Light;
-	DirLight& dirLight = dirLightUniformBuffer.clearAndGetFirstInstanceData();
+	/*DirLight& dirLight = dirLightUniformBuffer.clearAndGetFirstInstanceData();
 	if (useDirectionalLight)
 	{
 		dirLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
@@ -463,40 +460,13 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 		dirLight.specular = glm::vec3(0.5f, 0.5f, 0.5f);
 	}
 	dirLight.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
-
+	*/
 	// Point Lights
-	std::array<PointLight, NR_POINT_LIGHTS > pointLights;
 	clearPointLightsSwitch();
-
 	for (int i = 0; i < NR_POINT_LIGHTS; i++)
 	{
-		PointLight pointLight;
-		pointLight.position = pointLightPositions[i];
-		if (usePointLights)
-		{
-			pointLight.clq = glm::vec3(1.0f, pointLightlinear, pointLightQuadratic);
-			pointLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
-			pointLight.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
-			pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-		}
-		pointLights[i] = std::move(pointLight);
 		turnPointLightOn(i);
 	}
-
-	std::vector<PointLightsUniform>& pointLightUniform = pointLightsUniformBuffer.getData();
-	pointLightUniform.clear();
-	pointLightUniform.emplace_back();
-	PointLightsUniform& newElement = pointLightUniform.back();
-	newElement.activeLightMask = activePointLightsMask;
-	newElement.pointLights = std::move(pointLights);
-
-	/**
-	* Vulkan은 데이터를 넘길 때, 배열인지 단일 데이터인지를 명시하지 않습니다.
-	* 대신, 쉐이더가 선언한 UBO 구조체에 따라 데이터를 해석합니다.
-	* 따라서 쉐이더가 UBO 배열로 선언되어 있지 않으면 제대로 동작하지 않을 수 있습니다.
-	*/
-
-	pointLightsUniformBuffer.CopyData(currentImage);
 }
 
 void VulkanTutorialExtension::clearUniformBuffer(uint32_t i)
@@ -565,17 +535,13 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 
-	//	colorUniformBuffer
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	dirLightUniformBuffer
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	pointLightsUniformBuffer
-	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	//	position
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	//	normal
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	//	color + specular 
+	//	color 
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	//	arm
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
 	lightingPass.descriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
@@ -591,7 +557,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 	createPipelineLayout(descriptorSetLayoutPointLights, pipelineLayoutPointLights);
 	createPipelineLayout(descriptorSetLayout, pipelineLayoutObject);
-	createPipelineLayout(lightingPass.descriptorSetLayout, lightingPass.pipelineLayout);
+	//createPipelineLayout(lightingPass.descriptorSetLayout, lightingPass.pipelineLayout);
 	
 	/*
 	* Default 
@@ -793,6 +759,13 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	/**
 	* For lightpass
 	*/
+
+	std::array<VkDescriptorSetLayout, 2> layouts = { globalDescriptorSetLayout, lightingPass.descriptorSetLayout };
+	VkPipelineLayoutCreateInfo mesh_layout_info = vkb::initializers::pipeline_layout_create_info(layouts.size());
+	mesh_layout_info.pSetLayouts = layouts.data();
+	
+	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &mesh_layout_info, nullptr, &lightingPass.pipelineLayout));
+
 	vertShaderCode = readFile("shaders/LightingPassvert.spv");
 	fragShaderCode = readFile("shaders/Pbrfrag.spv");
 
@@ -837,43 +810,6 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
 }
 
-//void VulkanTutorialExtension::createPointLightsGraphicsPipeline()
-//{
-//	auto vertShaderCode = readFile("shaders/shadervert.spv");
-//	auto fragShaderCode = readFile("shaders/shaderfrag.spv");
-//
-//	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
-//	Vertex::getBindingDescriptions(bindingDescriptions);
-//
-//	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-//	Vertex::getAttributeDescriptions(attributeDescriptions);
-//
-//	createGraphicsPipeline(vertShaderCode, fragShaderCode, pipelineLayoutPointLights, bindingDescriptions, attributeDescriptions, graphicsPipelinePointLights);
-//}
-
-//void VulkanTutorialExtension::createObjectGraphicsPipelines()
-//{
-//	auto objectShaderVertCode = readFile("shaders/ObjectShadervert.spv");
-//	auto objectShaderFragCode = readFile("shaders/ObjectShaderfrag.spv");
-//
-//	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
-//	Vertex::getBindingDescriptions(bindingDescriptions);
-//	Instance::getBindingDescriptions(bindingDescriptions);
-//
-//	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-//	Vertex::getAttributeDescriptions(attributeDescriptions);
-//	Instance::getAttributeDescriptions(attributeDescriptions);
-//
-//	createGraphicsPipeline(objectShaderVertCode, objectShaderFragCode, pipelineLayoutObject, bindingDescriptions, attributeDescriptions, graphicsPipelineObject);
-//}
-
-//void VulkanTutorialExtension::createLightingPassGraphicsPipelines()
-//{
-//	auto ShaderFragCode = readFile("shaders/LightingPassfrag.spv");
-//
-//	createGraphicsPipeline(std::vector<char>(), ShaderFragCode, lightingPassPipelineLayout, std::vector<VkVertexInputBindingDescription>(), std::vector<VkVertexInputAttributeDescription>(), lightingPassPipeline);
-//}
-
 void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
 {
 	VulkanTutorial::recordRenderPassCommands(commandBuffer, i);
@@ -882,23 +818,19 @@ void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBu
 	{
 		drawRenderObject(commandBuffer, i, r);
 	}
+}
 
-	//VkBuffer vertexBuffers[]{ vertexBuffer };
-	//VkDeviceSize offsets[]{ 0 };
-
-	//vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-	//vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-	//VkBuffer instanceBuffersToBind[]{ instanceBuffers[usingInstanceBufferIndex] };
-	//vkCmdBindVertexBuffers(commandBuffers[i], 1, 1, instanceBuffersToBind, offsets);
-
-	// Q : vkCmdBindVertexBuffers() persistent between pipeline changes?
-	// A : They are persistent. Binding a new pipeline will only reset the static state and if the pipeline has dynamic state then it will reset the dynamic state as well.
-	
-	// Objects
-	//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineObject);
-	//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutObject, 0, 1, &descriptorSetsObject[i], 0, nullptr);
-	//vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), static_cast<uint32_t>(instanceCount), 0, 0, 0);
+void VulkanTutorialExtension::recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
+{
+	// Lighting Pass
+	vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.pipeline);
+	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.pipelineLayout, 0, 1, &globalDescriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, lightingPass.pipelineLayout, 1, 1, &lightingPass.descriptorSets[i], 0, nullptr);
+	// Final composition
+	// This is done by simply drawing a full screen quad
+	// The fragment shader then combines the geometry attachments into the final image
+	// Note: Also used for debug display if debugDisplayTarget > 0
+	vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
 }
 
 void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t i)

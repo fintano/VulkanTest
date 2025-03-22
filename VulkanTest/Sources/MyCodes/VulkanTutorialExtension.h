@@ -19,11 +19,13 @@ public:
 	static int instanceCount;
 	static int maxInstanceCount;
 	static bool useDirectionalLight;
-	static bool debugGBuffers;
+	static int debugDisplayTarget;
 	static bool usePointLights;
 	static std::array<bool, NR_POINT_LIGHTS> pointLightsSwitch;
 	static float pointLightlinear;
 	static float pointLightQuadratic;
+	static float pointLightIntensity; 
+	static float directionalLightIntensity;
 private:
 
 	/**
@@ -41,6 +43,7 @@ private:
 	void createDescriptorSetLayouts() override;
 	void createGraphicsPipelines() override;
 	void recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
+	void recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
 	void recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
 	void loadModels() override;
 	void createBuffers() override;

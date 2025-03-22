@@ -29,17 +29,13 @@ struct Material {
 
 struct DirLight {
 	alignas(16) glm::vec3 direction;
-	alignas(16) glm::vec3 ambient = glm::vec3(0.0f, 0.0f, 0.0f);
-	alignas(16) glm::vec3 diffuse = glm::vec3(0.0f, 0.0f, 0.0f);
-	alignas(16) glm::vec3 specular = glm::vec3(0.0f, 0.0f, 0.0f);
+	alignas(16) glm::vec4 colorIntensity = glm::vec4(0.f);
 };
 
 struct PointLight {
 	alignas(16) glm::vec3 position;
 	alignas(16) glm::vec3 clq; // constant, linear, quadratic
-	alignas(16) glm::vec3 ambient = glm::vec3(0.0f, 0.0f, 0.0f);
-	alignas(16) glm::vec3 diffuse = glm::vec3(0.0f, 0.0f, 0.0f);
-	alignas(16) glm::vec3 specular = glm::vec3(0.0f, 0.0f, 0.0f);
+	alignas(16) glm::vec4 colorIntensity;
 };
 
 struct PointLightsUniform {
@@ -56,5 +52,8 @@ struct GPUSceneData {
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
 
+	alignas(16) int debugDisplayTarget;
+
+	DirLight dirLight;
 	PointLightsUniform activePointLight;
 };

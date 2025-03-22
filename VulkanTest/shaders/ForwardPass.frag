@@ -41,7 +41,9 @@ void main()
 			// SpotLight면 또 그에 해당한 식으로 계산하면 된다.
 			float distance = length(sceneData.activePointLights.pointLights[i].position - fragPos);
 			float attenuation = 1.0 / (distance * distance);
-			vec3 radiance = sceneData.activePointLights.pointLights[i].diffuse * attenuation;
+			vec3 lightColor = sceneData.activePointLights.pointLights[i].colorIntensity.rgb;
+			float intensity = sceneData.activePointLights.pointLights[i].colorIntensity.a;
+			vec3 radiance = lightColor * intensity * attenuation;
 
 			float NDF = DistributionGGX(N, H, roughness);
 			float G   = GeometrySmith(N, V, L, roughness);

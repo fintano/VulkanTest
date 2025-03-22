@@ -52,6 +52,7 @@
     <None Include="shaders\deferred.glsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\global.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp">
@@ -106,6 +107,9 @@
     <ClCompile Include="Sources\MyCodes\vk_types.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\MyCodes\IrradianceCubeMap.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h">
@@ -152,6 +156,9 @@
     </ClInclude>
     <ClInclude Include="Sources\VulkanTutorial\VulkanTools.h">
       <Filter>VulkanTutorial</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\IrradianceCubeMap.h">
+      <Filter>MyCodes</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

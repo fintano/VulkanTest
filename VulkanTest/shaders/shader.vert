@@ -24,6 +24,6 @@ void main()
     gl_Position = sceneData.proj * sceneData.view * PushConstants.model * vec4(inPosition, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
-    fragNormal = inNormal;
-    fragPos = inPosition;
+    fragNormal = mat3(transpose(inverse(PushConstants.model))) * inNormal;
+    fragPos = vec3(PushConstants.model * vec4(inPosition, 1.0));
 }

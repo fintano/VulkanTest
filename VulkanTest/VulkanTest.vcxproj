@@ -169,6 +169,7 @@ CALL compile.bat</Command>
   <ItemGroup>
     <None Include="shaders\deferred.glsl" />
     <None Include="shaders\ForwardPass.frag" />
+    <None Include="shaders\global.glsl" />
     <None Include="shaders\input_structures.glsl" />
     <None Include="shaders\LightingPass.frag" />
     <None Include="shaders\LightingPass.vert" />
@@ -190,6 +191,7 @@ CALL compile.bat</Command>
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MyCodes\Buffer.cpp" />
     <ClCompile Include="Sources\MyCodes\GPUMarker.cpp" />
+    <ClCompile Include="Sources\MyCodes\IrradianceCubeMap.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_engine.cpp" />
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
@@ -203,6 +205,7 @@ CALL compile.bat</Command>
     <ClInclude Include="Sources\MyCodes\Buffer.h" />
     <ClInclude Include="Sources\MyCodes\Camera.h" />
     <ClInclude Include="Sources\MyCodes\GPUMarker.h" />
+    <ClInclude Include="Sources\MyCodes\IrradianceCubeMap.h" />
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h" />
     <ClInclude Include="Sources\MyCodes\vk_descriptor.h" />
     <ClInclude Include="Sources\MyCodes\vk_engine.h" />

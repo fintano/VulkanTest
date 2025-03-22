@@ -16,6 +16,30 @@ void main()
 	float metallic = arm.b;
 	float roughness = arm.g;
 
+	if(sceneData.debugDisplayTarget > 0)
+	{
+		switch (sceneData.debugDisplayTarget) {
+		case 1:
+			outColor = vec4(fragPos, 1.0);
+			return;
+		case 2:
+			outColor = vec4(fragNormal, 1.0);
+			return;
+		case 3:
+			outColor = vec4(albedo, 1.0);
+			return;
+		case 4:
+			outColor = vec4(ao, 1.0);
+			return;
+		case 5:
+			outColor = vec4(roughness, roughness, roughness, 1.0);
+			return;
+		case 6:
+			outColor = vec4(metallic, metallic, metallic, 1.0);
+			return;
+		}
+	}
+
     vec3 N = normalize(fragNormal);
 	vec3 V = normalize(sceneData.viewPos - fragPos);
 
@@ -40,7 +64,9 @@ void main()
 			// SpotLight면 또 그에 해당한 식으로 계산하면 된다.
 			float distance = length(sceneData.activePointLights.pointLights[i].position - fragPos);
 			float attenuation = 1.0 / (distance * distance);
-			vec3 radiance = sceneData.activePointLights.pointLights[i].diffuse * attenuation;
+			vec3 lightColor = sceneData.activePointLights.pointLights[i].colorIntensity.rgb;
+			float intensity = sceneData.activePointLights.pointLights[i].colorIntensity.a;
+			vec3 radiance = lightColor * intensity * attenuation;
 
 			float NDF = DistributionGGX(N, H, roughness);
 			float G   = GeometrySmith(N, V, L, roughness);
@@ -64,6 +90,13 @@ void main()
 			Lo += (kD * albedo / PI + specular) * radiance * NdotL;
         }
     }
+
+
+	{
+		Lo += CalcDirLight(sceneData.dirLight, N, V, albedo, roughness, metallic);
+	}
+
+
 
 	vec3 ambient = vec3(0.03) * albedo * ao;
 	vec3 color   = ambient + Lo;
