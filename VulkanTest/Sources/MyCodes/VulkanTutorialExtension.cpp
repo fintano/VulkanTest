@@ -1,4 +1,3 @@
-#include "IrradianceCubeMap.h"
 #include "VulkanTutorialExtension.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -6,6 +5,10 @@
 #include "VulkanTutorialExtensionImGui.h"
 #include "Vk_loader.h"	
 #include "vk_descriptor.h"
+#include "IrradianceCubeMap.h"
+#include "Cube.h"
+#include "Skybox.h"
+#include "SimplePipeline.h"
 
 static int UniqueBufferIndex = 0;
 
@@ -329,7 +332,6 @@ void VulkanTutorialExtension::init_default_data()
 
 	loadedScenes["structure"] = *structureFile;
 
-
 	auto gizmoFile = loadGltf(this, "models/gizmo.glb");
 	assert(gizmoFile.has_value());
 
@@ -432,16 +434,6 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 
 	materialUniformBuffer.CopyData(currentImage);
 
-	// Directional Light;
-	/*DirLight& dirLight = dirLightUniformBuffer.clearAndGetFirstInstanceData();
-	if (useDirectionalLight)
-	{
-		dirLight.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
-		dirLight.diffuse = glm::vec3(0.4f, 0.4f, 0.4f); // darken diffuse light a bit
-		dirLight.specular = glm::vec3(0.5f, 0.5f, 0.5f);
-	}
-	dirLight.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
-	*/
 	// Point Lights
 	clearPointLightsSwitch();
 	for (int i = 0; i < NR_POINT_LIGHTS; i++)
@@ -793,7 +785,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer, size_t index)
 {
-	irradianceCubeMap->draw(commandBuffer);
+	irradianceCubeMap->draw(commandBuffer, cube->mesh);
 
 	VulkanTutorial::recordCommandBuffer(commandBuffer, index);
 }
@@ -825,6 +817,8 @@ void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandB
 {
 	VulkanTutorial::recordForwardPassCommands(commandBuffer, i);
 
+	drawRenderObject(commandBuffer, i, skybox->getRenderObject());
+
 	for (const RenderObject& r : mainDrawContext.TranslucentSurfaces)
 	{
 		drawRenderObject(commandBuffer, i, r);
@@ -843,7 +837,6 @@ void VulkanTutorialExtension::drawRenderObject(VkCommandBuffer commandBuffer, si
 	vkCmdBindIndexBuffer(commandBuffer, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 	GPUDrawPushConstants pushConstants;
-	//pushConstants.vertexBuffer = draw.vertexBufferAddress;
 	pushConstants.model = draw.transform;
 	vkCmdPushConstants(commandBuffer, draw.material->pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
 
@@ -919,8 +912,8 @@ void VulkanTutorialExtension::createBuffers()
 {
 	VulkanTutorial::createBuffers();
 
-	//createVertexBuffer(cube.vertices, cube.vertexBuffer, cube.vertexBufferMemory);
-	//createIndexBuffer(cube.indices, cube.indexBuffer, cube.indexBufferMemory);
+	cube = std::make_shared<Cube>();
+	cube->createMesh(this);
 
 	for (int i = 0; i < INSTANCE_BUFFER_COUNT; i++)
 	{
@@ -993,6 +986,9 @@ void VulkanTutorialExtension::onPostInitVulkan()
 {
 	irradianceCubeMap = std::make_shared<IrradianceCubeMap>(device, descriptorPool, textureSampler);
 	irradianceCubeMap->initialize(this);
+
+	skybox = std::make_shared<Skybox>();
+	skybox->initialize(this);
 
 	VulkanTutorial::onPostInitVulkan();
 }

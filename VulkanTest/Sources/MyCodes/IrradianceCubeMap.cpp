@@ -21,8 +21,6 @@ void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 
 	createCubeMap(engine);
 
-	createMesh(engine);
-
 	createRenderPass();
 
 	createFrameBuffers();
@@ -30,65 +28,6 @@ void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 	buildPipeline();
 
 	writeDescriptor();
-}
-
-void IrradianceCubeMap::createMesh(VulkanTutorial* engine)
-{
-	mesh.vertexBuffer.vertices = {
-			// ¾Õ¸é (z = 1.0f)
-		   { {-1.0f, -1.0f,  1.0f} },
-		   { { 1.0f, -1.0f,  1.0f} },
-		   { { 1.0f,  1.0f,  1.0f} },
-		   { {-1.0f,  1.0f,  1.0f} },
-
-		   // µÞ¸é (z = -1.0f)
-		   { {-1.0f, -1.0f, -1.0f} },
-		   { {-1.0f,  1.0f, -1.0f} },
-		   { { 1.0f,  1.0f, -1.0f} },
-		   { { 1.0f, -1.0f, -1.0f} },
-
-		   // À­¸é (y = 1.0f)
-		   { {-1.0f,  1.0f, -1.0f} },
-		   { {-1.0f,  1.0f,  1.0f} },
-		   { { 1.0f,  1.0f,  1.0f} },
-		   { { 1.0f,  1.0f, -1.0f} },
-
-		   // ¾Æ·§¸é (y = -1.0f)
-		   { {-1.0f, -1.0f, -1.0f} },
-		   { { 1.0f, -1.0f, -1.0f} },
-		   { { 1.0f, -1.0f,  1.0f} },
-		   { {-1.0f, -1.0f,  1.0f} },
-
-		   // ¿À¸¥ÂÊ ¸é (x = 1.0f)
-		   { { 1.0f, -1.0f, -1.0f} },
-		   { { 1.0f,  1.0f, -1.0f} },
-		   { { 1.0f,  1.0f,  1.0f} },
-		   { { 1.0f, -1.0f,  1.0f} },
-
-		   // ¿ÞÂÊ ¸é (x = -1.0f)
-		   { {-1.0f, -1.0f, -1.0f} },
-		   { {-1.0f, -1.0f,  1.0f} },
-		   { {-1.0f,  1.0f,  1.0f} },
-		   { {-1.0f,  1.0f, -1.0f} }
-	};
-
-	mesh.indexBuffer.indices = {
-			// ¾Õ¸é
-			 0, 1, 2, 2, 3, 0,
-			 // µÞ¸é
-			 4, 5, 6, 6, 7, 4,
-			 // À­¸é
-			 8, 9, 10, 10, 11, 8,
-			 // ¾Æ·§¸é
-			 12, 13, 14, 14, 15, 12,
-			 // ¿À¸¥ÂÊ ¸é
-			 16, 17, 18, 18, 19, 16,
-			 // ¿ÞÂÊ ¸é
-			 20, 21, 22, 22, 23, 20
-	};
-
-	engine->createVertexBuffer(mesh.vertexBuffer.vertices, mesh.vertexBuffer.Buffer, mesh.vertexBuffer.BufferMemory);
-	engine->createIndexBuffer(mesh.indexBuffer.indices, mesh.indexBuffer.Buffer, mesh.indexBuffer.BufferMemory);
 }
 
 void IrradianceCubeMap::loadEquirectangular(VulkanTutorial* engine, const std::string& path)
@@ -106,7 +45,7 @@ void IrradianceCubeMap::loadEquirectangular(VulkanTutorial* engine, const std::s
 void IrradianceCubeMap::createCubeMap(VulkanTutorial* engine)
 {
 	AllocatedImage allocatedImage = 
-	engine->createImage(Res.width, Res.height, 1, VK_SAMPLE_COUNT_1_BIT, HDRFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "IBLCubeMap", Faces);
+	engine->createImage(Res.width, Res.height, 1, VK_SAMPLE_COUNT_1_BIT, HDRFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "IBLCubeMap", Faces, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 
 	image = allocatedImage.image;
 	imageMemory = allocatedImage.imageMemory;
@@ -116,6 +55,8 @@ void IrradianceCubeMap::createCubeMap(VulkanTutorial* engine)
 	{
 		imageViews[i] = engine->createImageView(image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, i);
 	}
+
+	cubeImageView = engine->createImageViewCube(image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void IrradianceCubeMap::createRenderPass()
@@ -128,7 +69,7 @@ void IrradianceCubeMap::createRenderPass()
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	VkAttachmentReference colorAttachmentRef{};
 	colorAttachmentRef.attachment = 0;
@@ -279,7 +220,7 @@ void IrradianceCubeMap::writeDescriptor()
 	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
 
-void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer)
+void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer, const GPUMeshBuffers<VertexOnlyPos>& mesh)
 {
 	glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
 	glm::mat4 captureViews[] =
@@ -340,6 +281,4 @@ void IrradianceCubeMap::clear()
 		vkDestroyFramebuffer(device, frameBuffers[i], nullptr);
 		vkDestroyImageView(device, imageViews[i], nullptr);
 	}
-
-	mesh.Destroy(device);
 }

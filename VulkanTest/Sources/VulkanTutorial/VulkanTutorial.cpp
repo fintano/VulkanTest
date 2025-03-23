@@ -615,6 +615,33 @@ VulkanTutorial::VulkanTutorial()
 		return imageView;
 	}
 
+	VkImageView VulkanTutorial::createImageViewCube(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer)
+	{
+		VkImageViewCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.image = image;
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+		createInfo.format = format;
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+		createInfo.subresourceRange.aspectMask = aspectFlags;
+		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.levelCount = mipLevels;
+		createInfo.subresourceRange.baseArrayLayer = baseArrayLayer;
+		createInfo.subresourceRange.layerCount = 6;
+
+		VkImageView imageView;
+		if (vkCreateImageView(device, &createInfo, nullptr, &imageView) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create texture image views!");
+		}
+
+		return imageView;
+	}
+
 	void VulkanTutorial::createTextureSampler()
 	{
 		VkSamplerCreateInfo samplerInfo{};
@@ -1510,7 +1537,7 @@ VulkanTutorial::VulkanTutorial()
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	AllocatedImage VulkanTutorial::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name, uint32_t arrayLayers)
+	AllocatedImage VulkanTutorial::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name, uint32_t arrayLayers, VkImageViewCreateFlags flags)
 	{
 		AllocatedImage image = {};
 
@@ -1529,7 +1556,7 @@ VulkanTutorial::VulkanTutorial()
 		imageInfo.usage = usage; // VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // 나중에 쉐이더에서 써야하니 (샘플링 돼야하니) 샘플 비트 넣는다. 
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		imageInfo.samples = numSamples; // 멀티 샘플링 관려
-		imageInfo.flags = 0;
+		imageInfo.flags = flags;
 
 		if (vkCreateImage(device, &imageInfo, nullptr, &image.image) != VK_SUCCESS)
 		{

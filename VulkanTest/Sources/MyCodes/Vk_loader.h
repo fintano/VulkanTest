@@ -12,7 +12,7 @@
 class VulkanTutorialExtension;
 
 struct GLTFMaterial {
-	MaterialInstance data;
+	std::shared_ptr<MaterialInstance> data;
 };
 
 struct GeoSurface 
@@ -22,19 +22,20 @@ struct GeoSurface
 	std::shared_ptr<GLTFMaterial> material;
 };
 
+template<typename T>
 struct MeshAsset
 {
 	std::string name;
 
 	std::vector<GeoSurface> surfaces;
-	GPUMeshBuffers<Vertex> meshBuffers;
+	GPUMeshBuffers<T> meshBuffers;
 };
 
 struct LoadedGLTF : public IRenderable {
 
     // storage for all the data on a given glTF file
     //std::unordered_map<std::string, std::shared_ptr<MeshAsset>> meshes;
-    std::vector<std::shared_ptr<MeshAsset>> meshes;
+    std::vector<std::shared_ptr<MeshAsset<Vertex>>> meshes;
     std::unordered_map<std::string, std::shared_ptr<Node>> nodes;
     //std::unordered_map<std::string, AllocatedImage> images;
     std::vector <AllocatedImage> images;

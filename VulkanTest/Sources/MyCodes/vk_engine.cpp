@@ -54,7 +54,6 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	pipelineCI.pMultisampleState = &multisampleState;
 	pipelineCI.pViewportState = &viewportState;
 	pipelineCI.pDepthStencilState = &depthStencilState;
-	//pipelineCI.pDynamicState = &dynamicState;
 
 	// Viewport
 	VkViewport viewport = vkinit::viewport((float)swapchainExtent.width, (float)swapchainExtent.height, 0.f, 1.f);
@@ -162,24 +161,23 @@ void GLTFMetallic_Roughness::clear_resources(VkDevice device)
 	vkDestroyDescriptorSetLayout(device, materialLayout, nullptr);
 }
 
-MaterialInstance GLTFMetallic_Roughness::write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources, VkDescriptorPool descriptorPool)
+std::shared_ptr<MaterialInstance> GLTFMetallic_Roughness::write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources, VkDescriptorPool descriptorPool)
 {
-	MaterialInstance matData;
-	matData.passType = pass;
+	std::shared_ptr<MaterialInstance> matData = std::make_shared<MaterialInstance>();
+	matData->passType = pass;
 	if (pass == MaterialPass::Transparent) {
-		matData.pipeline = &transparentPipeline;
+		matData->pipeline = &transparentPipeline;
 	}
 	else {
-		matData.pipeline = &opaquePipeline;
+		matData->pipeline = &opaquePipeline;
 	}
 
 	int swapChainImageNum = engine->getSwapchainImageNum();
 
 	std::vector<VkDescriptorSetLayout> layouts(swapChainImageNum, materialLayout);
 	VkDescriptorSetAllocateInfo allocInfo = vkinit::descriptor_set_allocate_info(descriptorPool, layouts.data(), layouts.size());
-	matData.materialSet.resize(swapChainImageNum);
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(engine->device, &allocInfo, matData.materialSet.data()));
-	//matData.materialSet = descriptorAllocator.allocate(device, materialLayout);
+	matData->materialSet.resize(swapChainImageNum);
+	VK_CHECK_RESULT(vkAllocateDescriptorSets(engine->device, &allocInfo, matData->materialSet.data()));
 
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 
@@ -204,9 +202,9 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VulkanTutorialExtension*
 	for (size_t i = 0; i < swapChainImageNum; i++)
 	{
 		writeDescriptorSets = {
-			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &bufDescriptor),
-			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &texDescriptorColor),
-			vkinit::write_descriptor_set(matData.materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &texDescriptorMetalRough),
+			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &bufDescriptor),
+			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &texDescriptorColor),
+			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &texDescriptorMetalRough),
 		};
 
 		vkUpdateDescriptorSets(engine->device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
@@ -225,14 +223,14 @@ void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
 		def.firstIndex = s.startIndex;
 		def.vertexBuffer = mesh->meshBuffers.vertexBuffer.Buffer;
 		def.indexBuffer = mesh->meshBuffers.indexBuffer.Buffer;
-		def.material = &s.material->data;
+		def.material = s.material->data;
 		def.transform = nodeMatrix;
 
-		if (s.material->data.passType == MaterialPass::MainColor)
+		if (s.material->data->passType == MaterialPass::MainColor)
 		{
 			ctx.OpaqueSurfaces.push_back(def);
 		}
-		else if (s.material->data.passType == MaterialPass::Transparent)
+		else if (s.material->data->passType == MaterialPass::Transparent)
 		{
 			ctx.TranslucentSurfaces.push_back(def);
 		}

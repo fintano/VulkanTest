@@ -4,6 +4,8 @@
 #include "UniformBufferTypes.h"
 
 class IrradianceCubeMap;
+class Skybox;
+struct Cube;
 
 /**
 * https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
@@ -81,7 +83,6 @@ private:
 	void turnPointLightOn(int index);
 	bool isLightOn(int index);
 	bool pointLightSwitchChanged(uint32_t index);
-	void drawRenderObject(VkCommandBuffer commandBuffer, size_t i, const RenderObject& draw);
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 	static void mouseScrollCallback(GLFWwindow* window, double, double yoffset);
@@ -116,10 +117,9 @@ public:
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() override { return globalDescriptorSetLayout; }
 	AllocatedImage getDefaultTexture2D() { return whiteTexture; }
 	VkSampler getDefaultTextureSampler() { return textureSampler; }
+	void drawRenderObject(VkCommandBuffer commandBuffer, size_t i, const RenderObject& draw);
 
 private:
-	//Model cube;
-
 	std::vector<Instance> instances;
 	std::array<VkBuffer, INSTANCE_BUFFER_COUNT> instanceBuffers;
 	std::array<VkDeviceMemory, INSTANCE_BUFFER_COUNT> instanceBufferMemories;
@@ -154,8 +154,10 @@ private:
 	double deltaTime = 0.0f; // Time between current frame and last frame
 	double lastFrame = 0.0f; // Time of last frame
 	
-	std::shared_ptr<IrradianceCubeMap> irradianceCubeMap;
 public:
+	std::shared_ptr<IrradianceCubeMap> irradianceCubeMap;
+	std::shared_ptr<Skybox> skybox;
+	std::shared_ptr<Cube> cube;
 	/** material system */
 	//std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
 	DrawContext mainDrawContext;

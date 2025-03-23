@@ -52,11 +52,19 @@
     <None Include="shaders\deferred.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="shaders\global.glsl" />
     <None Include="shaders\IrradianceCubeMap.vert">
       <Filter>Shaders</Filter>
     </None>
     <None Include="shaders\IrradianceCubeMap.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\Skybox.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\Skybox.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\global.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
@@ -116,6 +124,15 @@
     <ClCompile Include="Sources\MyCodes\IrradianceCubeMap.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\MyCodes\Skybox.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MyCodes\Cube.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MyCodes\SimplePipeline.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h">
@@ -164,6 +181,15 @@
       <Filter>VulkanTutorial</Filter>
     </ClInclude>
     <ClInclude Include="Sources\MyCodes\IrradianceCubeMap.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\Skybox.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\Cube.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\SimplePipeline.h">
       <Filter>MyCodes</Filter>
     </ClInclude>
   </ItemGroup>

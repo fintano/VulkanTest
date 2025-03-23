@@ -1,7 +1,9 @@
 #pragma once
 
 #include "vk_types.h"
+#include "Vertex.h"
 
+template<typename T>
 struct MeshAsset;
 
 struct GLTFMetallic_Roughness {
@@ -33,8 +35,7 @@ struct GLTFMetallic_Roughness {
 	void build_pipelines(class VulkanTutorialExtension* engine);
 	void clear_resources(VkDevice device);
 
-	//MaterialInstance write_material(VkDevice device, MaterialPass pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptorAllocator);
-	MaterialInstance write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources, VkDescriptorPool descriptorPool);
+	std::shared_ptr<MaterialInstance> write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources, VkDescriptorPool descriptorPool);
 };
 
 struct RenderObject {
@@ -43,7 +44,7 @@ struct RenderObject {
 	VkBuffer vertexBuffer;
 	VkBuffer indexBuffer;
 
-	MaterialInstance* material;
+	std::shared_ptr<MaterialInstance> material;
 
 	glm::mat4 transform;
 };
@@ -55,7 +56,7 @@ struct DrawContext {
 
 struct MeshNode : public Node {
 
-	std::shared_ptr<MeshAsset> mesh;
+	std::shared_ptr<MeshAsset<Vertex>> mesh;
 
 	virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) override;
 };

@@ -1,4 +1,3 @@
-#include "light_structures.glsl"
 #include "global.glsl"
 
 layout(set = 1, binding = 0) uniform sampler2D position;

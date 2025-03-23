@@ -229,7 +229,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     }
 
     // temporal arrays for all the objects to use while creating the GLTF data
-    std::vector<std::shared_ptr<MeshAsset>> meshes;
+    std::vector<std::shared_ptr<MeshAsset<Vertex>>> meshes;
     std::vector<std::shared_ptr<Node>> nodes;
     std::vector<AllocatedImage> images;
     std::vector<std::shared_ptr<GLTFMaterial>> materials;
@@ -337,7 +337,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     std::vector<Vertex> vertices;
 
     for (fastgltf::Mesh& mesh : gltf.meshes) {
-        std::shared_ptr<MeshAsset> newmesh = std::make_shared<MeshAsset>();
+        std::shared_ptr<MeshAsset<Vertex>> newmesh = std::make_shared<MeshAsset<Vertex>>();
         meshes.push_back(newmesh);
         file.meshes.push_back(newmesh);
         newmesh->name = mesh.name;
@@ -500,7 +500,7 @@ void LoadedGLTF::clearAll()
 
     materialDataBuffer.destroy(0);
 
-    for (std::shared_ptr<MeshAsset> mesh : meshes)
+    for (std::shared_ptr<MeshAsset<Vertex>> mesh : meshes)
     {
         if (mesh.get())
         {

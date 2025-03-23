@@ -181,6 +181,8 @@ CALL compile.bat</Command>
     <None Include="shaders\Pbr.frag" />
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
+    <None Include="shaders\Skybox.frag" />
+    <None Include="shaders\Skybox.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Libraries\DearImGui\imgui.cpp" />
@@ -192,8 +194,11 @@ CALL compile.bat</Command>
     <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MyCodes\Buffer.cpp" />
+    <ClCompile Include="Sources\MyCodes\Cube.cpp" />
     <ClCompile Include="Sources\MyCodes\GPUMarker.cpp" />
     <ClCompile Include="Sources\MyCodes\IrradianceCubeMap.cpp" />
+    <ClCompile Include="Sources\MyCodes\SimplePipeline.cpp" />
+    <ClCompile Include="Sources\MyCodes\Skybox.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_engine.cpp" />
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
@@ -206,8 +211,11 @@ CALL compile.bat</Command>
   <ItemGroup>
     <ClInclude Include="Sources\MyCodes\Buffer.h" />
     <ClInclude Include="Sources\MyCodes\Camera.h" />
+    <ClInclude Include="Sources\MyCodes\Cube.h" />
     <ClInclude Include="Sources\MyCodes\GPUMarker.h" />
     <ClInclude Include="Sources\MyCodes\IrradianceCubeMap.h" />
+    <ClInclude Include="Sources\MyCodes\SimplePipeline.h" />
+    <ClInclude Include="Sources\MyCodes\Skybox.h" />
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h" />
     <ClInclude Include="Sources\MyCodes\vk_descriptor.h" />
     <ClInclude Include="Sources\MyCodes\vk_engine.h" />
