@@ -3,6 +3,8 @@
 #include "VulkanTutorial.h"
 #include "UniformBufferTypes.h"
 
+class IrradianceCubeMap;
+
 /**
 * https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
 * 이 프로젝트를 토대로 개인적으로 추가한 코드는 최대한 VulkanTutorialExtension에 구현해 분리한다.
@@ -42,6 +44,7 @@ private:
 	void clearUniformBuffer(uint32_t i) override;
 	void createDescriptorSetLayouts() override;
 	void createGraphicsPipelines() override;
+	void recordCommandBuffer(VkCommandBuffer commandBuffer, size_t index) override;
 	void recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
 	void recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
 	void recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t index) override;
@@ -52,6 +55,7 @@ private:
 	void drawFrame() override;
 	void postDrawFrame(uint32_t imageIndex) override;
 	void createCommandPool() override;
+	void onPostInitVulkan() override;
 	void createCommandBuffers() override;
 	void createFrameBuffers() override;
 	void createRenderPass() override;
@@ -150,6 +154,7 @@ private:
 	double deltaTime = 0.0f; // Time between current frame and last frame
 	double lastFrame = 0.0f; // Time of last frame
 	
+	std::shared_ptr<IrradianceCubeMap> irradianceCubeMap;
 public:
 	/** material system */
 	//std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;

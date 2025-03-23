@@ -171,6 +171,8 @@ CALL compile.bat</Command>
     <None Include="shaders\ForwardPass.frag" />
     <None Include="shaders\global.glsl" />
     <None Include="shaders\input_structures.glsl" />
+    <None Include="shaders\IrradianceCubeMap.frag" />
+    <None Include="shaders\IrradianceCubeMap.vert" />
     <None Include="shaders\LightingPass.frag" />
     <None Include="shaders\LightingPass.vert" />
     <None Include="shaders\light_structures.glsl" />

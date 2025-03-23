@@ -103,6 +103,7 @@ VulkanTutorial::VulkanTutorial()
 		createUniformBuffers();
 		createDescriptorPool();
 		createDescriptorSets();
+		onPostInitVulkan();
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -587,7 +588,7 @@ VulkanTutorial::VulkanTutorial()
 		textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 	}
 
-	VkImageView VulkanTutorial::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
+	VkImageView VulkanTutorial::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer)
 	{
 		VkImageViewCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -602,7 +603,7 @@ VulkanTutorial::VulkanTutorial()
 		createInfo.subresourceRange.aspectMask = aspectFlags;
 		createInfo.subresourceRange.baseMipLevel = 0;
 		createInfo.subresourceRange.levelCount = mipLevels;
-		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.baseArrayLayer = baseArrayLayer;
 		createInfo.subresourceRange.layerCount = 1;
 
 		VkImageView imageView;
@@ -1190,25 +1191,18 @@ VulkanTutorial::VulkanTutorial()
 		}
 
 		whiteTexture = createTexture2D(pixels, { (uint32_t)texWidth ,(uint32_t)texHeight, 1 }, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT, "White");
-
-		pixels = stbi_load(HDR_TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		if (!pixels)
-		{
-			throw std::runtime_error("failed to load texture image!");
-		}
-		
-		//HDRTexture = createTexture2D(pixels, { (uint32_t)texWidth ,(uint32_t)texHeight, 1 }, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, "HDR");
 	}
 
-	AllocatedImage VulkanTutorial::createTexture2D(stbi_uc* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name)
+	AllocatedImage VulkanTutorial::createTexture2D(stbi_uc* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name, int channelNum)
 	{
 		// Sampler의 maxLOD는 텍스쳐의 mipLevels와 관련있다. 
 
-		static const int RGBABytes = 4;
+		const int bytesPerChennel = inFormat == VK_FORMAT_R32G32B32A32_SFLOAT ? sizeof(float) : 1;
+		const int bytesPerPixel = bytesPerChennel * channelNum;
 		const int texWidth = inImageSize.width;
 		const int texHeight = inImageSize.height;
 		const int mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight))));
-		const VkDeviceSize imageSize = texWidth * texHeight * RGBABytes;
+		const VkDeviceSize imageSize = texWidth * texHeight * bytesPerPixel;
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
@@ -1516,7 +1510,7 @@ VulkanTutorial::VulkanTutorial()
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	AllocatedImage VulkanTutorial::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name)
+	AllocatedImage VulkanTutorial::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name, uint32_t arrayLayers)
 	{
 		AllocatedImage image = {};
 
@@ -1528,7 +1522,7 @@ VulkanTutorial::VulkanTutorial()
 		imageInfo.extent.height = height;
 		imageInfo.extent.depth = 1;
 		imageInfo.mipLevels = mipLevels;
-		imageInfo.arrayLayers = 1;
+		imageInfo.arrayLayers = arrayLayers;
 		imageInfo.format = format;
 		imageInfo.tiling = tiling;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // 스테이징 이미지라면 나중에 소스로 쓸테니 첫번째 트랜지션때 텍셀들을 보존해야한다. 지금은 Destination.
@@ -1627,30 +1621,6 @@ VulkanTutorial::VulkanTutorial()
 		createIndexBuffer(indices, indexBuffer, indexBufferMemory);
 	}
 
-	void VulkanTutorial::createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory)
-	{
-		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		void* data;
-		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-		memcpy(data, vertices.data(), (size_t)bufferSize);
-		vkUnmapMemory(device, stagingBufferMemory);
-
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outVertexBuffer, outVertexBufferMemory);
-		copyBuffer(stagingBuffer, outVertexBuffer, bufferSize);
-
-		vkDestroyBuffer(device, stagingBuffer, nullptr);
-		vkFreeMemory(device, stagingBufferMemory, nullptr);
-		// Mapped-Memory에 복사한다는게 반드시 지금 바로 GPU에 복사한다는게 아니다. 
-		// 백그라운드에서 VkQueueSubmit될 때 복사가 될 것이다.
-
-		// vertex array to cpu accessible memory(stagingBuffer) 
-		// cpu accessible memory to device local memory(vertexBuffer)
-	}
-
 	void VulkanTutorial::createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory)
 	{
 		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
@@ -1696,6 +1666,11 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::createDescriptorSets()
 	{
+	}
+
+	void VulkanTutorial::onPostInitVulkan()
+	{
+
 	}
 
 	VkDescriptorBufferInfo VulkanTutorial::createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize)
@@ -1858,7 +1833,17 @@ VulkanTutorial::VulkanTutorial()
 		{
 			throw std::runtime_error("failed to begin recording command buffer!");
 		}
-		
+
+		recordCommandBuffer(commandBuffers[i], i);
+
+		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to record command buffer!");
+		}
+	}
+
+	void VulkanTutorial::recordCommandBuffer(VkCommandBuffer commandBuffer, size_t i)
+	{
 		/**
 		* GeometryPass
 		*/
@@ -1881,23 +1866,23 @@ VulkanTutorial::VulkanTutorial()
 		renderPassInfo.pClearValues = clearValues.data();
 
 		{
-			GPUMarker Marker(commandBuffers[i], "Geometry Pass");
-			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			recordRenderPassCommands(commandBuffers[i], i);
-			vkCmdEndRenderPass(commandBuffers[i]);
+			GPUMarker Marker(commandBuffer, "Geometry Pass");
+			vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			recordRenderPassCommands(commandBuffer, i);
+			vkCmdEndRenderPass(commandBuffer);
 		}
 
-		transitionImageLayout(commandBuffers[i], geometry.position.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
-		transitionImageLayout(commandBuffers[i], geometry.normal.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
-		transitionImageLayout(commandBuffers[i], geometry.albedo.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
-		transitionImageLayout(commandBuffers[i], geometry.arm.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffer, geometry.position.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffer, geometry.normal.image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffer, geometry.albedo.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffer, geometry.arm.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
 		/**
 		* LightingPass
 		*/
 
 		{
-			GPUMarker Marker(commandBuffers[i], "Lighting Pass");
+			GPUMarker Marker(commandBuffer, "Lighting Pass");
 			renderPassInfo.renderPass = renderPass;
 			renderPassInfo.framebuffer = swapChainFrameBuffers[i];
 
@@ -1908,32 +1893,27 @@ VulkanTutorial::VulkanTutorial()
 			renderPassInfo.clearValueCount = static_cast<uint32_t>(lightingPassClearValues.size());
 			renderPassInfo.pClearValues = lightingPassClearValues.data();
 
-			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			recordLightingRenderPassCommands(commandBuffers[i], i);
-			vkCmdEndRenderPass(commandBuffers[i]);
+			vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			recordLightingRenderPassCommands(commandBuffer, i);
+			vkCmdEndRenderPass(commandBuffer);
 		}
 
 		/**
 		* ForwardPass
 		*/
 
-		transitionImageLayout(commandBuffers[i], swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
+		transitionImageLayout(commandBuffer, swapChainImages[i], swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
 
 		{
-			GPUMarker Marker(commandBuffers[i], "Forward Pass");
+			GPUMarker Marker(commandBuffer, "Forward Pass");
 			renderPassInfo.renderPass = forward.renderPass;
 			renderPassInfo.framebuffer = forward.frameBuffers[i];
 			renderPassInfo.clearValueCount = 0;
 			renderPassInfo.pClearValues = nullptr;
 
-			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			recordForwardPassCommands(commandBuffers[i], i);
-			vkCmdEndRenderPass(commandBuffers[i]);
-		}
-
-		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to record command buffer!");
+			vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			recordForwardPassCommands(commandBuffer, i);
+			vkCmdEndRenderPass(commandBuffer);
 		}
 	}
 

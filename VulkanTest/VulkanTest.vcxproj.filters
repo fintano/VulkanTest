@@ -53,6 +53,12 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="shaders\global.glsl" />
+    <None Include="shaders\IrradianceCubeMap.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\IrradianceCubeMap.frag">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp">

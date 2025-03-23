@@ -1,22 +1,55 @@
 #pragma once
 
 #include "vk_types.h"
+#include "Buffer.h"
+#include <vector>
+
+class VulkanTutorial;
+class VulkanTutorialExtension;
 
 class IrradianceCubeMap
 {
-	IrradianceCubeMap(const AllocatedImage& inEquirectangular);
-	~IrradianceCubeMap();
+public:
+	IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescriptorPool, VkSampler inDefaultSampler);
+	~IrradianceCubeMap() 
+	{
+		clear();
+	}
 
-private:
-	void createRenderPass(VkDevice device);
-	void buildPipeline(VkDevice device, VkDescriptorSetLayout globalLayout);
+	void initialize(VulkanTutorialExtension* engine);
+	void createCubeMap(VulkanTutorial* engine);
+	void createMesh(VulkanTutorial* engine);
+	void loadEquirectangular(VulkanTutorial* engine, const std::string& path);
+	void createRenderPass();
+	void createFrameBuffers();
+	void buildPipeline();
+	void writeDescriptor();
+	void draw(VkCommandBuffer commandBuffer);
 	void clear();
 
 private:
-	const AllocatedImage& equirectangular;
-	MaterialPipeline pipeline;
-	VkDescriptorSetLayout layout;
-	VkRenderPass renderPass;
+	std::string equirectangularPath = "textures/photo_studio_loft_hall_4k.hdr";
 
-	VkExtent2D faceRes = { 512, 512 };
+	VkFormat HDRFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+
+	VkDevice device;
+	VkDescriptorPool descriptorPool;
+
+	MaterialPipeline pipeline = {};
+	VkDescriptorSetLayout layout = {};
+	VkDescriptorSet descriptorSet = {};
+	VkRenderPass renderPass = {};
+	std::vector<VkFramebuffer> frameBuffers = {};
+
+	AllocatedImage equirectangularTexture;
+
+	VkImage image;
+	VkDeviceMemory imageMemory;
+	std::vector<VkImageView> imageViews;
+	VkSampler defaultSampler;
+
+	GPUMeshBuffers<VertexOnlyPos> mesh;
+
+	const int Faces = 6;
+	VkExtent3D Res = { 512, 512, 6 };
 };

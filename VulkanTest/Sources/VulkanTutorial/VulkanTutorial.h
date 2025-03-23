@@ -76,9 +76,30 @@ public:
 
 	VkDescriptorPool descriptorPool;
 
-	void createVertexBuffer(const std::vector<Vertex>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory);
+	template<typename T>
+	void createVertexBuffer(const std::vector<T>& vertices, VkBuffer& outVertexBuffer, VkDeviceMemory& outVertexBufferMemory)
+	{
+		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, vertices.data(), (size_t)bufferSize);
+		vkUnmapMemory(device, stagingBufferMemory);
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outVertexBuffer, outVertexBufferMemory);
+		copyBuffer(stagingBuffer, outVertexBuffer, bufferSize);
+
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingBufferMemory, nullptr);
+	}
 	void createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory);
-	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag, const char* name = "texture");
+	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag, const char* name = "texture", int channelNum = 4);
+	AllocatedImage createTexture2Df(float* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name, int channelNum);
+	AllocatedImage createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name = "none", uint32_t arrayLayers = 1);
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer = 0);
 
 protected:
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return nullptr; }
@@ -88,11 +109,13 @@ protected:
 	virtual void createUniformBuffers();
 	virtual void createDescriptorPool();
 	virtual void createDescriptorSets();
+	virtual void onPostInitVulkan();
 	virtual void createRenderPass();
 	virtual void updateUniformBuffer(uint32_t currentImage);
 	virtual void clearUniformBuffer(uint32_t i);
 	virtual void createDescriptorSetLayouts();
 	virtual void createGraphicsPipelines();
+	virtual void recordCommandBuffer(VkCommandBuffer commandbuffer, size_t index); 
 	virtual void recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	virtual void recordLightingRenderPassCommands(VkCommandBuffer commandBuffer, size_t index);
 	virtual void cleanUpSwapchain();
@@ -128,7 +151,6 @@ protected:
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void createImageViews();
 	void createTextureImageView();
-	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 	void createTextureSampler();
 	void createDescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags Stage, std::vector<VkDescriptorSetLayoutBinding>& bindings);
 	void createPipelineLayout(const VkDescriptorSetLayout& inDescriptorSetLayout, VkPipelineLayout& outPipelineLayout);
@@ -143,7 +165,6 @@ protected:
 	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-	AllocatedImage createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name);
 	void loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 	void createCommandBuffer(int32_t i);
 	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
@@ -212,7 +233,6 @@ protected:
 	VkSampler textureSampler;
 
 	AllocatedImage whiteTexture;
-	AllocatedImage HDRTexture;
 
 	// 라이팅 패스
 	struct LightingPass
@@ -235,7 +255,6 @@ protected:
 	const std::string MODEL_PATH = "models/viking_room.obj";
 	const std::string TEXTURE_PATH = "textures/viking_room.png";
 	const std::string WHITE_TEXTURE_PATH = "textures/white_texture.png";
-	const std::string HDR_TEXTURE_PATH = "textures/photo_studio_loft_hall_4k.hdr";
 
 	// Draw MAX_FRAMES_IN_FLIGHT frames simultaneously. 
 	// But We may be using the frame 0 objects while frame 0 still be in flight.

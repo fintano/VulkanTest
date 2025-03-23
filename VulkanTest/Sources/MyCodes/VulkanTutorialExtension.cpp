@@ -1,3 +1,4 @@
+#include "IrradianceCubeMap.h"
 #include "VulkanTutorialExtension.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -26,8 +27,6 @@ VulkanTutorialExtension::VulkanTutorialExtension()
 	: camera({ 5.f, 5.f, 5.f }, { 0.f,1.f,0.f })
 {
 	pointLightsSwitch[0] = true;
-
-	//cube.objPath = "models/cube.obj";
 }
 
 void VulkanTutorialExtension::initVulkan()
@@ -350,24 +349,6 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	mainDrawContext.OpaqueSurfaces.clear();
 	mainDrawContext.TranslucentSurfaces.clear();
 
-	// 어떤 매쉬를 드로우 할지 결정하는 곳.
-	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
-	{
-		if (isLightOn(lightIndex))
-		{
-			glm::mat4 lightTransform = glm::translate(glm::mat4(1.f), pointLightPositions[lightIndex]);
-			//lightTransform = glm::scale(lightTransform, glm::vec3(0.005f));
-
-			//for (int x = -3; x < 3; x++)
-			//{
-			//	glm::mat4 scale = glm::scale(glm::mat4(1.f), glm::vec3{ 0.2 });
-			//	glm::mat4 translation = glm::translate(glm::mat4(1.f), glm::vec3{ x, 1, 0 });
-
-			//	loadedNodes["Mesh"]->Draw(translation * scale * lightTransform, mainDrawContext);
-			//}
-		}
-	}
-
 	loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
 	loadedScenes["gizmo"]->Draw(glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)), mainDrawContext);
 
@@ -379,9 +360,9 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 
 	sceneData.debugDisplayTarget = debugDisplayTarget;
 	sceneData.viewPos = camera.Position;
-	sceneData.view = viewMat;//glm::translate(glm::vec3{ 0,0,-5 });
+	sceneData.view = viewMat;
 	// camera projection
-	sceneData.proj = persMat;//glm::perspective(glm::radians(70.f), (float)_windowExtent.width / (float)_windowExtent.height, 10000.f, 0.1f);
+	sceneData.proj = persMat;
 
 	//some default lighting parameters
 	sceneData.ambientColor = glm::vec4(.1f);
@@ -810,6 +791,13 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	vkDestroyShaderModule(device, fragShaderModule, nullptr);
 }
 
+void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer, size_t index)
+{
+	irradianceCubeMap->draw(commandBuffer);
+
+	VulkanTutorial::recordCommandBuffer(commandBuffer, index);
+}
+
 void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
 {
 	VulkanTutorial::recordRenderPassCommands(commandBuffer, i);
@@ -999,6 +987,14 @@ void VulkanTutorialExtension::createCommandPool()
 	VulkanTutorial::createCommandPool();
 
 	createImGuiCommandPool();
+}
+
+void VulkanTutorialExtension::onPostInitVulkan()
+{
+	irradianceCubeMap = std::make_shared<IrradianceCubeMap>(device, descriptorPool, textureSampler);
+	irradianceCubeMap->initialize(this);
+
+	VulkanTutorial::onPostInitVulkan();
 }
 
 void VulkanTutorialExtension::createCommandBuffers()

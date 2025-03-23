@@ -226,9 +226,7 @@ void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
 		def.vertexBuffer = mesh->meshBuffers.vertexBuffer.Buffer;
 		def.indexBuffer = mesh->meshBuffers.indexBuffer.Buffer;
 		def.material = &s.material->data;
-
 		def.transform = nodeMatrix;
-		def.vertexBuffer = mesh->meshBuffers.vertexBuffer.Buffer;
 
 		if (s.material->data.passType == MaterialPass::MainColor)
 		{
