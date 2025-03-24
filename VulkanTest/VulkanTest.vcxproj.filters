@@ -67,6 +67,12 @@
     <None Include="shaders\global.glsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\DiffuseMap.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\DiffuseMap.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp">

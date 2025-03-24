@@ -76,3 +76,13 @@ struct AllocatedImage
 
 	void Destroy(VkDevice device);
 };
+
+struct CubeMap
+{
+	VkImage image;
+	VkDeviceMemory imageMemory;
+	std::vector<VkImageView> imageViews;
+	VkImageView cubeImageView;
+
+	void Destroy(VkDevice device);
+};

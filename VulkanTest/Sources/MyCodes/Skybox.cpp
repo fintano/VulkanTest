@@ -35,7 +35,7 @@ void Skybox::initialize(VulkanTutorialExtension* engine)
     
 	for (int i = 0; i < engine->getSwapchainImageNum(); i++)
 	{
-		pipeline->updateTextureDescriptor(engine->device, i, 0, engine->irradianceCubeMap->getCubeImageView(), engine->getDefaultTextureSampler());
+		pipeline->updateTextureDescriptor(engine->device, i, 0, engine->irradianceCubeMap->getDiffuseMapImageView(), engine->getDefaultTextureSampler());
 	}
 
 	assert(engine->cube);
@@ -54,4 +54,9 @@ void Skybox::update(uint32_t currentImage)
 	// vkUpdateDescriptorSets를 매 프레임 부르는게 아니다. 
 	// 이건 한번만 부르고 여기에 바인딩된 데이터를 업데이트하는 것이다. 
 	// 여기서 이렇게 update를 매 프레임할 필요가 없다. 
+}
+
+void Skybox::cleanup(VkDevice device)
+{
+	pipeline->cleanup(device);
 }

@@ -10,7 +10,7 @@ class VulkanTutorialExtension;
 class IrradianceCubeMap
 {
 public:
-	IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescriptorPool, VkSampler inDefaultSampler);
+	IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescriptorPool);
 	~IrradianceCubeMap() 
 	{
 		clear();
@@ -18,6 +18,7 @@ public:
 
 	void initialize(VulkanTutorialExtension* engine);
 	void createCubeMap(VulkanTutorial* engine);
+	void createSampler(VkDevice device);
 	void loadEquirectangular(VulkanTutorial* engine, const std::string& path);
 	void createRenderPass();
 	void createFrameBuffers();
@@ -26,10 +27,11 @@ public:
 	void draw(VkCommandBuffer commandBuffer, const GPUMeshBuffers<VertexOnlyPos>& mesh);
 	void clear();
 
-	VkImageView getCubeImageView() { return cubeImageView; }
+	VkImageView getCubeImageView() { return envCubeMap.cubeImageView; }
+	VkImageView getDiffuseMapImageView() { return diffuseMap.cubeImageView; }
 
 private:
-	std::string equirectangularPath = "textures/photo_studio_loft_hall_4k.hdr";
+	std::string equirectangularPath = "textures/brown_photostudio_02_4k.hdr";
 
 	VkFormat HDRFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 
@@ -42,14 +44,23 @@ private:
 	VkRenderPass renderPass = {};
 	std::vector<VkFramebuffer> frameBuffers = {};
 
-	AllocatedImage equirectangularTexture;
-
-	VkImage image;
-	VkDeviceMemory imageMemory;
-	std::vector<VkImageView> imageViews;
-	VkImageView cubeImageView;
 	VkSampler defaultSampler;
+	AllocatedImage equirectangularTexture;
+	CubeMap envCubeMap;
+
+	// indirect diffuse map
+	MaterialPipeline diffusePipeline = {};
+	VkDescriptorSet diffuseDescriptorSet = {};
+	CubeMap diffuseMap;
+	std::vector<VkFramebuffer> diffuseFrameBuffers = {};
+
+	// indirect specular map
+	MaterialPipeline specularPipeline = {};
+	VkDescriptorSet specularDescriptorSet = {};
+	CubeMap specularMap;
+	std::vector<VkFramebuffer> FrameBuffers = {};
 
 	const int Faces = 6;
 	VkExtent3D Res = { 512, 512, 6 };
+	VkExtent3D DiffuseMapRes = { 32, 32, 6 };
 };

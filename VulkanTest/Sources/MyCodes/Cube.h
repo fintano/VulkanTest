@@ -12,6 +12,7 @@ class VulkanTutorial;
 struct Cube
 {
 	void createMesh(VulkanTutorial* engine);
+	void cleanUp(VkDevice device);
 
 	GPUMeshBuffers<VertexOnlyPos> mesh;
 };

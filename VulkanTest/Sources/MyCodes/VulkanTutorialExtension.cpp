@@ -195,7 +195,6 @@ void VulkanTutorialExtension::createDescriptorSets()
 	}
 
 	createDescriptorSetsObject(descriptorSetsObject);
-	createLightingPassDescriptorSets(lightingPass.descriptorSets);
 }
 
 void VulkanTutorialExtension::createGlobalDescriptorSets()
@@ -307,6 +306,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 	VkDescriptorImageInfo normal = vkb::initializers::descriptor_image_info(textureSampler, geometry.normal.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	VkDescriptorImageInfo albedo = vkb::initializers::descriptor_image_info(textureSampler, geometry.albedo.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	VkDescriptorImageInfo arm = vkb::initializers::descriptor_image_info(textureSampler, geometry.arm.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo diffuseMap = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getDiffuseMapImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	auto geometryTextureDescriptor = [&](VkImageView imageView){
 		return vkb::initializers::descriptor_image_info(textureSampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -318,7 +318,8 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &pos),
 			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &normal),
 			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &albedo),
-			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &arm)
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &arm),
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &diffuseMap)
 		};
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -515,6 +516,8 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 	//	color 
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	//	arm
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	// diffuse map
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
 	lightingPass.descriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
@@ -785,8 +788,6 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 
 void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer, size_t index)
 {
-	irradianceCubeMap->draw(commandBuffer, cube->mesh);
-
 	VulkanTutorial::recordCommandBuffer(commandBuffer, index);
 }
 
@@ -984,8 +985,10 @@ void VulkanTutorialExtension::createCommandPool()
 
 void VulkanTutorialExtension::onPostInitVulkan()
 {
-	irradianceCubeMap = std::make_shared<IrradianceCubeMap>(device, descriptorPool, textureSampler);
+	irradianceCubeMap = std::make_shared<IrradianceCubeMap>(device, descriptorPool);
 	irradianceCubeMap->initialize(this);
+
+	createLightingPassDescriptorSets(lightingPass.descriptorSets);
 
 	skybox = std::make_shared<Skybox>();
 	skybox->initialize(this);
@@ -1053,6 +1056,9 @@ void VulkanTutorialExtension::cleanUp()
 	vkDeviceWaitIdle(device);
 
 	loadedScenes.clear();
+	irradianceCubeMap.reset();
+	skybox->cleanup(device);
+	cube->cleanUp(device);
 
 	VulkanTutorial::cleanUp();
 }

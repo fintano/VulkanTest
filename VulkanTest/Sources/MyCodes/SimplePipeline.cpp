@@ -224,6 +224,9 @@ void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::functio
 
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline.pipeline));
 
+    vkDestroyShaderModule(device, meshVertexShader, nullptr);
+    vkDestroyShaderModule(device, meshFragShader, nullptr);
+
     // 디스크립터 셋 할당
     allocateDescriptorSet(device);
 }
@@ -318,6 +321,26 @@ std::shared_ptr<MaterialInstance> SimplePipeline::makeMaterial() {
 	material->passType = renderType == RenderType::forward ? MaterialPass::Transparent : MaterialPass::MainColor;
 
 	return material;
+}
+
+void SimplePipeline::cleanup(VkDevice device) {
+    // 파이프라인 객체 정리
+    if (pipeline.pipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device, pipeline.pipeline, nullptr);
+        pipeline.pipeline = VK_NULL_HANDLE;
+    }
+
+    // 파이프라인 레이아웃 정리
+    if (pipeline.layout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
+        pipeline.layout = VK_NULL_HANDLE;
+    }
+
+    // 디스크립터 셋 레이아웃 정리
+    if (layout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(device, layout, nullptr);
+        layout = VK_NULL_HANDLE;
+    }
 }
 
 void SimplePipelinePosOnly::createVertexInput()

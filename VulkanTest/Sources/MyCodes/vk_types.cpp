@@ -14,3 +14,14 @@ void AllocatedImage::Destroy(VkDevice device)
 	vkDestroyImageView(device, imageView, nullptr);
 	vkFreeMemory(device, imageMemory, nullptr);
 }
+
+void CubeMap::Destroy(VkDevice device)
+{
+	vkDestroyImage(device, image, nullptr);
+	for (int i = 0; i < 6; i++)
+	{
+		vkDestroyImageView(device, imageViews[i], nullptr);
+	}
+	vkDestroyImageView(device, cubeImageView, nullptr);
+	vkFreeMemory(device, imageMemory, nullptr);
+}

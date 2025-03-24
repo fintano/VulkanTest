@@ -152,6 +152,8 @@ public:
 	// 기존 SimplePipeline 호환 메소드
 	void writeDescriptor();
 
+	void cleanup(VkDevice device);
+
 	std::shared_ptr<MaterialInstance> makeMaterial();
 	MaterialPipeline& getMaterialPipeline() { return pipeline; }
 };

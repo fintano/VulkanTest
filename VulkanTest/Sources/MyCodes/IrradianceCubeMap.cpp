@@ -4,14 +4,14 @@
 #include "VulkanTools.h"
 #include "VulkanTutorialExtension.h"
 #include "GPUMarker.h"
+#include "Cube.h"
 
 #include <array>
 #include <stb_image.h>
 
-IrradianceCubeMap::IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescriptorPool, VkSampler inDefaultSampler) :
+IrradianceCubeMap::IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescriptorPool) :
 	device(inDevice),
-	descriptorPool(inDescriptorPool),
-	defaultSampler(inDefaultSampler)
+	descriptorPool(inDescriptorPool)
 {
 }
 
@@ -21,6 +21,8 @@ void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 
 	createCubeMap(engine);
 
+	createSampler(engine->device);
+
 	createRenderPass();
 
 	createFrameBuffers();
@@ -28,6 +30,10 @@ void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 	buildPipeline();
 
 	writeDescriptor();
+
+	VkCommandBuffer singleCommandBuffer = engine->beginSingleTimeCommands();
+	draw(singleCommandBuffer, engine->cube->mesh);
+	engine->endSingleTimeCommands(singleCommandBuffer);
 }
 
 void IrradianceCubeMap::loadEquirectangular(VulkanTutorial* engine, const std::string& path)
@@ -46,17 +52,50 @@ void IrradianceCubeMap::createCubeMap(VulkanTutorial* engine)
 {
 	AllocatedImage allocatedImage = 
 	engine->createImage(Res.width, Res.height, 1, VK_SAMPLE_COUNT_1_BIT, HDRFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "IBLCubeMap", Faces, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
-
-	image = allocatedImage.image;
-	imageMemory = allocatedImage.imageMemory;
-
-	imageViews.resize(Faces);
+	envCubeMap.image = allocatedImage.image;
+	envCubeMap.imageMemory = allocatedImage.imageMemory;
+	envCubeMap.imageViews.resize(Faces);
 	for (int i = 0; i < Faces; i++)
 	{
-		imageViews[i] = engine->createImageView(image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, i);
+		envCubeMap.imageViews[i] = engine->createImageView(envCubeMap.image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, i);
 	}
+	envCubeMap.cubeImageView = engine->createImageViewCube(envCubeMap.image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
-	cubeImageView = engine->createImageViewCube(image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+	allocatedImage =
+		engine->createImage(DiffuseMapRes.width, DiffuseMapRes.height, 1, VK_SAMPLE_COUNT_1_BIT, HDRFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "DiffuseMap", Faces, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+	diffuseMap.image = allocatedImage.image;
+	diffuseMap.imageMemory = allocatedImage.imageMemory;
+	diffuseMap.imageViews.resize(Faces);
+	for (int i = 0; i < Faces; i++)
+	{
+		diffuseMap.imageViews[i] = engine->createImageView(diffuseMap.image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, i);
+	}
+	diffuseMap.cubeImageView = engine->createImageViewCube(diffuseMap.image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+}
+
+void IrradianceCubeMap::createSampler(VkDevice device)
+{
+	VkSamplerCreateInfo samplerInfo = vkb::initializers::sampler_create_info();
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.anisotropyEnable = VK_TRUE;
+	samplerInfo.maxAnisotropy = 16;
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS; // we will look at this on shader map chapter.
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.f;
+	samplerInfo.minLod = 0;
+	samplerInfo.maxLod = 1;
+
+	if (vkCreateSampler(device, &samplerInfo, nullptr, &defaultSampler) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create texture sampler!");
+	}
 }
 
 void IrradianceCubeMap::createRenderPass()
@@ -110,12 +149,26 @@ void IrradianceCubeMap::createFrameBuffers()
 		VkFramebufferCreateInfo framebufferInfo = vkb::initializers::framebuffer_create_info();
 		framebufferInfo.renderPass = renderPass;
 		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = &imageViews[i];
+		framebufferInfo.pAttachments = &envCubeMap.imageViews[i];
 		framebufferInfo.width = Res.width;
 		framebufferInfo.height = Res.height;
 		framebufferInfo.layers = 1;
 
 		VK_CHECK_RESULT(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &frameBuffers[i]));
+	}
+
+	diffuseFrameBuffers.resize(Faces);
+	for (int i = 0; i < Faces; i++)
+	{
+		VkFramebufferCreateInfo framebufferInfo = vkb::initializers::framebuffer_create_info();
+		framebufferInfo.renderPass = renderPass;
+		framebufferInfo.attachmentCount = 1;
+		framebufferInfo.pAttachments = &diffuseMap.imageViews[i];
+		framebufferInfo.width = DiffuseMapRes.width;
+		framebufferInfo.height = DiffuseMapRes.height;
+		framebufferInfo.layers = 1;
+
+		VK_CHECK_RESULT(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &diffuseFrameBuffers[i]));
 	}
 }
 
@@ -141,6 +194,7 @@ void IrradianceCubeMap::buildPipeline()
 	VkPipelineLayout newLayout;
 	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &mesh_layout_info, nullptr, &newLayout));
 	pipeline.layout = newLayout;
+	diffusePipeline.layout = newLayout;
 
 	// create pipeline
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vkb::initializers::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
@@ -200,6 +254,27 @@ void IrradianceCubeMap::buildPipeline()
 	pipelineCI.pVertexInputState = &vertexInputInfo;
 
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline.pipeline));
+
+	vkDestroyShaderModule(device, meshFragShader, nullptr);
+
+	// Viewport
+	viewport = vkb::initializers::viewport((float)DiffuseMapRes.width, (float)DiffuseMapRes.height, 0.f, 1.f);
+	scissor = vkb::initializers::rect2D(DiffuseMapRes.width, DiffuseMapRes.height, 0, 0);
+	viewportState.pViewports = &viewport;
+	viewportState.pScissors = &scissor;
+
+	// Shaders
+	meshFragShader = vks::tools::loadShader("shaders/DiffuseMapfrag.spv", device);
+	fragShaderStageInfo.module = meshFragShader;
+
+	shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
+	pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
+	pipelineCI.pStages = shaderStages.data();
+
+	VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &diffusePipeline.pipeline));
+
+	vkDestroyShaderModule(device, meshVertexShader, nullptr);
+	vkDestroyShaderModule(device, meshFragShader, nullptr);
 }
 
 void IrradianceCubeMap::writeDescriptor()
@@ -215,6 +290,21 @@ void IrradianceCubeMap::writeDescriptor()
 
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
 		vkb::initializers::write_descriptor_set(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texDescriptor),
+	};
+
+	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+
+	allocInfo = vkb::initializers::descriptor_set_allocate_info(descriptorPool, &layout, 1);
+	VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &diffuseDescriptorSet));
+
+	VkDescriptorImageInfo envCubeMapDescriptor =
+		vkb::initializers::descriptor_image_info(
+			defaultSampler,
+			envCubeMap.cubeImageView,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	writeDescriptorSets = {
+		vkb::initializers::write_descriptor_set(diffuseDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &envCubeMapDescriptor),
 	};
 
 	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
@@ -263,6 +353,37 @@ void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer, const GPUMeshBuffers
 		vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffer);
 	}
+
+	for (int i = 0; i < Faces; i++)
+	{
+		VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = diffuseFrameBuffers[i];
+		renderPassInfo.renderArea.offset = { 0,0 };
+		renderPassInfo.renderArea.extent = { DiffuseMapRes.width,DiffuseMapRes.height };
+
+		std::array<VkClearValue, 1> clearValues{};
+		clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+
+		GPUMarker Marker(commandBuffer, "DiffuseMap");
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipeline.pipeline);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipeline.layout, 0, 1, &diffuseDescriptorSet, 0, nullptr);
+
+		GPUDrawPushConstants pushConstants;
+		pushConstants.model = captureProjection * captureViews[i];
+		vkCmdPushConstants(commandBuffer, diffusePipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &mesh.vertexBuffer.Buffer, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+		// 드로우 커맨드 실행 (36개의 인덱스 = 12개 삼각형 = 6면의 큐브)
+		vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
+		vkCmdEndRenderPass(commandBuffer);
+	}
 }
 
 void IrradianceCubeMap::clear()
@@ -273,12 +394,14 @@ void IrradianceCubeMap::clear()
 	vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
 	vkDestroyDescriptorSetLayout(device, layout, nullptr);
 	vkDestroyRenderPass(device, renderPass, nullptr);
-	vkDestroyImage(device, image, nullptr);
-	vkFreeMemory(device, imageMemory, nullptr);
 
 	for (int i = 0; i < Faces; i++)
 	{
 		vkDestroyFramebuffer(device, frameBuffers[i], nullptr);
-		vkDestroyImageView(device, imageViews[i], nullptr);
 	}
+
+	vkDestroySampler(device, defaultSampler, nullptr);
+
+	envCubeMap.Destroy(device);
+	diffuseMap.Destroy(device);
 }

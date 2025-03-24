@@ -168,6 +168,8 @@ CALL compile.bat</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="shaders\deferred.glsl" />
+    <None Include="shaders\DiffuseMap.frag" />
+    <None Include="shaders\DiffuseMap.vert" />
     <None Include="shaders\ForwardPass.frag" />
     <None Include="shaders\global.glsl" />
     <None Include="shaders\input_structures.glsl" />

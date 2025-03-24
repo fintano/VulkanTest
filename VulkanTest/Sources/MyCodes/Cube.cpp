@@ -59,3 +59,8 @@ void Cube::createMesh(VulkanTutorial* engine)
 	engine->createVertexBuffer(mesh.vertexBuffer.vertices, mesh.vertexBuffer.Buffer, mesh.vertexBuffer.BufferMemory);
 	engine->createIndexBuffer(mesh.indexBuffer.indices, mesh.indexBuffer.Buffer, mesh.indexBuffer.BufferMemory);
 }
+
+void Cube::cleanUp(VkDevice device)
+{
+	mesh.Destroy(device);
+}

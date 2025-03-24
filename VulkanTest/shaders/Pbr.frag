@@ -96,9 +96,11 @@ void main()
 		Lo += CalcDirLight(sceneData.dirLight, N, V, albedo, roughness, metallic);
 	}
 
-
-
-	vec3 ambient = vec3(0.03) * albedo * ao;
+	vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+	vec3 kD = 1.0 - kS;
+	vec3 irradiance = texture(diffuseMap, N).rgb;
+	vec3 diffuse    = irradiance * albedo;
+	vec3 ambient    = (kD * diffuse) * ao; 
 	vec3 color   = ambient + Lo;
 
 	// tone mapping and gamma correction

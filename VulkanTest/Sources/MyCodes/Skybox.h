@@ -16,6 +16,7 @@ class Skybox
 public:
 	void initialize(VulkanTutorialExtension* engine);
 	void update(uint32_t currentImage);
+	void cleanup(VkDevice device);
 
 	RenderObject& getRenderObject() { return renderObject; }
 
