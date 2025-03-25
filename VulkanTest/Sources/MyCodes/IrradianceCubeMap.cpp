@@ -5,9 +5,15 @@
 #include "VulkanTutorialExtension.h"
 #include "GPUMarker.h"
 #include "Cube.h"
+#include "Quad.h"
+#include "SimplePipeline.h"
 
 #include <array>
 #include <stb_image.h>
+
+struct RoughnessBuffer {
+	alignas(16) float roughness;
+};
 
 IrradianceCubeMap::IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescriptorPool) :
 	device(inDevice),
@@ -17,22 +23,34 @@ IrradianceCubeMap::IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescr
 
 void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 {
+	cube = std::make_shared<Cube<VertexOnlyPos>>();
+	cube->createMesh(engine);
+
+	quad = std::make_shared<Quad<VertexOnlyTex>>();
+	quad->createMesh(engine);
+
 	loadEquirectangular(engine, equirectangularPath);
 
-	createCubeMap(engine);
+	const int envMipLevels = static_cast<uint32_t>(std::floor(std::log2(max(Res.width, Res.height))));
+
+	envCubeMap = createCubeImage(engine, envMipLevels, Res, HDRFormat, "IBLCubeMap");
+	diffuseMap = createCubeImage(engine, 1, DiffuseMapRes, HDRFormat, "DiffuseMap");
+	specularPrefilteredMap = createCubeImage(engine, maxMipLevels, SpecularMapRes, HDRFormat, "SpecularMap");
+	specularBRDFLUT = create2DImage(engine, 1, IntegraionMapRes, VK_FORMAT_R16G16_SFLOAT, "BRDFIntegration");
 
 	createSampler(engine->device);
 
 	createRenderPass();
 
-	createFrameBuffers();
+	createFrameBuffer(frameBuffers, 1, envCubeMap, Res);
+	createFrameBuffer(diffuseFrameBuffers, 1, diffuseMap, DiffuseMapRes);
+	createFrameBuffer(specularFrameBuffers, maxMipLevels, specularPrefilteredMap, SpecularMapRes);
+	integrationFrameBuffers = createFrameBuffer2D(specularBRDFLUT, IntegraionMapRes, integrationRenderPass);
 
-	buildPipeline();
-
-	writeDescriptor();
+	buildPipeline(engine);
 
 	VkCommandBuffer singleCommandBuffer = engine->beginSingleTimeCommands();
-	draw(singleCommandBuffer, engine->cube->mesh);
+	draw(singleCommandBuffer, engine);
 	engine->endSingleTimeCommands(singleCommandBuffer);
 }
 
@@ -46,31 +64,6 @@ void IrradianceCubeMap::loadEquirectangular(VulkanTutorial* engine, const std::s
 	}
 
 	equirectangularTexture = engine->createTexture2D((stbi_uc*)floatPixels, { (uint32_t)texWidth ,(uint32_t)texHeight, 1 }, HDRFormat, VK_IMAGE_USAGE_SAMPLED_BIT, "HDR");
-}
-
-void IrradianceCubeMap::createCubeMap(VulkanTutorial* engine)
-{
-	AllocatedImage allocatedImage = 
-	engine->createImage(Res.width, Res.height, 1, VK_SAMPLE_COUNT_1_BIT, HDRFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "IBLCubeMap", Faces, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
-	envCubeMap.image = allocatedImage.image;
-	envCubeMap.imageMemory = allocatedImage.imageMemory;
-	envCubeMap.imageViews.resize(Faces);
-	for (int i = 0; i < Faces; i++)
-	{
-		envCubeMap.imageViews[i] = engine->createImageView(envCubeMap.image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, i);
-	}
-	envCubeMap.cubeImageView = engine->createImageViewCube(envCubeMap.image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-
-	allocatedImage =
-		engine->createImage(DiffuseMapRes.width, DiffuseMapRes.height, 1, VK_SAMPLE_COUNT_1_BIT, HDRFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "DiffuseMap", Faces, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
-	diffuseMap.image = allocatedImage.image;
-	diffuseMap.imageMemory = allocatedImage.imageMemory;
-	diffuseMap.imageViews.resize(Faces);
-	for (int i = 0; i < Faces; i++)
-	{
-		diffuseMap.imageViews[i] = engine->createImageView(diffuseMap.image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, i);
-	}
-	diffuseMap.cubeImageView = engine->createImageViewCube(diffuseMap.image, HDRFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
 void IrradianceCubeMap::createSampler(VkDevice device)
@@ -139,178 +132,97 @@ void IrradianceCubeMap::createRenderPass()
 	renderPassInfo.pDependencies = &dependency;
 
 	VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
+
+	// Integration 맵용 렌더패스 별도 생성
+	colorAttachment.format = VK_FORMAT_R16G16_SFLOAT;
+
+	VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &integrationRenderPass));
 }
 
-void IrradianceCubeMap::createFrameBuffers()
+void IrradianceCubeMap::buildPipeline(VulkanTutorialExtension* engine)
 {
-	frameBuffers.resize(Faces);
-	for (int i = 0; i < Faces; i++)
-	{
-		VkFramebufferCreateInfo framebufferInfo = vkb::initializers::framebuffer_create_info();
-		framebufferInfo.renderPass = renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = &envCubeMap.imageViews[i];
-		framebufferInfo.width = Res.width;
-		framebufferInfo.height = Res.height;
-		framebufferInfo.layers = 1;
+	// 환경 맵 파이프라인
+	envMapPipeline = std::make_shared<SimplePipelinePosOnly>(
+		Res,
+		"shaders/IrradianceCubeMapvert.spv",
+		"shaders/IrradianceCubeMapfrag.spv",
+		SimplePipeline::RenderType::forward,
+		descriptorPool,
+		1
+	);
+	envMapPipeline->getDescriptorBuilder().addTexture(VK_SHADER_STAGE_FRAGMENT_BIT);
+	envMapPipeline->addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(GPUDrawPushConstants), 0);
+	envMapPipeline->buildPipeline(engine, [this](VkGraphicsPipelineCreateInfo& pipelineCI) {
+		pipelineCI.renderPass = this->renderPass;
+		auto* depthStencil = const_cast<VkPipelineDepthStencilStateCreateInfo*>(pipelineCI.pDepthStencilState);
+		depthStencil->depthTestEnable = VK_FALSE;
+		depthStencil->depthWriteEnable = VK_FALSE;
+		});
+	envMapPipeline->updateTextureDescriptor(device, 0, 0, equirectangularTexture.imageView, defaultSampler);
 
-		VK_CHECK_RESULT(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &frameBuffers[i]));
-	}
+	// 디퓨즈 맵 파이프라인
+	diffuseMapPipeline = std::make_shared<SimplePipelinePosOnly>(
+		DiffuseMapRes,
+		"shaders/IrradianceCubeMapvert.spv",
+		"shaders/DiffuseMapfrag.spv",
+		SimplePipeline::RenderType::forward,
+		descriptorPool,
+		1
+	);
+	diffuseMapPipeline->getDescriptorBuilder().addTexture(VK_SHADER_STAGE_FRAGMENT_BIT);
+	diffuseMapPipeline->addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(GPUDrawPushConstants), 0);
+	diffuseMapPipeline->buildPipeline(engine, [this](VkGraphicsPipelineCreateInfo& pipelineCI) {
+		pipelineCI.renderPass = this->renderPass;
+		auto* depthStencil = const_cast<VkPipelineDepthStencilStateCreateInfo*>(pipelineCI.pDepthStencilState);
+		depthStencil->depthTestEnable = VK_FALSE;
+		depthStencil->depthWriteEnable = VK_FALSE;
+		});
+	diffuseMapPipeline->updateTextureDescriptor(device, 0, 0, envCubeMap.cubeImageView, defaultSampler);
 
-	diffuseFrameBuffers.resize(Faces);
-	for (int i = 0; i < Faces; i++)
-	{
-		VkFramebufferCreateInfo framebufferInfo = vkb::initializers::framebuffer_create_info();
-		framebufferInfo.renderPass = renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = &diffuseMap.imageViews[i];
-		framebufferInfo.width = DiffuseMapRes.width;
-		framebufferInfo.height = DiffuseMapRes.height;
-		framebufferInfo.layers = 1;
+	// 스페큘러 맵 파이프라인
+	specularMapPipeline = std::make_shared<SimplePipelinePosOnly>(
+		SpecularMapRes,
+		"shaders/IrradianceCubeMapvert.spv",
+		"shaders/SpecularMapfrag.spv",
+		SimplePipeline::RenderType::forward,
+		descriptorPool,
+		1
+	);
+	specularMapPipeline->getDescriptorBuilder().addTexture(VK_SHADER_STAGE_FRAGMENT_BIT);
+	specularMapPipeline->addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(GPUDrawPushConstants), 0);
+	specularMapPipeline->addPushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(float), sizeof(GPUDrawPushConstants));
+	specularMapPipeline->buildPipeline(engine, [this](VkGraphicsPipelineCreateInfo& pipelineCI) {
+		pipelineCI.renderPass = this->renderPass;
+		auto* depthStencil = const_cast<VkPipelineDepthStencilStateCreateInfo*>(pipelineCI.pDepthStencilState);
+		depthStencil->depthTestEnable = VK_FALSE;
+		depthStencil->depthWriteEnable = VK_FALSE;
+		});
+	specularMapPipeline->updateTextureDescriptor(device, 0, 0, envCubeMap.cubeImageView, defaultSampler);
 
-		VK_CHECK_RESULT(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &diffuseFrameBuffers[i]));
-	}
+	// BRDF LUT 파이프라인
+	integrationMapPipeline = std::make_shared<SimplePipelineTexOnly>(
+		SpecularMapRes,
+		"shaders/BRDFIntegrationMapvert.spv",
+		"shaders/BRDFIntegrationMapfrag.spv",
+		SimplePipeline::RenderType::forward,
+		descriptorPool,
+		1
+	);
+	integrationMapPipeline->buildPipeline(engine, [this](VkGraphicsPipelineCreateInfo& pipelineCI) {
+		pipelineCI.renderPass = this->integrationRenderPass;
+		auto* rasterState = const_cast<VkPipelineRasterizationStateCreateInfo*>(pipelineCI.pRasterizationState);
+		rasterState->cullMode = VK_CULL_MODE_NONE; // 컬링 비활성화
+		auto* depthStencil = const_cast<VkPipelineDepthStencilStateCreateInfo*>(pipelineCI.pDepthStencilState);
+		depthStencil->depthTestEnable = VK_FALSE;
+		depthStencil->depthWriteEnable = VK_FALSE;
+		auto* colorBlend = const_cast<VkPipelineColorBlendStateCreateInfo*>(pipelineCI.pColorBlendState);
+		auto* attachments = const_cast<VkPipelineColorBlendAttachmentState*>(colorBlend->pAttachments);
+		attachments[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT;
+		attachments[0].blendEnable = VK_FALSE;
+		});
 }
 
-void IrradianceCubeMap::buildPipeline()
-{
-	// create layout
-	std::vector<VkDescriptorSetLayoutBinding> bindings;
-	vk::desc::createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	layout = vk::desc::createDescriptorSetLayout(device, bindings);
-
-	// push constant
-	VkPushConstantRange matrixRange{};
-	matrixRange.offset = 0;
-	matrixRange.size = sizeof(GPUDrawPushConstants);
-	matrixRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-	std::vector<VkDescriptorSetLayout> layouts = { layout };
-	VkPipelineLayoutCreateInfo mesh_layout_info = vkb::initializers::pipeline_layout_create_info(layouts.size());
-	mesh_layout_info.pSetLayouts = layouts.data();
-	mesh_layout_info.pPushConstantRanges = &matrixRange;
-	mesh_layout_info.pushConstantRangeCount = 1;
-
-	VkPipelineLayout newLayout;
-	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &mesh_layout_info, nullptr, &newLayout));
-	pipeline.layout = newLayout;
-	diffusePipeline.layout = newLayout;
-
-	// create pipeline
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vkb::initializers::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
-	VkPipelineViewportStateCreateInfo viewportState = vkb::initializers::pipeline_viewport_state_create_info(1, 1, 0);
-	VkPipelineRasterizationStateCreateInfo rasterizationState = vkb::initializers::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
-	VkPipelineMultisampleStateCreateInfo multisampleState = vkb::initializers::pipeline_multisample_state_create_info(VK_SAMPLE_COUNT_1_BIT, 0);
-	VkPipelineDepthStencilStateCreateInfo depthStencilState = vkb::initializers::pipeline_depth_stencil_state_create_info(VK_FALSE, VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
-
-	VkGraphicsPipelineCreateInfo pipelineCI = vkb::initializers::pipeline_create_info(newLayout, renderPass);
-	pipelineCI.pInputAssemblyState = &inputAssemblyState;
-	pipelineCI.pRasterizationState = &rasterizationState;
-	pipelineCI.pMultisampleState = &multisampleState;
-	pipelineCI.pViewportState = &viewportState;
-	pipelineCI.pDepthStencilState = &depthStencilState;
-
-	// Viewport
-	VkViewport viewport = vkb::initializers::viewport((float)Res.width, (float)Res.height, 0.f, 1.f);
-	VkRect2D scissor = vkb::initializers::rect2D(Res.width, Res.height, 0, 0);
-	viewportState.pViewports = &viewport;
-	viewportState.pScissors = &scissor;
-
-	// ColorBlending
-	std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates = { vkb::initializers::pipeline_color_blend_attachment_state(0xf, VK_FALSE) };
-	VkPipelineColorBlendStateCreateInfo colorBlendState = vkb::initializers::pipeline_color_blend_state_create_info(blendAttachmentStates.size(), blendAttachmentStates.data());
-	pipelineCI.pColorBlendState = &colorBlendState;
-
-	// Shaders
-	VkShaderModule meshVertexShader = vks::tools::loadShader("shaders/IrradianceCubeMapvert.spv", device);
-	VkShaderModule meshFragShader = vks::tools::loadShader("shaders/IrradianceCubeMapfrag.spv", device);
-
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	vertShaderStageInfo.module = meshVertexShader;
-	vertShaderStageInfo.pName = "main";
-
-	VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	fragShaderStageInfo.module = meshFragShader;
-	fragShaderStageInfo.pName = "main";
-
-	std::array<VkPipelineShaderStageCreateInfo, 2 > shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
-	pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
-	pipelineCI.pStages = shaderStages.data();
-	
-	// vertices
-	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
-	VertexOnlyPos::getBindingDescriptions(bindingDescriptions);
-	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-	VertexOnlyPos::getAttributeDescriptions(attributeDescriptions);
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = vkb::initializers::pipeline_vertex_input_state_create_info();
-	vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
-	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-	vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
-	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-	pipelineCI.pVertexInputState = &vertexInputInfo;
-
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline.pipeline));
-
-	vkDestroyShaderModule(device, meshFragShader, nullptr);
-
-	// Viewport
-	viewport = vkb::initializers::viewport((float)DiffuseMapRes.width, (float)DiffuseMapRes.height, 0.f, 1.f);
-	scissor = vkb::initializers::rect2D(DiffuseMapRes.width, DiffuseMapRes.height, 0, 0);
-	viewportState.pViewports = &viewport;
-	viewportState.pScissors = &scissor;
-
-	// Shaders
-	meshFragShader = vks::tools::loadShader("shaders/DiffuseMapfrag.spv", device);
-	fragShaderStageInfo.module = meshFragShader;
-
-	shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
-	pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
-	pipelineCI.pStages = shaderStages.data();
-
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &diffusePipeline.pipeline));
-
-	vkDestroyShaderModule(device, meshVertexShader, nullptr);
-	vkDestroyShaderModule(device, meshFragShader, nullptr);
-}
-
-void IrradianceCubeMap::writeDescriptor()
-{
-	VkDescriptorSetAllocateInfo allocInfo = vkb::initializers::descriptor_set_allocate_info(descriptorPool, &layout, 1);
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
-
-	VkDescriptorImageInfo texDescriptor =
-		vkb::initializers::descriptor_image_info(
-			defaultSampler,
-			equirectangularTexture.imageView,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-		vkb::initializers::write_descriptor_set(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &texDescriptor),
-	};
-
-	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
-
-	allocInfo = vkb::initializers::descriptor_set_allocate_info(descriptorPool, &layout, 1);
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &diffuseDescriptorSet));
-
-	VkDescriptorImageInfo envCubeMapDescriptor =
-		vkb::initializers::descriptor_image_info(
-			defaultSampler,
-			envCubeMap.cubeImageView,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	writeDescriptorSets = {
-		vkb::initializers::write_descriptor_set(diffuseDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &envCubeMapDescriptor),
-	};
-
-	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
-}
-
-void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer, const GPUMeshBuffers<VertexOnlyPos>& mesh)
+void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer, VulkanTutorialExtension* engine)
 {
 	glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
 	glm::mat4 captureViews[] =
@@ -323,11 +235,12 @@ void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer, const GPUMeshBuffers
 	   glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
 	};
 
+	/** HDR equirectangularMap to HDR cubemap */
 	for (int i = 0; i < Faces; i++)
 	{
 		VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
 		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = frameBuffers[i];
+		renderPassInfo.framebuffer = frameBuffers[0][i];
 		renderPassInfo.renderArea.offset = { 0,0 };
 		renderPassInfo.renderArea.extent = { Res.width,Res.height };
 
@@ -338,27 +251,39 @@ void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer, const GPUMeshBuffers
 
 		GPUMarker Marker(commandBuffer, "IrradianceCubeMap");
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, &descriptorSet, 0, nullptr);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, envMapPipeline->getPipeline().pipeline);
+
+		VkViewport viewport = vkb::initializers::viewport(static_cast<float>(Res.width), static_cast<float>(Res.height), 0.0f, 1.0f);
+		VkRect2D scissor = vkb::initializers::rect2D(Res.width, Res.height, 0, 0);
+
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, envMapPipeline->getPipeline().layout, 0, 1, &envMapPipeline->getDescriptorSets()[0], 0, nullptr);
 
 		GPUDrawPushConstants pushConstants;
 		pushConstants.model = captureProjection * captureViews[i];
-		vkCmdPushConstants(commandBuffer, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+		vkCmdPushConstants(commandBuffer, envMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
 
 		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &mesh.vertexBuffer.Buffer, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &cube->mesh.vertexBuffer.Buffer, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, cube->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
 		// 드로우 커맨드 실행 (36개의 인덱스 = 12개 삼각형 = 6면의 큐브)
 		vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffer);
 	}
 
+	/** Generate mipmaps of HDR cubeamp */
+	const int mipLevels = static_cast<uint32_t>(std::floor(std::log2(max(Res.width, Res.height))));
+	engine->generateMipmaps(commandBuffer, envCubeMap.image, HDRFormat, Res.width, Res.height, mipLevels, 6);
+
+	/** HDR Cubemap to diffuse environment map */
+
 	for (int i = 0; i < Faces; i++)
 	{
 		VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
 		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = diffuseFrameBuffers[i];
+		renderPassInfo.framebuffer = diffuseFrameBuffers[0][i];
 		renderPassInfo.renderArea.offset = { 0,0 };
 		renderPassInfo.renderArea.extent = { DiffuseMapRes.width,DiffuseMapRes.height };
 
@@ -369,39 +294,226 @@ void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer, const GPUMeshBuffers
 
 		GPUMarker Marker(commandBuffer, "DiffuseMap");
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipeline.pipeline);
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffusePipeline.layout, 0, 1, &diffuseDescriptorSet, 0, nullptr);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffuseMapPipeline->getPipeline().pipeline);
+
+		VkViewport viewport = vkb::initializers::viewport(static_cast<float>(DiffuseMapRes.width), static_cast<float>(DiffuseMapRes.height), 0.0f, 1.0f);
+		VkRect2D scissor = vkb::initializers::rect2D(DiffuseMapRes.width, DiffuseMapRes.height, 0, 0);
+
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffuseMapPipeline->getPipeline().layout, 0, 1, &diffuseMapPipeline->getDescriptorSets()[0], 0, nullptr);
 
 		GPUDrawPushConstants pushConstants;
 		pushConstants.model = captureProjection * captureViews[i];
-		vkCmdPushConstants(commandBuffer, diffusePipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+		vkCmdPushConstants(commandBuffer, diffuseMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
 
 		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &mesh.vertexBuffer.Buffer, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &cube->mesh.vertexBuffer.Buffer, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, cube->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-		// 드로우 커맨드 실행 (36개의 인덱스 = 12개 삼각형 = 6면의 큐브)
 		vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
 		vkCmdEndRenderPass(commandBuffer);
 	}
+
+	/** HDR Cubemap to specular environment map */
+
+	for (unsigned int mip = 0; mip < maxMipLevels; ++mip)
+	{
+		// reisze framebuffer according to mip-level size.
+		unsigned int mipWidth = SpecularMapRes.width * std::pow(0.5, mip);
+		unsigned int mipHeight = SpecularMapRes.height * std::pow(0.5, mip);
+
+		float roughness = (float)mip / (float)(maxMipLevels - 1);
+		for (unsigned int i = 0; i < 6; ++i)
+		{
+			VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
+			renderPassInfo.renderPass = renderPass;
+			renderPassInfo.framebuffer = specularFrameBuffers[mip][i];
+			renderPassInfo.renderArea.offset = { 0,0 };
+			renderPassInfo.renderArea.extent = { mipWidth,mipHeight };
+
+			std::array<VkClearValue, 1> clearValues{};
+			clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+			renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+			renderPassInfo.pClearValues = clearValues.data();
+
+			GPUMarker Marker(commandBuffer, "SpecularMap");
+			vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, specularMapPipeline->getPipeline().pipeline);
+
+			VkViewport viewport = vkb::initializers::viewport(static_cast<float>(mipWidth), static_cast<float>(mipHeight), 0.0f, 1.0f);
+			VkRect2D scissor = vkb::initializers::rect2D(mipWidth, mipHeight, 0, 0);
+
+			vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+			vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, specularMapPipeline->getPipeline().layout, 0, 1, &specularMapPipeline->getDescriptorSets()[0], 0, nullptr);
+
+			GPUDrawPushConstants pushConstants;
+			pushConstants.model = captureProjection * captureViews[i];
+			vkCmdPushConstants(commandBuffer, specularMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+			vkCmdPushConstants(commandBuffer, specularMapPipeline->getPipeline().layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(GPUDrawPushConstants), sizeof(float), &roughness);
+
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &cube->mesh.vertexBuffer.Buffer, offsets);
+			vkCmdBindIndexBuffer(commandBuffer, cube->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+			vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
+			vkCmdEndRenderPass(commandBuffer);
+		}
+	}
+
+	/** Specular BRDF Integration map*/
+
+	VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
+	renderPassInfo.renderPass = integrationRenderPass;
+	renderPassInfo.framebuffer = integrationFrameBuffers;
+	renderPassInfo.renderArea.offset = { 0,0 };
+	renderPassInfo.renderArea.extent = IntegraionMapRes;
+
+	std::array<VkClearValue, 1> clearValues{};
+	clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	GPUMarker Marker(commandBuffer, "IntegrationMap");
+	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, integrationMapPipeline->getPipeline().pipeline);
+
+	VkViewport viewport = vkb::initializers::viewport(static_cast<float>(IntegraionMapRes.width), static_cast<float>(IntegraionMapRes.height), 0.0f, 1.0f);
+	VkRect2D scissor = vkb::initializers::rect2D(IntegraionMapRes.width, IntegraionMapRes.height, 0, 0);
+
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &quad->mesh.vertexBuffer.Buffer, offsets);
+	vkCmdBindIndexBuffer(commandBuffer, quad->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+	vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+	vkCmdEndRenderPass(commandBuffer);
 }
 
 void IrradianceCubeMap::clear()
 {
+	cube->cleanUp(device);
+	quad->cleanUp(device);
 	equirectangularTexture.Destroy(device);
 
-	vkDestroyPipeline(device, pipeline.pipeline, nullptr);
-	vkDestroyPipelineLayout(device, pipeline.layout, nullptr);
-	vkDestroyDescriptorSetLayout(device, layout, nullptr);
-	vkDestroyRenderPass(device, renderPass, nullptr);
+	envMapPipeline->cleanup(device);
+	diffuseMapPipeline->cleanup(device);
+	specularMapPipeline->cleanup(device);
+	integrationMapPipeline->cleanup(device);
 
-	for (int i = 0; i < Faces; i++)
-	{
-		vkDestroyFramebuffer(device, frameBuffers[i], nullptr);
-	}
+	vkDestroyRenderPass(device, renderPass, nullptr);
+	vkDestroyRenderPass(device, integrationRenderPass, nullptr);
+
+	auto destroyCubeFrameBuffer = [&](CubeFrameBuffer& thisFrameBuffer) {
+		for (int i = 0; i < thisFrameBuffer.size(); i++)
+		{
+			for (int j = 0; j < thisFrameBuffer[i].size(); j++)
+			{
+				vkDestroyFramebuffer(device, thisFrameBuffer[i][j], nullptr);
+			}
+		};
+	};
+
+	destroyCubeFrameBuffer(frameBuffers);
+	destroyCubeFrameBuffer(diffuseFrameBuffers);
+	destroyCubeFrameBuffer(specularFrameBuffers);
+	vkDestroyFramebuffer(device, integrationFrameBuffers, nullptr);
 
 	vkDestroySampler(device, defaultSampler, nullptr);
 
 	envCubeMap.Destroy(device);
 	diffuseMap.Destroy(device);
+	specularPrefilteredMap.Destroy(device);
+	specularBRDFLUT.Destroy(device);
+}
+
+CubeMap IrradianceCubeMap::createCubeImage(VulkanTutorial* engine, uint32_t mipLevels, VkExtent2D extent, VkFormat format, const std::string& debugName)
+{
+	CubeMap cubeMap;
+
+	AllocatedImage allocatedImage =
+		engine->createImage(extent.width, extent.height, mipLevels, VK_SAMPLE_COUNT_1_BIT, format,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			debugName.c_str(), Faces, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+
+	cubeMap.image = allocatedImage.image;
+	cubeMap.imageMemory = allocatedImage.imageMemory;
+
+	cubeMap.imageViews.resize(mipLevels);
+	for (int i = 0; i < mipLevels; i++)
+	{
+		cubeMap.imageViews[i].resize(Faces);
+		for (int j = 0; j < Faces; j++) {
+			cubeMap.imageViews[i][j] = engine->createImageView(cubeMap.image, format, VK_IMAGE_ASPECT_COLOR_BIT, 1, j, i);
+		}
+	}
+
+	cubeMap.cubeImageView = engine->createImageViewCube(cubeMap.image, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+
+	return cubeMap;
+}
+
+AllocatedImage IrradianceCubeMap::create2DImage(VulkanTutorial* engine, uint32_t mipLevels, VkExtent2D extent, VkFormat format, const std::string& debugName)
+{
+	AllocatedImage allocatedImage =
+		engine->createImage(extent.width, extent.height, mipLevels, VK_SAMPLE_COUNT_1_BIT, format,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			debugName.c_str(), 1);
+
+	allocatedImage.imageView = engine->createImageView(allocatedImage.image, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+
+	return allocatedImage;
+}
+
+void IrradianceCubeMap::createFrameBuffer(CubeFrameBuffer& frameBuffers, uint32_t mipLevels, const CubeMap& cubeMap, VkExtent2D extent, VkRenderPass renderPass)
+{
+	VkRenderPass useRenderPass = (renderPass != VK_NULL_HANDLE) ? renderPass : this->renderPass;
+
+	frameBuffers.resize(cubeMap.imageViews.size());
+	for (int i = 0; i < cubeMap.imageViews.size(); i++)
+	{
+		// 현재 mip 레벨에 맞게 크기 계산
+		uint32_t mipWidth = extent.width * std::pow(0.5, i);
+		uint32_t mipHeight = extent.height * std::pow(0.5, i);
+
+		frameBuffers[i].resize(cubeMap.imageViews[i].size());
+		for (int j = 0; j < cubeMap.imageViews[i].size(); j++)
+		{
+			VkFramebufferCreateInfo framebufferInfo = vkb::initializers::framebuffer_create_info();
+			framebufferInfo.renderPass = useRenderPass;
+			framebufferInfo.attachmentCount = 1;
+			framebufferInfo.pAttachments = &cubeMap.imageViews[i][j];
+			framebufferInfo.width = mipWidth;
+			framebufferInfo.height = mipHeight;
+			framebufferInfo.layers = 1;
+
+			VK_CHECK_RESULT(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &frameBuffers[i][j]));
+		}
+	}
+}
+
+VkFramebuffer IrradianceCubeMap::createFrameBuffer2D(const AllocatedImage& image, VkExtent2D extent, VkRenderPass renderPass)
+{
+	VkRenderPass useRenderPass = (renderPass != VK_NULL_HANDLE) ? renderPass : this->renderPass;
+
+	VkFramebuffer frameBuffer;
+
+	VkFramebufferCreateInfo framebufferInfo = vkb::initializers::framebuffer_create_info();
+	framebufferInfo.renderPass = useRenderPass;
+	framebufferInfo.attachmentCount = 1;
+	framebufferInfo.pAttachments = &image.imageView;
+	framebufferInfo.width = extent.width;
+	framebufferInfo.height = extent.height;
+	framebufferInfo.layers = 1;
+
+	VK_CHECK_RESULT(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &frameBuffer));
+
+	return frameBuffer;
 }

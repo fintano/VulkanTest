@@ -128,9 +128,6 @@ void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::functio
     std::vector<VkDescriptorSetLayout> layouts = externalLayouts; // 외부 레이아웃을 먼저 추가
     layouts.push_back(layout); // 자신의 레이아웃을 마지막에 추가
 
-    // 유연하지 않지만 어쨌든 하나는 필요해서.
-    matrixRanges.push_back(vkb::initializers::push_constant_range(VK_SHADER_STAGE_VERTEX_BIT, sizeof(GPUDrawPushConstants), 0));
-
     VkPipelineLayoutCreateInfo mesh_layout_info = vkb::initializers::pipeline_layout_create_info(layouts.size());
     mesh_layout_info.pSetLayouts = layouts.data();
     mesh_layout_info.pPushConstantRanges = matrixRanges.data();
@@ -140,12 +137,18 @@ void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::functio
     VK_CHECK_RESULT(vkCreatePipelineLayout(device, &mesh_layout_info, nullptr, &newLayout));
     pipeline.layout = newLayout;
 
+    std::vector<VkDynamicState> dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+
     // create pipeline
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vkb::initializers::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
     VkPipelineViewportStateCreateInfo viewportState = vkb::initializers::pipeline_viewport_state_create_info(1, 1, 0);
     VkPipelineRasterizationStateCreateInfo rasterizationState = vkb::initializers::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
     VkPipelineMultisampleStateCreateInfo multisampleState = vkb::initializers::pipeline_multisample_state_create_info(VK_SAMPLE_COUNT_1_BIT, 0);
     VkPipelineDepthStencilStateCreateInfo depthStencilState = vkb::initializers::pipeline_depth_stencil_state_create_info(VK_FALSE, VK_FALSE, VK_COMPARE_OP_LESS_OR_EQUAL);
+    VkPipelineDynamicStateCreateInfo dynamicState = vkb::initializers::pipeline_dynamic_state_create_info(dynamicStates);
 
     VkGraphicsPipelineCreateInfo pipelineCI = vkb::initializers::pipeline_create_info(newLayout, renderType == RenderType::forward ? engine->forward.renderPass : engine->geometry.renderPass);
     pipelineCI.pInputAssemblyState = &inputAssemblyState;
@@ -153,6 +156,7 @@ void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::functio
     pipelineCI.pMultisampleState = &multisampleState;
     pipelineCI.pViewportState = &viewportState;
     pipelineCI.pDepthStencilState = &depthStencilState;
+    pipelineCI.pDynamicState = &dynamicState;
 
     // Viewport
     VkViewport viewport = vkb::initializers::viewport((float)viewportExtent.width, (float)viewportExtent.height, 0.f, 1.f);
@@ -309,10 +313,6 @@ void SimplePipeline::updateBufferDescriptor(VkDevice device, uint32_t index, uin
     vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
 }
 
-void SimplePipeline::writeDescriptor() {
-    // 더 이상 사용하지 않지만 하위 호환성을 위해 유지
-}
-
 std::shared_ptr<MaterialInstance> SimplePipeline::makeMaterial() {
 	
     auto material = std::make_shared<MaterialInstance>();
@@ -321,6 +321,15 @@ std::shared_ptr<MaterialInstance> SimplePipeline::makeMaterial() {
 	material->passType = renderType == RenderType::forward ? MaterialPass::Transparent : MaterialPass::MainColor;
 
 	return material;
+}
+
+// 푸시 상수 범위 추가
+void SimplePipeline::addPushConstantRange(VkShaderStageFlags stageFlags, uint32_t size, uint32_t offset) {
+    VkPushConstantRange range{};
+    range.stageFlags = stageFlags;
+    range.offset = offset;
+    range.size = size;
+    matrixRanges.push_back(range);
 }
 
 void SimplePipeline::cleanup(VkDevice device) {
@@ -347,4 +356,10 @@ void SimplePipelinePosOnly::createVertexInput()
 {
     VertexOnlyPos::getBindingDescriptions(bindingDescriptions);
     VertexOnlyPos::getAttributeDescriptions(attributeDescriptions);
+}
+
+void SimplePipelineTexOnly::createVertexInput()
+{
+    VertexOnlyTex::getBindingDescriptions(bindingDescriptions);
+    VertexOnlyTex::getAttributeDescriptions(attributeDescriptions);
 }

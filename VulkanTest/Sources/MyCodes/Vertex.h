@@ -26,6 +26,29 @@ struct VertexOnlyPos
 	}
 };
 
+struct VertexOnlyTex
+{
+	alignas(16) glm::vec3 pos;
+	alignas(16) glm::vec2 texCoord;
+
+	static void getBindingDescriptions(std::vector<VkVertexInputBindingDescription>& bindingDescriptions)
+	{
+
+		bindingDescriptions.emplace_back(VkVertexInputBindingDescription{ 0, sizeof(VertexOnlyTex), VK_VERTEX_INPUT_RATE_VERTEX });
+	}
+
+	static auto getAttributeDescriptions(std::vector<VkVertexInputAttributeDescription>& attributeDescriptions)
+	{
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VertexOnlyTex, pos) });
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexOnlyTex, texCoord) });
+	}
+
+	bool operator==(const VertexOnlyTex& other) const
+	{
+		return pos == other.pos && texCoord == other.texCoord;
+	}
+};
+
 struct Vertex
 {
 	alignas(16) glm::vec3 pos;
@@ -97,6 +120,25 @@ namespace std {
 		// Helper function to combine hash values
 		static void hash_combine(size_t& seed, float v) {
 			seed ^= std::hash<float>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		}
+	};
+
+	// Now we can define the hash for Vertex
+	template<> struct hash<VertexOnlyTex> {
+		size_t operator()(const VertexOnlyTex& vertex) const {
+			size_t seed = 0;
+			hash_combine(seed, vertex.texCoord);
+			return seed;
+		}
+
+		// Helper function to combine hash values with vec3
+		static void hash_combine(size_t& seed, const glm::vec3& v) {
+			seed ^= std::hash<glm::vec3>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		}
+
+		// Helper function to combine hash values with vec2
+		static void hash_combine(size_t& seed, const glm::vec2& v) {
+			seed ^= std::hash<glm::vec2>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 		}
 	};
 

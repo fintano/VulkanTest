@@ -42,6 +42,7 @@ void main()
 
     vec3 N = normalize(fragNormal);
 	vec3 V = normalize(sceneData.viewPos - fragPos);
+	vec3 R = reflect(-V, N);
 
 	// 프리넬은 Diffuse 반사와 Specular 반사의 비율을 내포하고 있다.
 	// 비금속은 물체를 수직으로 바라봤을 때 0.04 정도의 반사율을 보이고,
@@ -96,11 +97,23 @@ void main()
 		Lo += CalcDirLight(sceneData.dirLight, N, V, albedo, roughness, metallic);
 	}
 
-	vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+	vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+
+	vec3 kS = F;
 	vec3 kD = 1.0 - kS;
+	kD *= 1.0 - metallic;
+
+	// indirect diffuse
 	vec3 irradiance = texture(diffuseMap, N).rgb;
 	vec3 diffuse    = irradiance * albedo;
-	vec3 ambient    = (kD * diffuse) * ao; 
+	
+	// indirect specular
+	const float MAX_REFLECTION_LOD = 4.0;
+	vec3 prefilteredColor = textureLod(prefilterMap, R,  roughness * MAX_REFLECTION_LOD).rgb;   
+	vec2 envBRDF  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+	vec3 ambient    = (kD * diffuse + specular) * ao; 
 	vec3 color   = ambient + Lo;
 
 	// tone mapping and gamma correction

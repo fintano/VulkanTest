@@ -588,7 +588,7 @@ VulkanTutorial::VulkanTutorial()
 		textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
 	}
 
-	VkImageView VulkanTutorial::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer)
+	VkImageView VulkanTutorial::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer, uint32_t baseMipLevel)
 	{
 		VkImageViewCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -601,7 +601,7 @@ VulkanTutorial::VulkanTutorial()
 		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 
 		createInfo.subresourceRange.aspectMask = aspectFlags;
-		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.baseMipLevel = baseMipLevel;
 		createInfo.subresourceRange.levelCount = mipLevels;
 		createInfo.subresourceRange.baseArrayLayer = baseArrayLayer;
 		createInfo.subresourceRange.layerCount = 1;
@@ -1207,7 +1207,9 @@ VulkanTutorial::VulkanTutorial()
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 
-		generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels);
+		auto commandBuffer = beginSingleTimeCommands();
+		generateMipmaps(commandBuffer, textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 1);
+		endSingleTimeCommands(commandBuffer);
 
 		// default white texture
 
@@ -1251,7 +1253,9 @@ VulkanTutorial::VulkanTutorial()
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 
-		generateMipmaps(allocatedImage.image, inFormat, texWidth, texHeight, mipLevels);
+		auto commandBuffer = beginSingleTimeCommands();
+		generateMipmaps(commandBuffer, allocatedImage.image, inFormat, texWidth, texHeight, mipLevels, 1);
+		endSingleTimeCommands(commandBuffer);
 
 		allocatedImage.imageView = createImageView(allocatedImage.image, inFormat, VK_IMAGE_ASPECT_COLOR_BIT ,mipLevels);
 
@@ -1384,7 +1388,7 @@ VulkanTutorial::VulkanTutorial()
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanTutorial::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
+	void VulkanTutorial::generateMipmaps(VkCommandBuffer commandBuffer, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount)
 	{
 		VkFormatProperties formatProperties;
 		vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
@@ -1393,8 +1397,6 @@ VulkanTutorial::VulkanTutorial()
 		{
 			throw std::runtime_error("texture image format does not support linear blitting!");
 		}
-
-		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
 		// 그러니까 궁금한게.. 
 		// 커맨드들이 커맨드 버퍼안에 차곡차곡 쌓여서 서브밋되고 실행이 되는데.. 이 커맨드 큐잉 순서가 보장이 안되잖아. 병렬적으로 실행되지. 
@@ -1412,7 +1414,7 @@ VulkanTutorial::VulkanTutorial()
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		barrier.subresourceRange.levelCount = 1;
 		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.layerCount = layerCount;
 
 		int32_t mipWidth = texWidth;
 		int32_t mipHeight = texHeight;
@@ -1448,23 +1450,26 @@ VulkanTutorial::VulkanTutorial()
 				0, nullptr,
 				1, &barrier);
 
-			VkImageBlit blit{};
-			blit.srcOffsets[0] = { 0,0,0 };
-			blit.srcOffsets[1] = { mipWidth, mipHeight,1 };
-			blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			blit.srcSubresource.mipLevel = i - 1;
-			blit.srcSubresource.baseArrayLayer = 0;
-			blit.srcSubresource.layerCount = 1;
-			blit.dstOffsets[0] = { 0,0,0 };
-			blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
-			blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			blit.dstSubresource.mipLevel = i;
-			blit.dstSubresource.baseArrayLayer = 0;
-			blit.dstSubresource.layerCount = 1;
+			for (uint32_t layer = 0; layer < layerCount; layer++)
+			{
+				VkImageBlit blit{};
+				blit.srcOffsets[0] = { 0,0,0 };
+				blit.srcOffsets[1] = { mipWidth, mipHeight,1 };
+				blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				blit.srcSubresource.mipLevel = i - 1;
+				blit.srcSubresource.baseArrayLayer = layer;
+				blit.srcSubresource.layerCount = 1;
+				blit.dstOffsets[0] = { 0,0,0 };
+				blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+				blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				blit.dstSubresource.mipLevel = i;
+				blit.dstSubresource.baseArrayLayer = layer;
+				blit.dstSubresource.layerCount = 1;
 
-			// Blit은 VK_PIPELINE_STAGE_TRANSFER_BIT 오퍼레이션이다. Src 이미지는 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL로 배리어 이용해 바뀌었고, Dst 이미지는 텍스쳐 이미지 만들 때 바뀌었다. 
-			vkCmdBlitImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
-
+				// Blit은 VK_PIPELINE_STAGE_TRANSFER_BIT 오퍼레이션이다. Src 이미지는 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL로 배리어 이용해 바뀌었고, Dst 이미지는 텍스쳐 이미지 만들 때 바뀌었다. 
+				vkCmdBlitImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+			}
+			
 			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -1526,15 +1531,13 @@ VulkanTutorial::VulkanTutorial()
 		barrier.subresourceRange.baseMipLevel = mipLevels - 1;
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
 		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
 			0, nullptr,
 			0, nullptr,
 			1, &barrier);
-
-		endSingleTimeCommands(commandBuffer);
 	}
 
 	AllocatedImage VulkanTutorial::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name, uint32_t arrayLayers, VkImageViewCreateFlags flags)
@@ -1677,7 +1680,7 @@ VulkanTutorial::VulkanTutorial()
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size()) * 20;
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages.size()) * 10;
+		poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages.size()) * 20;
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

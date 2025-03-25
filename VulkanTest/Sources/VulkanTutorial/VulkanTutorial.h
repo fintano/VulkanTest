@@ -99,10 +99,11 @@ public:
 	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag, const char* name = "texture", int channelNum = 4);
 	AllocatedImage createTexture2Df(float* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name, int channelNum);
 	AllocatedImage createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name = "none", uint32_t arrayLayers = 1, VkImageViewCreateFlags flags = 0);
-	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer = 0);
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer = 0, uint32_t baseMipLevel = 0);
 	VkImageView createImageViewCube(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer = 0);
 	VkCommandBuffer beginSingleTimeCommands();
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+	void generateMipmaps(VkCommandBuffer commandBuffer, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount);
 
 protected:
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return nullptr; }
@@ -167,7 +168,6 @@ protected:
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 	void loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 	void createCommandBuffer(int32_t i);
 	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);

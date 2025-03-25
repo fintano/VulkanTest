@@ -21,6 +21,8 @@ void Skybox::initialize(VulkanTutorialExtension* engine)
 
 	pipeline->addExternalDescriptorSetLayout(engine->getGlobalDescriptorSetLayout());
 	pipeline->getDescriptorBuilder().addTexture();
+	pipeline->addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(GPUDrawPushConstants), 0);
+
 	pipeline->buildPipeline(engine, [](VkGraphicsPipelineCreateInfo& pipelineCI) {
 		VkPipelineRasterizationStateCreateInfo* rasterizationState = 
 		 const_cast<VkPipelineRasterizationStateCreateInfo*>(pipelineCI.pRasterizationState);
@@ -35,12 +37,14 @@ void Skybox::initialize(VulkanTutorialExtension* engine)
     
 	for (int i = 0; i < engine->getSwapchainImageNum(); i++)
 	{
-		pipeline->updateTextureDescriptor(engine->device, i, 0, engine->irradianceCubeMap->getDiffuseMapImageView(), engine->getDefaultTextureSampler());
+		pipeline->updateTextureDescriptor(engine->device, i, 0, engine->irradianceCubeMap->getCubeImageView(), engine->getDefaultTextureSampler());
 	}
 
-	assert(engine->cube);
+	cube = std::make_shared<Cube<VertexOnlyPos>>();
+	cube->createMesh(engine);
+
 	mesh = std::make_shared<MeshAsset<VertexOnlyPos>>();
-	mesh->meshBuffers = engine->cube->mesh; // Copy
+	mesh->meshBuffers = cube->mesh;
 
 	renderObject.indexCount = mesh->meshBuffers.indexBuffer.indices.size();
 	renderObject.firstIndex = 0;
@@ -58,5 +62,6 @@ void Skybox::update(uint32_t currentImage)
 
 void Skybox::cleanup(VkDevice device)
 {
+	cube->cleanUp(device);
 	pipeline->cleanup(device);
 }

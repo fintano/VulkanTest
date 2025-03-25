@@ -149,19 +149,34 @@ public:
 	void updateBufferDescriptor(VkDevice device, uint32_t index, uint32_t binding,
 		VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range);
 
-	// 기존 SimplePipeline 호환 메소드
-	void writeDescriptor();
+	// 푸시 상수 범위 추가
+	void addPushConstantRange(VkShaderStageFlags stageFlags, uint32_t size, uint32_t offset = 0);
 
 	void cleanup(VkDevice device);
 
+	// pipeline을 포인터로 갖고 가는게 불안함.
 	std::shared_ptr<MaterialInstance> makeMaterial();
-	MaterialPipeline& getMaterialPipeline() { return pipeline; }
+	MaterialPipeline& getPipeline() { return pipeline; }
+	std::vector<VkDescriptorSet>& getDescriptorSets() { return descriptorSets; }
 };
 
 class SimplePipelinePosOnly : public SimplePipeline
 {
 public:
 	SimplePipelinePosOnly(VkExtent2D viewportExtent, std::string vertShaderPath, std::string fragShaderPath,
+		RenderType renderType, VkDescriptorPool pool, int swapchainImageNum)
+		:SimplePipeline(viewportExtent, vertShaderPath, fragShaderPath, renderType, pool, swapchainImageNum)
+	{
+	}
+
+private:
+	virtual void createVertexInput() override;
+};
+
+class SimplePipelineTexOnly : public SimplePipeline
+{
+public:
+	SimplePipelineTexOnly(VkExtent2D viewportExtent, std::string vertShaderPath, std::string fragShaderPath,
 		RenderType renderType, VkDescriptorPool pool, int swapchainImageNum)
 		:SimplePipeline(viewportExtent, vertShaderPath, fragShaderPath, renderType, pool, swapchainImageNum)
 	{

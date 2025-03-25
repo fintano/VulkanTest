@@ -307,11 +307,13 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 	VkDescriptorImageInfo albedo = vkb::initializers::descriptor_image_info(textureSampler, geometry.albedo.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	VkDescriptorImageInfo arm = vkb::initializers::descriptor_image_info(textureSampler, geometry.arm.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	VkDescriptorImageInfo diffuseMap = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getDiffuseMapImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo specularPrefilterMap = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getSpecularMapImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo specularBRDFLUT = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getSpecularBRDFLUTImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	auto geometryTextureDescriptor = [&](VkImageView imageView){
 		return vkb::initializers::descriptor_image_info(textureSampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	};
-
+	
 	for (size_t i = 0; i < swapChainImages.size(); i++)
 	{
 		descriptorWrites = {
@@ -319,7 +321,9 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &normal),
 			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &albedo),
 			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &arm),
-			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &diffuseMap)
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &diffuseMap),
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &specularPrefilterMap),
+			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, &specularBRDFLUT)
 		};
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -518,6 +522,10 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 	//	arm
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	// diffuse map
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	// specular prefilter map
+	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	// brdf lut 2d
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
 	lightingPass.descriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
@@ -787,7 +795,10 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 }
 
 void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer, size_t index)
-{
+{	
+	// PBR 디버그 용
+	//irradianceCubeMap->draw(commandBuffer);
+
 	VulkanTutorial::recordCommandBuffer(commandBuffer, index);
 }
 
@@ -817,6 +828,12 @@ void VulkanTutorialExtension::recordLightingRenderPassCommands(VkCommandBuffer c
 void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandBuffer, size_t i)
 {
 	VulkanTutorial::recordForwardPassCommands(commandBuffer, i);
+
+	VkViewport viewport = vkb::initializers::viewport((float)swapChainExtent.width, (float)swapChainExtent.height, 0.0f, 1.0f);
+	VkRect2D scissor = vkb::initializers::rect2D(swapChainExtent.width, swapChainExtent.height, 0, 0);
+
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	drawRenderObject(commandBuffer, i, skybox->getRenderObject());
 
@@ -912,9 +929,6 @@ void VulkanTutorialExtension::loadModels()
 void VulkanTutorialExtension::createBuffers()
 {
 	VulkanTutorial::createBuffers();
-
-	cube = std::make_shared<Cube>();
-	cube->createMesh(this);
 
 	for (int i = 0; i < INSTANCE_BUFFER_COUNT; i++)
 	{
@@ -1058,7 +1072,6 @@ void VulkanTutorialExtension::cleanUp()
 	loadedScenes.clear();
 	irradianceCubeMap.reset();
 	skybox->cleanup(device);
-	cube->cleanUp(device);
 
 	VulkanTutorial::cleanUp();
 }

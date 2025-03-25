@@ -81,7 +81,7 @@ struct CubeMap
 {
 	VkImage image;
 	VkDeviceMemory imageMemory;
-	std::vector<VkImageView> imageViews;
+	std::vector<std::vector<VkImageView>> imageViews;
 	VkImageView cubeImageView;
 
 	void Destroy(VkDevice device);

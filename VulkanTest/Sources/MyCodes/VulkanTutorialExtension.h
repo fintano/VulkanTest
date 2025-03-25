@@ -5,7 +5,6 @@
 
 class IrradianceCubeMap;
 class Skybox;
-struct Cube;
 
 /**
 * https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
@@ -157,7 +156,7 @@ private:
 public:
 	std::shared_ptr<IrradianceCubeMap> irradianceCubeMap;
 	std::shared_ptr<Skybox> skybox;
-	std::shared_ptr<Cube> cube;
+	
 	/** material system */
 	//std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
 	DrawContext mainDrawContext;

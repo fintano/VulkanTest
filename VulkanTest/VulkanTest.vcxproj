@@ -167,9 +167,10 @@ CALL compile.bat</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="shaders\BRDFIntegrationMap.frag" />
+    <None Include="shaders\BRDFIntegrationMap.vert" />
     <None Include="shaders\deferred.glsl" />
     <None Include="shaders\DiffuseMap.frag" />
-    <None Include="shaders\DiffuseMap.vert" />
     <None Include="shaders\ForwardPass.frag" />
     <None Include="shaders\global.glsl" />
     <None Include="shaders\input_structures.glsl" />
@@ -185,6 +186,7 @@ CALL compile.bat</Command>
     <None Include="shaders\shader.vert" />
     <None Include="shaders\Skybox.frag" />
     <None Include="shaders\Skybox.vert" />
+    <None Include="shaders\SpecularMap.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Libraries\DearImGui\imgui.cpp" />
@@ -196,7 +198,6 @@ CALL compile.bat</Command>
     <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MyCodes\Buffer.cpp" />
-    <ClCompile Include="Sources\MyCodes\Cube.cpp" />
     <ClCompile Include="Sources\MyCodes\GPUMarker.cpp" />
     <ClCompile Include="Sources\MyCodes\IrradianceCubeMap.cpp" />
     <ClCompile Include="Sources\MyCodes\SimplePipeline.cpp" />
@@ -216,6 +217,7 @@ CALL compile.bat</Command>
     <ClInclude Include="Sources\MyCodes\Cube.h" />
     <ClInclude Include="Sources\MyCodes\GPUMarker.h" />
     <ClInclude Include="Sources\MyCodes\IrradianceCubeMap.h" />
+    <ClInclude Include="Sources\MyCodes\Quad.h" />
     <ClInclude Include="Sources\MyCodes\SimplePipeline.h" />
     <ClInclude Include="Sources\MyCodes\Skybox.h" />
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h" />

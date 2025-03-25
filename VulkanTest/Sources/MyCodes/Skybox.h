@@ -5,6 +5,9 @@
 #include <memory>
 
 template<typename T>
+struct Cube;
+
+template<typename T>
 struct MeshAsset;
 struct DrawContext;
 struct VertexOnlyPos;
@@ -23,5 +26,6 @@ public:
 private:
 	RenderObject renderObject;
 	std::shared_ptr<SimplePipelinePosOnly> pipeline;
+	std::shared_ptr<Cube<VertexOnlyPos>> cube;
 	std::shared_ptr<MeshAsset<VertexOnlyPos>> mesh;
 };
