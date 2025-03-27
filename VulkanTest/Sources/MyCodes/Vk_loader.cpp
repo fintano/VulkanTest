@@ -271,6 +271,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
 
         constants.metal_rough_factors.x = mat.pbrData.metallicFactor;
         constants.metal_rough_factors.y = mat.pbrData.roughnessFactor;
+
+        constants.textureFlags = glm::vec4(0.f);
         // write material parameters to buffer
         sceneMaterialConstants[data_index] = constants;
 

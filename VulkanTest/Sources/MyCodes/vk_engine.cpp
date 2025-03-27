@@ -25,6 +25,10 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	vk::desc::createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	vk::desc::createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	vk::desc::createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	vk::desc::createDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	vk::desc::createDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	vk::desc::createDescriptorSetLayoutBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
+	vk::desc::createDescriptorSetLayoutBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
 	materialLayout = vk::desc::createDescriptorSetLayout(extendedEngine->device, bindings);
 
@@ -200,12 +204,41 @@ std::shared_ptr<MaterialInstance> GLTFMetallic_Roughness::write_material(VulkanT
 			resources.metalRoughImage,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+	// 더미 텍스처 디스크립터 (바인딩 3-6에 사용할 기본 텍스처)
+	VkDescriptorImageInfo dummyNormalTexDescriptor =
+		vkinit::descriptor_image_info(
+			engine->getDefaultTextureSampler(),
+			engine->getDefaultTexture2D().imageView,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	VkDescriptorImageInfo dummyMetallicTexDescriptor =
+		vkinit::descriptor_image_info(
+			engine->getDefaultTextureSampler(),
+			engine->getDefaultTexture2D().imageView,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	VkDescriptorImageInfo dummyRoughnessTexDescriptor =
+		vkinit::descriptor_image_info(
+			engine->getDefaultTextureSampler(),
+			engine->getDefaultTexture2D().imageView,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	VkDescriptorImageInfo dummyAOTexDescriptor =
+		vkinit::descriptor_image_info(
+			engine->getDefaultTextureSampler(),
+			engine->getDefaultTexture2D().imageView,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 	for (size_t i = 0; i < swapChainImageNum; i++)
 	{
 		writeDescriptorSets = {
 			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &bufDescriptor),
 			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &texDescriptorColor),
 			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &texDescriptorMetalRough),
+			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &texDescriptorMetalRough),
+			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &texDescriptorMetalRough),
+			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &texDescriptorMetalRough),
+			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, &texDescriptorMetalRough),
 		};
 
 		vkUpdateDescriptorSets(engine->device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);

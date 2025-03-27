@@ -15,8 +15,9 @@ struct GLTFMetallic_Roughness {
 	struct MaterialConstants {
 		glm::vec4 colorFactors;
 		glm::vec4 metal_rough_factors;
+		glm::vec4 textureFlags; // x=useNormalMap, y=useMetallicMap, z=useRoughnessMap, w=useAOMap
 		//padding, we need it anyway for uniform buffers
-		glm::vec4 extra[14];
+		glm::vec4 extra[13];
 	};
 
 	struct MaterialResources {
