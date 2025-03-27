@@ -104,6 +104,7 @@ public:
 	VkCommandBuffer beginSingleTimeCommands();
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void generateMipmaps(VkCommandBuffer commandBuffer, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount);
+	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount = 1, uint32_t baseMipLevel = 0);
 
 protected:
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return nullptr; }
@@ -166,7 +167,6 @@ protected:
 	bool hasStencilComponent(VkFormat format);
 	void createTextureImage();
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
-	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 	void createCommandBuffer(int32_t i);
@@ -217,14 +217,6 @@ protected:
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<VkCommandBuffer> commandBuffersToSubmit;
 
-	std::vector<Vertex> vertices;
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
-
-	std::vector<uint32_t> indices;
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
-
 	std::vector<VkDescriptorSet> descriptorSets;
 
 	uint32_t mipLevels;
@@ -253,7 +245,6 @@ protected:
 	const uint32_t WIDTH = 1920;
 	const uint32_t HEIGHT = 1080;
 
-	const std::string MODEL_PATH = "models/viking_room.obj";
 	const std::string TEXTURE_PATH = "textures/viking_room.png";
 	const std::string WHITE_TEXTURE_PATH = "textures/white_texture.png";
 

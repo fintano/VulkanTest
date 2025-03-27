@@ -7,9 +7,9 @@
 #include "Cube.h"
 #include "Quad.h"
 #include "SimplePipeline.h"
+#include "vk_resource_utils.h"
 
 #include <array>
-#include <stb_image.h>
 
 struct RoughnessBuffer {
 	alignas(16) float roughness;
@@ -17,7 +17,8 @@ struct RoughnessBuffer {
 
 IrradianceCubeMap::IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescriptorPool) :
 	device(inDevice),
-	descriptorPool(inDescriptorPool)
+	descriptorPool(inDescriptorPool),
+	envMipLevels(static_cast<uint32_t>(std::floor(std::log2(max(Res.width, Res.height)))))
 {
 }
 
@@ -31,8 +32,6 @@ void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 
 	loadEquirectangular(engine, equirectangularPath);
 
-	const int envMipLevels = static_cast<uint32_t>(std::floor(std::log2(max(Res.width, Res.height))));
-
 	envCubeMap = createCubeImage(engine, envMipLevels, Res, HDRFormat, "IBLCubeMap");
 	diffuseMap = createCubeImage(engine, 1, DiffuseMapRes, HDRFormat, "DiffuseMap");
 	specularPrefilteredMap = createCubeImage(engine, maxMipLevels, SpecularMapRes, HDRFormat, "SpecularMap");
@@ -42,7 +41,7 @@ void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 
 	createRenderPass();
 
-	createFrameBuffer(frameBuffers, 1, envCubeMap, Res);
+	createFrameBuffer(frameBuffers, envMipLevels, envCubeMap, Res, envCubeRenderPass);
 	createFrameBuffer(diffuseFrameBuffers, 1, diffuseMap, DiffuseMapRes);
 	createFrameBuffer(specularFrameBuffers, maxMipLevels, specularPrefilteredMap, SpecularMapRes);
 	integrationFrameBuffers = createFrameBuffer2D(specularBRDFLUT, IntegraionMapRes, integrationRenderPass);
@@ -57,7 +56,7 @@ void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 void IrradianceCubeMap::loadEquirectangular(VulkanTutorial* engine, const std::string& path)
 {
 	int texWidth, texHeight, texChannels;
-	float* floatPixels = stbi_loadf(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	float* floatPixels = Utils::loadImagef(path.c_str(), &texWidth, &texHeight, &texChannels, Utils::STBI_rgb_alpha);
 	if (!floatPixels)
 	{
 		throw std::runtime_error("failed to load texture image!");
@@ -83,7 +82,7 @@ void IrradianceCubeMap::createSampler(VkDevice device)
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerInfo.mipLodBias = 0.f;
 	samplerInfo.minLod = 0;
-	samplerInfo.maxLod = 1;
+	samplerInfo.maxLod = envMipLevels;
 
 	if (vkCreateSampler(device, &samplerInfo, nullptr, &defaultSampler) != VK_SUCCESS)
 	{
@@ -133,7 +132,12 @@ void IrradianceCubeMap::createRenderPass()
 
 	VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 
-	// Integration 맵용 렌더패스 별도 생성
+	// env 맵용 렌더 패스 
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &envCubeRenderPass));
+
+	// Integration 맵용 렌더패스 
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	colorAttachment.format = VK_FORMAT_R16G16_SFLOAT;
 
 	VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &integrationRenderPass));
@@ -200,7 +204,7 @@ void IrradianceCubeMap::buildPipeline(VulkanTutorialExtension* engine)
 	specularMapPipeline->updateTextureDescriptor(device, 0, 0, envCubeMap.cubeImageView, defaultSampler);
 
 	// BRDF LUT 파이프라인
-	integrationMapPipeline = std::make_shared<SimplePipelineTexOnly>(
+	integrationMapPipeline = std::make_shared<SimplePipelinePosTex>(
 		SpecularMapRes,
 		"shaders/BRDFIntegrationMapvert.spv",
 		"shaders/BRDFIntegrationMapfrag.spv",
@@ -236,161 +240,169 @@ void IrradianceCubeMap::draw(VkCommandBuffer commandBuffer, VulkanTutorialExtens
 	};
 
 	/** HDR equirectangularMap to HDR cubemap */
-	for (int i = 0; i < Faces; i++)
 	{
-		VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = frameBuffers[0][i];
-		renderPassInfo.renderArea.offset = { 0,0 };
-		renderPassInfo.renderArea.extent = { Res.width,Res.height };
-
 		std::array<VkClearValue, 1> clearValues{};
 		clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
-
-		GPUMarker Marker(commandBuffer, "IrradianceCubeMap");
-		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, envMapPipeline->getPipeline().pipeline);
-
 		VkViewport viewport = vkb::initializers::viewport(static_cast<float>(Res.width), static_cast<float>(Res.height), 0.0f, 1.0f);
 		VkRect2D scissor = vkb::initializers::rect2D(Res.width, Res.height, 0, 0);
+		VkDeviceSize offsets[] = { 0 };
 
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, envMapPipeline->getPipeline().pipeline);
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, envMapPipeline->getPipeline().layout, 0, 1, &envMapPipeline->getDescriptorSets()[0], 0, nullptr);
-
-		GPUDrawPushConstants pushConstants;
-		pushConstants.model = captureProjection * captureViews[i];
-		vkCmdPushConstants(commandBuffer, envMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
-
-		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &cube->mesh.vertexBuffer.Buffer, offsets);
 		vkCmdBindIndexBuffer(commandBuffer, cube->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-		// 드로우 커맨드 실행 (36개의 인덱스 = 12개 삼각형 = 6면의 큐브)
-		vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
-		vkCmdEndRenderPass(commandBuffer);
-	}
+		GPUMarker Marker(commandBuffer, "IrradianceCubeMap");
 
-	/** Generate mipmaps of HDR cubeamp */
-	const int mipLevels = static_cast<uint32_t>(std::floor(std::log2(max(Res.width, Res.height))));
-	engine->generateMipmaps(commandBuffer, envCubeMap.image, HDRFormat, Res.width, Res.height, mipLevels, 6);
-
-	/** HDR Cubemap to diffuse environment map */
-
-	for (int i = 0; i < Faces; i++)
-	{
-		VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
-		renderPassInfo.renderPass = renderPass;
-		renderPassInfo.framebuffer = diffuseFrameBuffers[0][i];
-		renderPassInfo.renderArea.offset = { 0,0 };
-		renderPassInfo.renderArea.extent = { DiffuseMapRes.width,DiffuseMapRes.height };
-
-		std::array<VkClearValue, 1> clearValues{};
-		clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-		renderPassInfo.pClearValues = clearValues.data();
-
-		GPUMarker Marker(commandBuffer, "DiffuseMap");
-		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffuseMapPipeline->getPipeline().pipeline);
-
-		VkViewport viewport = vkb::initializers::viewport(static_cast<float>(DiffuseMapRes.width), static_cast<float>(DiffuseMapRes.height), 0.0f, 1.0f);
-		VkRect2D scissor = vkb::initializers::rect2D(DiffuseMapRes.width, DiffuseMapRes.height, 0, 0);
-
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffuseMapPipeline->getPipeline().layout, 0, 1, &diffuseMapPipeline->getDescriptorSets()[0], 0, nullptr);
-
-		GPUDrawPushConstants pushConstants;
-		pushConstants.model = captureProjection * captureViews[i];
-		vkCmdPushConstants(commandBuffer, diffuseMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
-
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &cube->mesh.vertexBuffer.Buffer, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, cube->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
-
-		vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
-		vkCmdEndRenderPass(commandBuffer);
-	}
-
-	/** HDR Cubemap to specular environment map */
-
-	for (unsigned int mip = 0; mip < maxMipLevels; ++mip)
-	{
-		// reisze framebuffer according to mip-level size.
-		unsigned int mipWidth = SpecularMapRes.width * std::pow(0.5, mip);
-		unsigned int mipHeight = SpecularMapRes.height * std::pow(0.5, mip);
-
-		float roughness = (float)mip / (float)(maxMipLevels - 1);
-		for (unsigned int i = 0; i < 6; ++i)
-		{
+		for (int i = 0; i < Faces; i++) {
 			VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
-			renderPassInfo.renderPass = renderPass;
-			renderPassInfo.framebuffer = specularFrameBuffers[mip][i];
-			renderPassInfo.renderArea.offset = { 0,0 };
-			renderPassInfo.renderArea.extent = { mipWidth,mipHeight };
-
-			std::array<VkClearValue, 1> clearValues{};
-			clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+			renderPassInfo.renderPass = envCubeRenderPass;
+			renderPassInfo.framebuffer = frameBuffers[0][i];
+			renderPassInfo.renderArea.offset = { 0, 0 };
+			renderPassInfo.renderArea.extent = { Res.width, Res.height };
 			renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 			renderPassInfo.pClearValues = clearValues.data();
 
-			GPUMarker Marker(commandBuffer, "SpecularMap");
 			vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, specularMapPipeline->getPipeline().pipeline);
-
-			VkViewport viewport = vkb::initializers::viewport(static_cast<float>(mipWidth), static_cast<float>(mipHeight), 0.0f, 1.0f);
-			VkRect2D scissor = vkb::initializers::rect2D(mipWidth, mipHeight, 0, 0);
-
 			vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 			vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, specularMapPipeline->getPipeline().layout, 0, 1, &specularMapPipeline->getDescriptorSets()[0], 0, nullptr);
 
 			GPUDrawPushConstants pushConstants;
 			pushConstants.model = captureProjection * captureViews[i];
-			vkCmdPushConstants(commandBuffer, specularMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
-			vkCmdPushConstants(commandBuffer, specularMapPipeline->getPipeline().layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(GPUDrawPushConstants), sizeof(float), &roughness);
-
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &cube->mesh.vertexBuffer.Buffer, offsets);
-			vkCmdBindIndexBuffer(commandBuffer, cube->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdPushConstants(commandBuffer, envMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
 
 			vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
 			vkCmdEndRenderPass(commandBuffer);
 		}
 	}
 
-	/** Specular BRDF Integration map*/
+	/** Generate mipmaps of HDR cubemap */
+	const int mipLevels = static_cast<uint32_t>(std::floor(std::log2(max(Res.width, Res.height))));
+	//engine->transitionImageLayout(commandBuffer, envCubeMap.image, HDRFormat,
+	//	VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+	//	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	//	1, 6, 0); // levelCount=1, layerCount=6, baseMipLevel=0
+	engine->transitionImageLayout(commandBuffer, envCubeMap.image, HDRFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		mipLevels - 1, 6, 1); // levelCount=mipLevels-1, layerCount=6, baseMipLevel=1
 
-	VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
-	renderPassInfo.renderPass = integrationRenderPass;
-	renderPassInfo.framebuffer = integrationFrameBuffers;
-	renderPassInfo.renderArea.offset = { 0,0 };
-	renderPassInfo.renderArea.extent = IntegraionMapRes;
+	engine->generateMipmaps(commandBuffer, envCubeMap.image, HDRFormat, Res.width, Res.height, mipLevels, 6);
 
-	std::array<VkClearValue, 1> clearValues{};
-	clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
+	/** HDR Cubemap to diffuse environment map */
+	{
+		std::array<VkClearValue, 1> clearValues{};
+		clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+		VkViewport viewport = vkb::initializers::viewport(static_cast<float>(DiffuseMapRes.width), static_cast<float>(DiffuseMapRes.height), 0.0f, 1.0f);
+		VkRect2D scissor = vkb::initializers::rect2D(DiffuseMapRes.width, DiffuseMapRes.height, 0, 0);
+		VkDeviceSize offsets[] = { 0 };
 
-	GPUMarker Marker(commandBuffer, "IntegrationMap");
-	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, integrationMapPipeline->getPipeline().pipeline);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffuseMapPipeline->getPipeline().pipeline);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, diffuseMapPipeline->getPipeline().layout, 0, 1, &diffuseMapPipeline->getDescriptorSets()[0], 0, nullptr);
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &cube->mesh.vertexBuffer.Buffer, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, cube->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-	VkViewport viewport = vkb::initializers::viewport(static_cast<float>(IntegraionMapRes.width), static_cast<float>(IntegraionMapRes.height), 0.0f, 1.0f);
-	VkRect2D scissor = vkb::initializers::rect2D(IntegraionMapRes.width, IntegraionMapRes.height, 0, 0);
+		GPUMarker Marker(commandBuffer, "DiffuseMap");
 
-	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+		for (int i = 0; i < Faces; i++) {
+			VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
+			renderPassInfo.renderPass = renderPass;
+			renderPassInfo.framebuffer = diffuseFrameBuffers[0][i];
+			renderPassInfo.renderArea.offset = { 0, 0 };
+			renderPassInfo.renderArea.extent = { DiffuseMapRes.width, DiffuseMapRes.height };
+			renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+			renderPassInfo.pClearValues = clearValues.data();
 
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &quad->mesh.vertexBuffer.Buffer, offsets);
-	vkCmdBindIndexBuffer(commandBuffer, quad->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+			vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
-	vkCmdEndRenderPass(commandBuffer);
+			GPUDrawPushConstants pushConstants;
+			pushConstants.model = captureProjection * captureViews[i];
+			vkCmdPushConstants(commandBuffer, diffuseMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+
+			vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
+			vkCmdEndRenderPass(commandBuffer);
+		}
+	}
+
+	/** HDR Cubemap to specular environment map */
+	{
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &cube->mesh.vertexBuffer.Buffer, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, cube->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, specularMapPipeline->getPipeline().pipeline);
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, specularMapPipeline->getPipeline().layout, 0, 1, &specularMapPipeline->getDescriptorSets()[0], 0, nullptr);
+
+		GPUMarker Marker(commandBuffer, "SpecularMap");
+
+		for (unsigned int mip = 0; mip < maxMipLevels; ++mip) {
+			// resize framebuffer according to mip-level size.
+			unsigned int mipWidth = SpecularMapRes.width * std::pow(0.5, mip);
+			unsigned int mipHeight = SpecularMapRes.height * std::pow(0.5, mip);
+
+			VkViewport viewport = vkb::initializers::viewport(static_cast<float>(mipWidth), static_cast<float>(mipHeight), 0.0f, 1.0f);
+			VkRect2D scissor = vkb::initializers::rect2D(mipWidth, mipHeight, 0, 0);
+
+			float roughness = (float)mip / (float)(maxMipLevels - 1);
+
+			for (unsigned int i = 0; i < 6; ++i) {
+				std::array<VkClearValue, 1> clearValues{};
+				clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+
+				VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
+				renderPassInfo.renderPass = renderPass;
+				renderPassInfo.framebuffer = specularFrameBuffers[mip][i];
+				renderPassInfo.renderArea.offset = { 0, 0 };
+				renderPassInfo.renderArea.extent = { mipWidth, mipHeight };
+				renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+				renderPassInfo.pClearValues = clearValues.data();
+
+				vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+				GPUDrawPushConstants pushConstants;
+				pushConstants.model = captureProjection * captureViews[i];
+				vkCmdPushConstants(commandBuffer, specularMapPipeline->getPipeline().layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+				vkCmdPushConstants(commandBuffer, specularMapPipeline->getPipeline().layout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(GPUDrawPushConstants), sizeof(float), &roughness);
+
+				vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
+				vkCmdEndRenderPass(commandBuffer);
+			}
+		}
+	}
+
+	/** Specular BRDF Integration map */
+	{
+		std::array<VkClearValue, 1> clearValues{};
+		clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+
+		VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
+		renderPassInfo.renderPass = integrationRenderPass;
+		renderPassInfo.framebuffer = integrationFrameBuffers;
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = IntegraionMapRes;
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
+
+		VkViewport viewport = vkb::initializers::viewport(static_cast<float>(IntegraionMapRes.width), static_cast<float>(IntegraionMapRes.height), 0.0f, 1.0f);
+		VkRect2D scissor = vkb::initializers::rect2D(IntegraionMapRes.width, IntegraionMapRes.height, 0, 0);
+		VkDeviceSize offsets[] = { 0 };
+
+		GPUMarker Marker(commandBuffer, "IntegrationMap");
+
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, integrationMapPipeline->getPipeline().pipeline);
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &quad->mesh.vertexBuffer.Buffer, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, quad->mesh.indexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+		vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+		vkCmdEndRenderPass(commandBuffer);
+	}
 }
 
 void IrradianceCubeMap::clear()
@@ -437,9 +449,11 @@ CubeMap IrradianceCubeMap::createCubeImage(VulkanTutorial* engine, uint32_t mipL
 	AllocatedImage allocatedImage =
 		engine->createImage(extent.width, extent.height, mipLevels, VK_SAMPLE_COUNT_1_BIT, format,
 			VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			debugName.c_str(), Faces, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+			debugName.c_str(), 
+			Faces, 
+			VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 
 	cubeMap.image = allocatedImage.image;
 	cubeMap.imageMemory = allocatedImage.imageMemory;

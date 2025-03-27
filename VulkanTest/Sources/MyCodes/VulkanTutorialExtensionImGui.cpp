@@ -82,6 +82,10 @@ void ImGui::ShowVulkanWindow(bool* p_open)
 		ImGui::SliderFloat("DirectionalLightIntensity", &VulkanTutorialExtension::directionalLightIntensity, 0.0f, 100.0f, "%.1f", flags_for_sliders);
 	}
 
+	// Sliders
+	static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
+	const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
+
 	if (ImGui::CollapsingHeader("Point Lights"))
 	{
 		if (ImGui::BeginTable("pointLights", 4))
@@ -95,9 +99,6 @@ void ImGui::ShowVulkanWindow(bool* p_open)
 			ImGui::EndTable();
 		}
 
-		// Sliders
-		static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
-		const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
 		ImGui::SliderFloat("pointLightlinear", &VulkanTutorialExtension::pointLightlinear, 0.0f, 1.0f, "%.3f", flags_for_sliders);
 		ImGui::SliderFloat("pointLightQuadratic", &VulkanTutorialExtension::pointLightQuadratic, 0.0f, 1.0f, "%.3f", flags_for_sliders);
 		ImGui::SliderFloat("pointLightIntensity", &VulkanTutorialExtension::pointLightIntensity, 0.0f, 100.0f, "%.1f", flags_for_sliders);
@@ -111,7 +112,19 @@ void ImGui::ShowVulkanWindow(bool* p_open)
 		ImGui::RadioButton("Albedo", &VulkanTutorialExtension::debugDisplayTarget, 3); 
 		ImGui::RadioButton("AO", &VulkanTutorialExtension::debugDisplayTarget, 4); ImGui::SameLine();
 		ImGui::RadioButton("Roughness", &VulkanTutorialExtension::debugDisplayTarget, 5); ImGui::SameLine();
-		ImGui::RadioButton("Metallic", &VulkanTutorialExtension::debugDisplayTarget, 6); ImGui::SameLine();
+		ImGui::RadioButton("Metallic", &VulkanTutorialExtension::debugDisplayTarget, 6);
+	}
+
+	if (ImGui::CollapsingHeader("Light Components"))
+	{
+		ImGui::RadioButton("None", &VulkanTutorialExtension::debugDisplayTarget, 0); ImGui::SameLine();
+		ImGui::RadioButton("Specular", &VulkanTutorialExtension::debugDisplayTarget, 7); ImGui::SameLine();
+		ImGui::RadioButton("Diffuse", &VulkanTutorialExtension::debugDisplayTarget, 8);
+	}
+
+	if (ImGui::CollapsingHeader("Post Processing"))
+	{
+		ImGui::SliderFloat("Exposure", &VulkanTutorialExtension::exposure, 0.0f, 10.0f, "%.01f", flags_for_sliders);
 	}
 
 	ImGui::Spacing();	

@@ -6,13 +6,11 @@
 #define USE_MSAA 0
 #endif
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
 #include "vk_loader.h"
+#include "vk_resource_utils.h"
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -57,7 +55,8 @@ std::vector<char> readFile(const std::string& filename)
 }
 
 VulkanTutorial::VulkanTutorial()
-	{}
+{
+}
 
 	void VulkanTutorial::run()
 	{
@@ -1176,7 +1175,7 @@ VulkanTutorial::VulkanTutorial()
 		// 이미지 -> 스테이징버퍼     -> 이미지 -> 바인딩.
 		// 이미지를 로드해서 스테이징 버퍼에 채워넣는다. 
 		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc* pixels = Utils::loadImage(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, Utils::STBI_rgb_alpha);
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 		mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight))));
 
@@ -1194,7 +1193,7 @@ VulkanTutorial::VulkanTutorial()
 		memcpy(data, pixels, (size_t)imageSize);
 		vkUnmapMemory(device, stagingBufferMemory);
 
-		stbi_image_free(pixels);
+		Utils::freeImage(pixels);
 
 		// VK_IMAGE_LAYOUT에 따라서 이미지 Access mask와 Pipeline Stage를 결정한다. 
 		AllocatedImage allocatedImage = createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT /* for blit */ | VK_IMAGE_USAGE_TRANSFER_DST_BIT /* for staging buffer*/ | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "DefaultTexture");
@@ -1213,7 +1212,7 @@ VulkanTutorial::VulkanTutorial()
 
 		// default white texture
 
-		pixels = stbi_load(WHITE_TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		pixels = Utils::loadImage(WHITE_TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, Utils::STBI_rgb_alpha);
 		if (!pixels)
 		{
 			throw std::runtime_error("failed to load texture image!");
@@ -1242,7 +1241,7 @@ VulkanTutorial::VulkanTutorial()
 		memcpy(data, inData, (size_t)imageSize);
 		vkUnmapMemory(device, stagingBufferMemory);
 
-		stbi_image_free(inData);
+		Utils::freeImage(inData);
 
 		// VK_IMAGE_LAYOUT에 따라서 이미지 Access mask와 Pipeline Stage를 결정한다. 
 		AllocatedImage allocatedImage = createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, inFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT /* for blit */ | VK_IMAGE_USAGE_TRANSFER_DST_BIT /* for staging buffer*/ | inUsageFlag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, name);
@@ -1269,14 +1268,14 @@ VulkanTutorial::VulkanTutorial()
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void VulkanTutorial::transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels)
+	void VulkanTutorial::transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount, uint32_t baseMipLevel)
 	{
 		/**
 		* 이미지 레이아웃을 왜 전환하는가 ?
 		* 이미지는 용도에 따라 다른 메모리 레이아웃을 사용합니다.
 		* 레이아웃 전환은 GPU에서 메모리 재구성이 필요합니다.
 		* 배리어는 이전 작업이 완료될 때까지 기다린 후 레이아웃을 변경하고, 그 다음 새 작업을 시작하도록 합니다.
-		*/ 
+		*/
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1297,23 +1296,24 @@ VulkanTutorial::VulkanTutorial()
 		{
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		}
-		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.baseMipLevel = baseMipLevel;
 		barrier.subresourceRange.levelCount = mipLevels;
 		barrier.subresourceRange.baseArrayLayer = 0;
-		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.layerCount = layerCount;
 
 		/**
 		* srcAccessMask: 이전 레이아웃에서 이미지에 어떻게 접근했는지
 		* dstAccessMask: 새 레이아웃에서 이미지에 어떻게 접근할 것인지
 		* srcStage: 이전 작업이 일어나는 파이프라인 단계
 		* dstStage: 새 작업이 일어날 파이프라인 단계
-		* 
+		*
 		* VK_PIPELINE_STAGE_TRANSFER_BIT이라는 PipelineStage는 실제로 없지만 Transfer 동작이 일어나는 psuedo stage이다.
 		* VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT는 돈케어다. 동작 전에 어떤 스테이지가 반드시 시작되어야하는 것은 아니기 때문에 첫 스테이지를 넣는다.
 		*/
 		VkPipelineStageFlagBits srcStage;
 		VkPipelineStageFlagBits dstStage;
-		if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+		if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL ||
+			(oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
 		{
 			barrier.srcAccessMask = 0;
 			srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -1589,7 +1589,6 @@ VulkanTutorial::VulkanTutorial()
 	
 	void VulkanTutorial::loadModels()
 	{
-		loadModel(MODEL_PATH, vertices, indices);
 	}
 	
 	void VulkanTutorial::loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices)
@@ -1647,8 +1646,6 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::createBuffers()
 	{
-		createVertexBuffer(vertices, vertexBuffer, vertexBufferMemory);
-		createIndexBuffer(indices, indexBuffer, indexBufferMemory);
 	}
 
 	void VulkanTutorial::createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory)
@@ -2105,10 +2102,6 @@ VulkanTutorial::VulkanTutorial()
 		vkFreeMemory(device, textureImageMemory, nullptr);
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(device, lightingPass.descriptorSetLayout, nullptr);
-		vkDestroyBuffer(device, vertexBuffer, nullptr);
-		vkFreeMemory(device, vertexBufferMemory, nullptr);
-		vkDestroyBuffer(device, indexBuffer, nullptr);
-		vkFreeMemory(device, indexBufferMemory, nullptr);
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			vkDestroySemaphore(device, renderFinishedSemaphore[i], nullptr);

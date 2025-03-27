@@ -173,10 +173,10 @@ private:
 	virtual void createVertexInput() override;
 };
 
-class SimplePipelineTexOnly : public SimplePipeline
+class SimplePipelinePosTex : public SimplePipeline
 {
 public:
-	SimplePipelineTexOnly(VkExtent2D viewportExtent, std::string vertShaderPath, std::string fragShaderPath,
+	SimplePipelinePosTex(VkExtent2D viewportExtent, std::string vertShaderPath, std::string fragShaderPath,
 		RenderType renderType, VkDescriptorPool pool, int swapchainImageNum)
 		:SimplePipeline(viewportExtent, vertShaderPath, fragShaderPath, renderType, pool, swapchainImageNum)
 	{

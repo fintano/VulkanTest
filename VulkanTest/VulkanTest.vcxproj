@@ -205,6 +205,8 @@ CALL compile.bat</Command>
     <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_engine.cpp" />
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_pathes.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_resource_utils.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_types.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtension.cpp" />
     <ClCompile Include="Sources\MyCodes\VulkanTutorialExtensionImGui.cpp" />
@@ -224,6 +226,8 @@ CALL compile.bat</Command>
     <ClInclude Include="Sources\MyCodes\vk_descriptor.h" />
     <ClInclude Include="Sources\MyCodes\vk_engine.h" />
     <ClInclude Include="Sources\MyCodes\Vk_loader.h" />
+    <ClInclude Include="Sources\MyCodes\vk_pathes.h" />
+    <ClInclude Include="Sources\MyCodes\vk_resource_utils.h" />
     <ClInclude Include="Sources\MyCodes\vk_types.h" />
     <ClInclude Include="Sources\MyCodes\VulkanTutorialExtensionImGui.h" />
     <ClInclude Include="Sources\MyCodes\UniformBuffer.h" />

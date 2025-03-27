@@ -3,6 +3,7 @@
 #include "vk_descriptor.h"
 #include "VulkanTools.h"
 #include "VulkanTutorialExtension.h"
+#include "vk_resource_utils.h"
 
 namespace vkinit = vkb::initializers;
 
@@ -73,8 +74,8 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	VkPipelineColorBlendStateCreateInfo colorBlendState = vkinit::pipeline_color_blend_state_create_info(blendAttachmentStates.size(), blendAttachmentStates.data());
 	pipelineCI.pColorBlendState = &colorBlendState;
 
-	VkShaderModule meshVertexShader = vks::tools::loadShader("shaders/shadervert.spv", extendedEngine->device);
-	VkShaderModule meshFragShader = vks::tools::loadShader("shaders/ObjectShaderfrag.spv", extendedEngine->device);
+	VkShaderModule meshVertexShader = Utils::loadShader("shaders/shadervert.spv", extendedEngine->device);
+	VkShaderModule meshFragShader = Utils::loadShader("shaders/ObjectShaderfrag.spv", extendedEngine->device);
 
 	// Shaders
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -139,7 +140,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 
 	{
 		vkDestroyShaderModule(extendedEngine->device, meshFragShader, nullptr);
-		meshFragShader = vks::tools::loadShader("shaders/ForwardPassfrag.spv", extendedEngine->device);
+		meshFragShader = Utils::loadShader("shaders/ForwardPassfrag.spv", extendedEngine->device);
 		shaderStages[1].module = meshFragShader;
 		pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
 		pipelineCI.pStages = shaderStages.data();

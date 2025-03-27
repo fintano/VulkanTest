@@ -2,6 +2,7 @@
 #include "VulkanTutorialExtension.h" 
 #include "VulkanTools.h"       
 #include "vk_initializers.h"
+#include "vk_resource_utils.h"
 
 // 정적 변수 초기화
 std::unordered_map<uint32_t, size_t> SimplePipeline::TypeSizeTracker::typeSizes;
@@ -193,8 +194,8 @@ void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::functio
     }
 
     // Shaders
-    VkShaderModule meshVertexShader = vks::tools::loadShader(vertShaderPath.c_str(), device);
-    VkShaderModule meshFragShader = vks::tools::loadShader(fragShaderPath.c_str(), device);
+    VkShaderModule meshVertexShader = Utils::loadShader(vertShaderPath.c_str(), device);
+    VkShaderModule meshFragShader = Utils::loadShader(fragShaderPath.c_str(), device);
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -358,7 +359,7 @@ void SimplePipelinePosOnly::createVertexInput()
     VertexOnlyPos::getAttributeDescriptions(attributeDescriptions);
 }
 
-void SimplePipelineTexOnly::createVertexInput()
+void SimplePipelinePosTex::createVertexInput()
 {
     VertexOnlyTex::getBindingDescriptions(bindingDescriptions);
     VertexOnlyTex::getAttributeDescriptions(attributeDescriptions);

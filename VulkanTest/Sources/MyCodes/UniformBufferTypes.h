@@ -52,7 +52,9 @@ struct GPUSceneData {
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
 
-	alignas(16) int debugDisplayTarget;
+	float exposure = 1.f;
+	int debugDisplayTarget;
+	int padding[2];
 
 	DirLight dirLight;
 	PointLightsUniform activePointLight;

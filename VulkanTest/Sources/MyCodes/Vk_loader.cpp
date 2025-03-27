@@ -2,9 +2,6 @@
 #include <iostream>
 #include <vk_loader.h>
 
-//#include "vk_engine.h"
-//#include "vk_initializers.h"
-//#include "vk_types.h"
 #include <glm/gtx/quaternion.hpp>
 
 #include <fastgltf/glm_element_traits.hpp>
@@ -15,6 +12,8 @@
 #include "VulkanTutorialExtension.h"
 #include "vk_initializers.h"
 #include "VulkanTools.h"
+#include "vk_resource_utils.h"
+#include "vk_pathes.h"
 
 VkFilter extract_filter(fastgltf::Filter filter)
 {
@@ -167,9 +166,9 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
 	constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers;
 
 	fastgltf::Parser parser{};
-    fastgltf::Expected<fastgltf::GltfDataBuffer> data = fastgltf::GltfDataBuffer::FromPath(filePath);
+    fastgltf::Expected<fastgltf::GltfDataBuffer> data = Utils::loadModel(filePath);
     fastgltf::Asset gltf;
-    std::filesystem::path path = filePath;
+    std::filesystem::path path = Utils::GetProjectRoot() / filePath;
 
     auto type = fastgltf::determineGltfFileType(data.get());
     if (type == fastgltf::GltfType::glTF) {
@@ -188,7 +187,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
             gltf = std::move(load.get());
         }
         else {
-            std::cerr << "Failed to load glTF: " << fastgltf::to_underlying(load.error()) << std::endl;
+            std::cerr << "Failed to load glb: " << fastgltf::to_underlying(load.error()) << std::endl;
             return {};
         }
     }

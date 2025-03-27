@@ -13,7 +13,7 @@ struct Quad;
 class VulkanTutorial;
 class VulkanTutorialExtension;
 class SimplePipelinePosOnly;
-class SimplePipelineTexOnly;
+class SimplePipelinePosTex;
 
 using CubeFrameBuffer = std::vector<std::vector<VkFramebuffer>>;
 
@@ -46,7 +46,7 @@ private:
 	void createFrameBuffer(CubeFrameBuffer& frameBuffers, uint32_t mipLevels, const CubeMap& cubeMap, VkExtent2D extent, VkRenderPass renderPass = VK_NULL_HANDLE);
 	VkFramebuffer createFrameBuffer2D(const AllocatedImage& image, VkExtent2D extent, VkRenderPass renderPass = VK_NULL_HANDLE);
 
-	std::string equirectangularPath = "textures/brown_photostudio_02_4k.hdr";
+	std::string equirectangularPath = "textures/newport_loft.hdr";
 
 	VkFormat HDRFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 
@@ -62,6 +62,7 @@ private:
 	CubeMap envCubeMap;
 	std::shared_ptr<SimplePipelinePosOnly> envMapPipeline;
 	VkExtent2D Res = { 512, 512 };
+	VkRenderPass envCubeRenderPass;
 
 	// indirect diffuse map
 	CubeMap diffuseMap;
@@ -77,12 +78,13 @@ private:
 
 	AllocatedImage specularBRDFLUT;
 	VkFramebuffer integrationFrameBuffers;
-	std::shared_ptr<SimplePipelineTexOnly> integrationMapPipeline;
+	std::shared_ptr<SimplePipelinePosTex> integrationMapPipeline;
 	VkExtent2D IntegraionMapRes = { 512, 512 };
 	VkRenderPass integrationRenderPass;
 
 	const int maxMipLevels = 5;
 	const int Faces = 6;
+	const int envMipLevels;
 
 	std::shared_ptr<Cube<VertexOnlyPos>> cube;
 	std::shared_ptr<Quad<VertexOnlyTex>> quad;

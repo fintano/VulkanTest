@@ -8,7 +8,9 @@ layout(set = 0, binding = 0) uniform  SceneData{
 	mat4 view;
 	mat4 proj;
 
+	float exposure;
 	int debugDisplayTarget;
+	int padding[2];
 
 	DirLight dirLight;
 	ActivePointLights activePointLights;

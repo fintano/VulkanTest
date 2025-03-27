@@ -9,6 +9,7 @@
 #include "Cube.h"
 #include "Skybox.h"
 #include "SimplePipeline.h"
+#include "vk_resource_utils.h"
 
 static int UniqueBufferIndex = 0;
 
@@ -19,6 +20,7 @@ int VulkanTutorialExtension::instanceCount = 2;
 int VulkanTutorialExtension::maxInstanceCount = instanceCount;
 bool VulkanTutorialExtension::useDirectionalLight = false;
 int VulkanTutorialExtension::debugDisplayTarget = 0;
+float VulkanTutorialExtension::exposure = 1.f;
 bool VulkanTutorialExtension::usePointLights = true;
 std::array<bool, NR_POINT_LIGHTS> VulkanTutorialExtension::pointLightsSwitch;
 float VulkanTutorialExtension::pointLightlinear = 0.09f;
@@ -332,7 +334,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 
 void VulkanTutorialExtension::init_default_data()
 {
-	auto structureFile = loadGltf(this, "models/MetalRoughSpheres.glb");
+	auto structureFile = loadGltf(this, "models/CompareMetallic.glb");
 	assert(structureFile.has_value());
 
 	loadedScenes["structure"] = *structureFile;
@@ -365,6 +367,7 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 
 	GPUSceneData& sceneData = globalSceneData.getFirstInstanceData();
 
+	sceneData.exposure = exposure;
 	sceneData.debugDisplayTarget = debugDisplayTarget;
 	sceneData.viewPos = camera.Position;
 	sceneData.view = viewMat;
@@ -608,17 +611,14 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.basePipelineIndex = -1;
 
 	// point light objects
-	auto vertShaderCode = readFile("shaders/shadervert.spv");
-	auto fragShaderCode = readFile("shaders/ForwardPassfrag.spv");
+	auto vertShaderModule = Utils::loadShader("shaders/shadervert.spv", device);
+	auto fragShaderModule = Utils::loadShader("shaders/ForwardPassfrag.spv", device);
 
 	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
 	Vertex::getBindingDescriptions(bindingDescriptions);
 
 	std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
 	Vertex::getAttributeDescriptions(attributeDescriptions);
-
-	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -696,11 +696,8 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	Instance::getBindingDescriptions(bindingDescriptions);
 	Instance::getAttributeDescriptions(attributeDescriptions);
 
-	vertShaderCode = readFile("shaders/ObjectShadervert.spv");
-	fragShaderCode = readFile("shaders/ObjectShaderfrag.spv");
-
-	vertShaderModule = createShaderModule(vertShaderCode);
-	fragShaderModule = createShaderModule(fragShaderCode);
+	vertShaderModule = Utils::loadShader("shaders/ObjectShadervert.spv", device);
+	fragShaderModule = Utils::loadShader("shaders/ObjectShaderfrag.spv", device);
 
 	vertShaderStageInfo.module = vertShaderModule;
 	fragShaderStageInfo.module = fragShaderModule;
@@ -749,13 +746,10 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	mesh_layout_info.pSetLayouts = layouts.data();
 	
 	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &mesh_layout_info, nullptr, &lightingPass.pipelineLayout));
-
-	vertShaderCode = readFile("shaders/LightingPassvert.spv");
-	fragShaderCode = readFile("shaders/Pbrfrag.spv");
-
-	vertShaderModule = createShaderModule(vertShaderCode);
-	fragShaderModule = createShaderModule(fragShaderCode);
-
+	 
+	vertShaderModule = Utils::loadShader("shaders/LightingPassvert.spv", device);
+	fragShaderModule = Utils::loadShader("shaders/Pbrfrag.spv", device);
+	
 	vertShaderStageInfo.module = vertShaderModule;
 	fragShaderStageInfo.module = fragShaderModule;
 
@@ -797,7 +791,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer, size_t index)
 {	
 	// PBR 디버그 용
-	//irradianceCubeMap->draw(commandBuffer);
+	irradianceCubeMap->draw(commandBuffer, this);
 
 	VulkanTutorial::recordCommandBuffer(commandBuffer, index);
 }

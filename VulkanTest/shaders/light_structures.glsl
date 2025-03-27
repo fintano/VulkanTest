@@ -65,7 +65,42 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
-vec3 CalcDirLight(DirLight light, vec3 N, vec3 V, vec3 albedo, float roughness, float metallic)
+vec3 CalcPointLight(PointLight light, vec3 normalVec, vec3 viewDir, vec3 fragPosition, vec3 albedoColor, float roughnessValue, float metallicValue, vec3 F0Value, float diffuseFactor, float specularFactor)
+{
+    // 광원을 향한 벡터
+    vec3 L = normalize(light.position - fragPosition);
+    // 하프 벡터
+    vec3 H = normalize(viewDir + L);
+    
+    // 포인트 라이트의 광도 계산
+    float distance = length(light.position - fragPosition);
+    float attenuation = 1.0 / (distance * distance);
+    vec3 lightColor = light.colorIntensity.rgb;
+    float intensity = light.colorIntensity.a;
+    vec3 radiance = lightColor * intensity * attenuation;
+    
+    // BRDF 계산
+    float NDF = DistributionGGX(normalVec, H, roughnessValue);
+    float G = GeometrySmith(normalVec, viewDir, L, roughnessValue);
+    vec3 F = fresnelSchlick(max(dot(H, viewDir), 0.0), F0Value);
+    
+    vec3 numerator = NDF * G * F;
+    float denominator = 4.0 * max(dot(normalVec, viewDir), 0.0) * max(dot(normalVec, L), 0.0) + 0.0001;
+    vec3 specular = numerator / denominator;
+    
+    // kS와 kD 계산
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallicValue;
+    
+    // 광원과 현재 위치의 각도에 따른 빛의 세기
+    float NdotL = max(dot(normalVec, L), 0.0);
+    
+    // 최종 반환값
+    return (kD * albedoColor / PI * diffuseFactor + specular * specularFactor) * radiance * NdotL;
+}
+
+vec3 CalcDirLight(DirLight light, vec3 N, vec3 V, vec3 albedo, float roughness, float metallic, float diffuseFactor, float specularFactor)
 {
     vec3 F0 = vec3(0.04);
 	F0      = mix(F0, albedo, metallic);
@@ -98,5 +133,5 @@ vec3 CalcDirLight(DirLight light, vec3 N, vec3 V, vec3 albedo, float roughness, 
 	float NdotL = max(dot(N, L), 0.0);
 
 	// 최종식
-	return (kD * albedo / PI + specular) * radiance * NdotL;
+	return (kD * albedo / PI * diffuseFactor + specular * specularFactor) * radiance * NdotL;
 }

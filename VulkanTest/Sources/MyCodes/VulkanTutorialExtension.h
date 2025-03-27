@@ -23,6 +23,7 @@ public:
 	static int maxInstanceCount;
 	static bool useDirectionalLight;
 	static int debugDisplayTarget;
+	static float exposure;
 	static bool usePointLights;
 	static std::array<bool, NR_POINT_LIGHTS> pointLightsSwitch;
 	static float pointLightlinear;
