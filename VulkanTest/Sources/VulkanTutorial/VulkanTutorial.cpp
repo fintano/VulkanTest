@@ -532,7 +532,7 @@ VulkanTutorial::VulkanTutorial()
 		for (const auto& availableFormat : availableFormats)
 		{
 			if (availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR &&
-				availableFormat.format == VK_FORMAT_R8G8B8A8_SRGB)
+				availableFormat.format == VK_FORMAT_R8G8B8A8_UNORM)
 			{
 				return availableFormat;
 			}
