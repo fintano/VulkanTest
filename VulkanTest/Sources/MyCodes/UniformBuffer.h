@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdexcept>
+#include <iostream>
 
 template<typename T> 
 struct UniformBuffer
@@ -82,6 +83,10 @@ private:
 		if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create vertex buffer!");
+		}
+		else
+		{
+			std::cout << "Uniform Buffer VkBuffer " << buffer << " " << std::endl;
 		}
 
 		VkMemoryRequirements memRequirements;

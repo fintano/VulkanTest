@@ -26,6 +26,7 @@ const char* aoPath
 
 	assert(albedoPath);
 	AllocatedImage colorImage = engine->createTexture2D(albedoPath, VK_FORMAT_R8G8B8A8_UNORM);
+	images.push_back(colorImage);
 
 	AllocatedImage normal, metallic, roughness, AO;
 	if (normalPath)
@@ -87,5 +88,11 @@ void MaterialTester::cleanUp(VkDevice device)
 		image.Destroy(device);
 	}
 
+	for(auto& [name, material] : materialMap)
+	{
+		material.constants.destroy(0);
+	}
+
 	sphere->cleanUp(device);
+	cube->cleanUp(device);
 }

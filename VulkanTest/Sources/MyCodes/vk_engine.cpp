@@ -47,7 +47,8 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	// Pipelines
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vkinit::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
 	VkPipelineViewportStateCreateInfo viewportState = vkinit::pipeline_viewport_state_create_info(1, 1, 0);
-	VkPipelineRasterizationStateCreateInfo rasterizationState = vkinit::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
+	// NOTE : Vulkan은 y-flipped 되어있기 때문에 VK_FRONT_FACE_COUNTER_CLOCKWISE가 아니라 VK_FRONT_FACE_CLOCKWISE 이어야 한다!
+	VkPipelineRasterizationStateCreateInfo rasterizationState = vkinit::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE, 0);
 	VkPipelineMultisampleStateCreateInfo multisampleState = vkinit::pipeline_multisample_state_create_info(VK_SAMPLE_COUNT_1_BIT, 0);
 	VkPipelineDepthStencilStateCreateInfo depthStencilState = vkinit::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
 	

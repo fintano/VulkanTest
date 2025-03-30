@@ -27,7 +27,7 @@ void main()
 			FragColor = vec4(N, 1.0);
 			return;
 		case 3:
-			FragColor = vec4(texCoords, 1.0 , 1.0);
+			FragColor = vec4(albedo, 1.0);
 			return;
 		case 4:
 			FragColor = vec4(ao, 1.0);
@@ -114,5 +114,5 @@ void main()
     // gamma correct
     color = pow(color, vec3(1.0/2.2)); 
 
-    FragColor = vec4(N, 1.0);
+    FragColor = vec4(color, 1.0);
 }

@@ -417,6 +417,7 @@ void IrradianceCubeMap::clear()
 	integrationMapPipeline->cleanup(device);
 
 	vkDestroyRenderPass(device, renderPass, nullptr);
+	vkDestroyRenderPass(device, envCubeRenderPass, nullptr);
 	vkDestroyRenderPass(device, integrationRenderPass, nullptr);
 
 	auto destroyCubeFrameBuffer = [&](CubeFrameBuffer& thisFrameBuffer) {
