@@ -3,9 +3,16 @@
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+#include <algorithm>
 #include "Buffer.h"
 #include "Vertex.h"
 #include "VulkanTutorial.h"
+
+#include "VulkanTutorialExtension.h"
+#include "vk_initializers.h"
+#include "VulkanTools.h"
+#include "vk_resource_utils.h"
+#include "vk_pathes.h"
 
 template<typename T>
 struct Sphere
@@ -64,14 +71,14 @@ struct Sphere
             if ((i % 2) == 0)
             {
                 triangleListIndices.push_back(indices[i]);
-                triangleListIndices.push_back(indices[i + 1]);
                 triangleListIndices.push_back(indices[i + 2]);
+                triangleListIndices.push_back(indices[i + 1]);
             }
             else
             {
                 triangleListIndices.push_back(indices[i]);
-                triangleListIndices.push_back(indices[i + 2]);
                 triangleListIndices.push_back(indices[i + 1]);
+                triangleListIndices.push_back(indices[i + 2]);
             }
         }
 
@@ -211,6 +218,78 @@ struct Sphere
         else
         {
             assert(false);
+        }
+
+        // 삼각형 감김 방향 테스트 코드 추가
+        {
+            std::cout << "Analyzing winding order for sphere mesh...\n";
+            int ccwCount = 0;
+            int cwCount = 0;
+
+            auto isCounterClockwise = [](const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& normal) -> bool {
+                // 삼각형의 두 엣지 계산
+                glm::vec3 edge1 = p1 - p0;
+                glm::vec3 edge2 = p2 - p0;
+
+                // 외적을 통해 삼각형의 법선 계산
+                glm::vec3 computedNormal = glm::cross(edge1, edge2);
+
+                // 계산된 법선과 주어진 법선의 방향이 일치하는지 확인
+                return glm::dot(computedNormal, normal) > 0.0f;
+                };
+
+            for (size_t i = 0; i < triangleListIndices.size(); i += 3) {
+                uint32_t idx0 = triangleListIndices[i];
+                uint32_t idx1 = triangleListIndices[i + 1];
+                uint32_t idx2 = triangleListIndices[i + 2];
+
+                glm::vec3 p0 = positions[idx0];
+                glm::vec3 p1 = positions[idx1];
+                glm::vec3 p2 = positions[idx2];
+                glm::vec3 normal = normals[idx0]; // 구의 경우 정점 위치가 정규화된 법선과 동일
+
+                bool isCCW = isCounterClockwise(p0, p1, p2, normal);
+
+                if (isCCW) {
+                    ccwCount++;
+                }
+                else {
+                    cwCount++;
+                }
+
+                // 첫 10개 삼각형의 분석 결과 출력
+                if (i / 3 < 10) {
+                    std::cout << "Triangle " << (i / 3) << ": "
+                        << (isCCW ? "CCW" : "CW") << "\n";
+                    std::cout << "  Positions: ("
+                        << p0.x << ", " << p0.y << ", " << p0.z << "), ("
+                        << p1.x << ", " << p1.y << ", " << p1.z << "), ("
+                        << p2.x << ", " << p2.y << ", " << p2.z << ")\n";
+                    std::cout << "  Normal: ("
+                        << normal.x << ", " << normal.y << ", " << normal.z << ")\n";
+                }
+            }
+
+            std::cout << "Winding order analysis complete: "
+                << ccwCount << " CCW triangles, "
+                << cwCount << " CW triangles\n";
+
+            if (ccwCount > 0 || cwCount > 0) {
+                float consistencyPercentage = (max(ccwCount, cwCount)) / (float)(ccwCount + cwCount) * 100.0f;
+                std::cout << "Sphere is primarily "
+                    << (ccwCount > cwCount ? "COUNTER-CLOCKWISE" : "CLOCKWISE")
+                    << " (" << consistencyPercentage << "% consistent)\n";
+
+                if (ccwCount > cwCount) {
+                    std::cout << "For Vulkan rendering with Y-flip, use VK_FRONT_FACE_CLOCKWISE\n";
+                }
+                else {
+                    std::cout << "For Vulkan rendering with Y-flip, use VK_FRONT_FACE_COUNTER_CLOCKWISE\n";
+                }
+            }
+            else {
+                std::cout << "No valid triangles found for winding analysis!\n";
+            }
         }
 
         mesh.indexBuffer.indices = triangleListIndices;

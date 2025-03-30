@@ -297,7 +297,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 
 void VulkanTutorialExtension::init_default_data()
 {
-	auto structureFile = loadGltf(this, "models/CompareMetallic.glb");
+	auto structureFile = loadGltf(this, "models/MetalRoughSpheres.glb");
 	assert(structureFile.has_value());
 
 	loadedScenes["structure"] = *structureFile;
@@ -321,18 +321,18 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	mainDrawContext.OpaqueSurfaces.clear();
 	mainDrawContext.TranslucentSurfaces.clear();
 
-	//loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
+	loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
 	loadedScenes["gizmo"]->Draw(glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)), mainDrawContext);
-	materialTester->draw(mainDrawContext, "gold");
+	//materialTester->draw(mainDrawContext, "gold");
 
 	glm::mat4 viewMat = camera.GetViewMatrix();
 	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
 	persMat[1][1] *= -1;
 
 	GPUSceneData& sceneData = globalSceneData.getFirstInstanceData();
-
-	sceneData.exposure = exposure;
-	sceneData.debugDisplayTarget = debugDisplayTarget;
+	sceneData = {};
+	sceneData.exposureDisplay.x = exposure;
+	sceneData.exposureDisplay.y = debugDisplayTarget;
 	sceneData.viewPos = camera.Position;
 	sceneData.view = viewMat;
 	// camera projection

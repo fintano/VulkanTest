@@ -155,6 +155,19 @@ std::optional<AllocatedImage> load_image(VulkanTutorialExtension* engine, fastgl
     }
 }
 
+// 메시의 winding order 분석을 위한 함수 - 함수 시작 전에 추가
+bool isCounterClockwise(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& normal) {
+    // 삼각형의 두 엣지 계산
+    glm::vec3 edge1 = p1 - p0;
+    glm::vec3 edge2 = p2 - p0;
+
+    // 외적을 통해 삼각형의 법선 계산
+    glm::vec3 computedNormal = glm::cross(edge1, edge2);
+
+    // 계산된 법선과 주어진 법선의 방향이 일치하는지 확인
+    return glm::dot(computedNormal, normal) > 0.0f;
+}
+
 std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* engine, std::string_view filePath)
 {
 	std::cout << "Loading GLTF : " << filePath << std::endl;
@@ -474,6 +487,56 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
             //    // 바이탄젠트 재계산
             //    v.bitangent = glm::cross(v.normal, v.tangent);
             //}
+
+
+    // 여기에 감김 방향 분석 코드 추가
+            {
+                std::cout << "Analyzing winding order for mesh primitive...\n";
+                int ccwCount = 0;
+                int cwCount = 0;
+
+                for (size_t i = 0; i < newSurface.count; i += 3) {
+                    // 삼각형의 세 정점 인덱스
+                    uint32_t idx0 = indices[newSurface.startIndex + i] - initial_vtx;
+                    uint32_t idx1 = indices[newSurface.startIndex + i + 1] - initial_vtx;
+                    uint32_t idx2 = indices[newSurface.startIndex + i + 2] - initial_vtx;
+
+                    // 삼각형의 세 정점
+                    Vertex& v0 = vertices[initial_vtx + idx0];
+                    Vertex& v1 = vertices[initial_vtx + idx1];
+                    Vertex& v2 = vertices[initial_vtx + idx2];
+
+                    // 삼각형이 CCW인지 확인
+                    bool isCCW = isCounterClockwise(v0.pos, v1.pos, v2.pos, v0.normal);
+
+                    if (isCCW) {
+                        ccwCount++;
+                    }
+                    else {
+                        cwCount++;
+                    }
+
+                    // 첫 10개 삼각형의 분석 결과 출력
+                    if (i / 3 < 10) {
+                        std::cout << "Triangle " << (i / 3) << ": "
+                            << (isCCW ? "CCW" : "CW") << "\n";
+                        std::cout << "  Positions: ("
+                            << v0.pos.x << ", " << v0.pos.y << ", " << v0.pos.z << "), ("
+                            << v1.pos.x << ", " << v1.pos.y << ", " << v1.pos.z << "), ("
+                            << v2.pos.x << ", " << v2.pos.y << ", " << v2.pos.z << ")\n";
+                        std::cout << "  Normal: ("
+                            << v0.normal.x << ", " << v0.normal.y << ", " << v0.normal.z << ")\n";
+                    }
+                }
+
+                std::cout << "Winding order analysis complete: "
+                    << ccwCount << " CCW triangles, "
+                    << cwCount << " CW triangles\n";
+                std::cout << "Model is primarily "
+                    << (ccwCount > cwCount ? "COUNTER-CLOCKWISE" : "CLOCKWISE")
+                    << " (" << (float)max(ccwCount, cwCount) / (ccwCount + cwCount) * 100.0f
+                    << "% consistent)\n";
+            }
 
             if (p.materialIndex.has_value()) {
                 newSurface.material = materials[p.materialIndex.value()];

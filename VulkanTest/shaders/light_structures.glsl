@@ -4,13 +4,16 @@ const float PI = 3.14159265359;
 struct DirLight
 {
     vec3 direction;
+    float _pad0;
     vec4 colorIntensity;
 };
 
 struct PointLight
 {
     vec3 position;
+    float _pad0;
     vec3 clq; // constant, linear, quadratic
+    float _pad1;
     vec4 colorIntensity;
 };
 
