@@ -190,6 +190,7 @@ CALL compile.bat</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Libraries\DearImGui\imgui.cpp" />
+    <ClCompile Include="Libraries\DearImGui\ImGuiFileDialog.cpp" />
     <ClCompile Include="Libraries\DearImGui\imgui_demo.cpp" />
     <ClCompile Include="Libraries\DearImGui\imgui_draw.cpp" />
     <ClCompile Include="Libraries\DearImGui\imgui_impl_glfw.cpp" />
@@ -215,6 +216,8 @@ CALL compile.bat</Command>
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Libraries\DearImGui\ImGuiFileDialog.h" />
+    <ClInclude Include="Libraries\DearImGui\ImGuiFileDialogConfig.h" />
     <ClInclude Include="Sources\MyCodes\Buffer.h" />
     <ClInclude Include="Sources\MyCodes\Camera.h" />
     <ClInclude Include="Sources\MyCodes\Cube.h" />

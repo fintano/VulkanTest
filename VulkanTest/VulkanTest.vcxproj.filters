@@ -151,6 +151,9 @@
     <ClCompile Include="Sources\MyCodes\MaterialTester.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
+    <ClCompile Include="Libraries\DearImGui\ImGuiFileDialog.cpp">
+      <Filter>MyCodes\ImGui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h">
@@ -224,6 +227,12 @@
     </ClInclude>
     <ClInclude Include="Sources\MyCodes\MaterialTester.h">
       <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\DearImGui\ImGuiFileDialog.h">
+      <Filter>MyCodes\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\DearImGui\ImGuiFileDialogConfig.h">
+      <Filter>MyCodes\ImGui</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

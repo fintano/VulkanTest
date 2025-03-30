@@ -271,6 +271,8 @@ protected:
 	const std::vector<const char*> deviceExtensions = {
 		"VK_KHR_swapchain"
 	};
+
+	std::string ProgramName;
 };
 
 extern std::vector<char> readFile(const std::string& filename);

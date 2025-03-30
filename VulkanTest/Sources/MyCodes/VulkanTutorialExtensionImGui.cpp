@@ -5,6 +5,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "ImGuiFileDialog.h"
 
 static void check_vk_result(VkResult err)
 {
@@ -16,124 +17,6 @@ static void check_vk_result(VkResult err)
 }
 
 std::string ImGui::stringToDebug;
-
-void ImGui::ShowVulkanWindow(bool* p_open)
-{
-    // We specify a default position/size in case there's no data in the .ini file.
-        // We only do it to make the demo applications a little more welcoming, but typically this isn't required.
-    const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(main_viewport->WorkPos.x, main_viewport->WorkPos.y), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
-
-    // Demonstrate the various window flags. Typically you would just use the default!
-    static bool no_titlebar = false;
-    static bool no_scrollbar = false;
-    static bool no_menu = false;
-    static bool no_move = true;
-    static bool no_resize = false;
-    static bool no_collapse = false;
-    static bool no_close = false;
-    static bool no_nav = false;
-    static bool no_background = false;
-    static bool no_bring_to_front = false;
-    static bool unsaved_document = false;
-
-    ImGuiWindowFlags window_flags = 0;
-    if (no_titlebar)        window_flags |= ImGuiWindowFlags_NoTitleBar;
-    if (no_scrollbar)       window_flags |= ImGuiWindowFlags_NoScrollbar;
-    if (!no_menu)           window_flags |= ImGuiWindowFlags_MenuBar;
-    if (no_move)            window_flags |= ImGuiWindowFlags_NoMove;
-    if (no_resize)          window_flags |= ImGuiWindowFlags_NoResize;
-    if (no_collapse)        window_flags |= ImGuiWindowFlags_NoCollapse;
-    if (no_nav)             window_flags |= ImGuiWindowFlags_NoNav;
-    if (no_background)      window_flags |= ImGuiWindowFlags_NoBackground;
-    if (no_bring_to_front)  window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus;
-    if (unsaved_document)   window_flags |= ImGuiWindowFlags_UnsavedDocument;
-    if (no_close)           p_open = NULL; // Don't pass our bool* to Begin
-
-    // Main body of the Demo window starts here.
-    if (!ImGui::Begin("Vulkan Tutorial Extension (ver 0.1)", p_open, window_flags))
-    {
-        // Early out if the window is collapsed, as an optimization.
-        ImGui::End();
-        return;
-    }
-
-    // Most "big" widgets share a common width settings by default. See 'Demo->Layout->Widgets Width' for details.
-    ImGui::PushItemWidth(ImGui::GetFontSize() * -12);           // e.g. Leave a fixed amount of width for labels (by passing a negative value), the rest goes to widgets.
-    //ImGui::PushItemWidth(-ImGui::GetWindowWidth() * 0.35f);   // e.g. Use 2/3 of the space for widgets and 1/3 for labels (right align)
-
-    ImGui::Text("Vulkan Tutorial Extension (ver 0.1)", IMGUI_VERSION, IMGUI_VERSION_NUM);
-    ImGui::Spacing();
-
-	if (ImGui::CollapsingHeader("Instancing"))
-	{
-		ImGui::InputInt("Instance Count", &VulkanTutorialExtension::instanceCount);
-		VulkanTutorialExtension::instanceCount = std::clamp(VulkanTutorialExtension::instanceCount, 1, VulkanTutorialExtension::maxInstanceCount);
-	}
-
-	if (ImGui::CollapsingHeader("Directional Light"))
-	{
-		// Sliders
-		static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
-		const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
-
-		ImGui::Checkbox("Use Directional Light", &VulkanTutorialExtension::useDirectionalLight);
-		ImGui::SliderFloat("DirectionalLightIntensity", &VulkanTutorialExtension::directionalLightIntensity, 0.0f, 100.0f, "%.1f", flags_for_sliders);
-	}
-
-	// Sliders
-	static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
-	const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
-
-	if (ImGui::CollapsingHeader("Point Lights"))
-	{
-		if (ImGui::BeginTable("pointLights", 4))
-		{
-			for (int i = 0; i < NR_POINT_LIGHTS; i++)
-			{
-				std::stringstream ss;
-				ss << "Point Light " << i;
-				ImGui::TableNextColumn(); ImGui::Checkbox(ss.str().c_str(), &VulkanTutorialExtension::pointLightsSwitch[i]);
-			}
-			ImGui::EndTable();
-		}
-
-		ImGui::SliderFloat("pointLightlinear", &VulkanTutorialExtension::pointLightlinear, 0.0f, 1.0f, "%.3f", flags_for_sliders);
-		ImGui::SliderFloat("pointLightQuadratic", &VulkanTutorialExtension::pointLightQuadratic, 0.0f, 1.0f, "%.3f", flags_for_sliders);
-		ImGui::SliderFloat("pointLightIntensity", &VulkanTutorialExtension::pointLightIntensity, 0.0f, 100.0f, "%.1f", flags_for_sliders);
-	}
-
-	if (ImGui::CollapsingHeader("DebugGBuffers"))
-	{
-		ImGui::RadioButton("None", &VulkanTutorialExtension::debugDisplayTarget, 0); ImGui::SameLine();
-		ImGui::RadioButton("Position", &VulkanTutorialExtension::debugDisplayTarget, 1); ImGui::SameLine();
-		ImGui::RadioButton("Normal", &VulkanTutorialExtension::debugDisplayTarget, 2); ImGui::SameLine();
-		ImGui::RadioButton("Albedo", &VulkanTutorialExtension::debugDisplayTarget, 3); 
-		ImGui::RadioButton("AO", &VulkanTutorialExtension::debugDisplayTarget, 4); ImGui::SameLine();
-		ImGui::RadioButton("Roughness", &VulkanTutorialExtension::debugDisplayTarget, 5); ImGui::SameLine();
-		ImGui::RadioButton("Metallic", &VulkanTutorialExtension::debugDisplayTarget, 6);
-	}
-
-	if (ImGui::CollapsingHeader("Light Components"))
-	{
-		ImGui::RadioButton("NoneNone", &VulkanTutorialExtension::debugDisplayTarget, 0); ImGui::SameLine();
-		ImGui::RadioButton("Specular", &VulkanTutorialExtension::debugDisplayTarget, 7); ImGui::SameLine();
-		ImGui::RadioButton("Diffuse", &VulkanTutorialExtension::debugDisplayTarget, 8);
-	}
-
-	if (ImGui::CollapsingHeader("Post Processing"))
-	{
-		ImGui::SliderFloat("Exposure", &VulkanTutorialExtension::exposure, 0.0f, 10.0f, "%.01f", flags_for_sliders);
-	}
-
-	ImGui::Spacing();	
-	ImGui::PrintDebugString();
-
-    // End of ShowDemoWindow()
-    ImGui::PopItemWidth();
-    ImGui::End();
-}
 
 void ImGui::PrintDebugString()
 {
@@ -220,12 +103,46 @@ void VulkanTutorialExtension::createImGuiDescriptorPool()
 
 void VulkanTutorialExtension::drawImGui(uint32_t imageIndex)
 {
+	// 창 크기 계산
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const float windowWidth = viewport->Size.x;
+	const float windowHeight = viewport->Size.y;
+	const float PanelWidth = windowWidth * 0.15f;
+	const float rightPanelX = windowWidth - PanelWidth;
+
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
-	//ImGui::ShowDemoWindow();
-	ImGui::ShowVulkanWindow();
+	ImGui::ShowDemoWindow();
+
+	// 왼쪽에는 모델과 머티리얼 탭이 있는 패널
+	static LeftPanelUI leftPanel;
+	static bool leftPanelInitialized = false;
+
+	if (!leftPanelInitialized) {
+		leftPanel.SetModelLoadCallback([this](const std::string& modelPath) {
+			// 파일 다이얼로그에서 이미 파일 경로를 받아옴
+			bool success = LoadGLTFModel(modelPath);
+			leftPanel.SetModelLoadResult(success, modelPath);
+			});
+		leftPanelInitialized = true;
+	}
+	leftPanel.Render(0, 0, PanelWidth, windowHeight);
+
+	// 오른쪽에는 기존 Vulkan Tutorial Extension 창
+	static RightPanelUI rightPanel;
+	static bool initialized = false;
+
+	if (!initialized) {
+		rightPanel.SetVulkanExtension(this);
+		initialized = true;
+	}
+
+	// 오른쪽 패널 렌더링
+	rightPanel.Render(rightPanelX, 0, PanelWidth, windowHeight);
+
 	ImGui::Render();
+
 
 	VkCommandBufferBeginInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -371,4 +288,268 @@ void VulkanTutorialExtension::cleanUpImGui()
 	vkDestroyDescriptorPool(device, imGuiDescriptorPool, nullptr);
 	vkFreeCommandBuffers(device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
 	vkDestroyCommandPool(device, imGuiCommandPool, nullptr);
+}
+
+LeftPanelUI::LeftPanelUI() {
+	// 초기화 코드
+}
+
+LeftPanelUI::~LeftPanelUI() {
+	// 정리 코드
+}
+
+void LeftPanelUI::Render(int x, int y, int width, int height, bool enabled) {
+	// 윈도우 설정
+	ImGui::SetNextWindowPos(ImVec2(float(x), float(y)));
+	ImGui::SetNextWindowSize(ImVec2(float(width), float(height)));
+
+	ImGuiWindowFlags window_flags =
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoCollapse;
+
+	if (!enabled) {
+		window_flags |= ImGuiWindowFlags_NoInputs;
+	}
+
+	// 패널 시작
+	ImGui::Begin("LeftPanel", nullptr, window_flags);
+
+	// 탭 바 생성
+	if (ImGui::BeginTabBar("LeftPanelTabs")) {
+		// 모델 탭
+		if (ImGui::BeginTabItem("Model")) {
+			m_state.prevSelectedTab = m_state.selectedTab;
+			m_state.selectedTab = LeftPanelState::ModelTab;
+
+			RenderModelTab();
+
+			ImGui::EndTabItem();
+		}
+
+		// 재질 탭
+		if (ImGui::BeginTabItem("Material")) {
+			m_state.prevSelectedTab = m_state.selectedTab;
+			m_state.selectedTab = LeftPanelState::MaterialTab;
+
+			RenderMaterialTab();
+
+			ImGui::EndTabItem();
+		}
+
+		ImGui::EndTabBar();
+	}
+
+	ImGui::End();
+}
+
+void LeftPanelUI::RenderModelTab() {
+	if (ImGui::CollapsingHeader("Load Model", ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::Text("Load a 3D model in GLTF format");
+
+		if (m_state.modelLoaded && !m_state.lastLoadedModelPath.empty()) {
+			ImGui::TextWrapped("Current model: %s", m_state.lastLoadedModelPath.c_str());
+		}
+
+		if (ImGui::Button("Browse GLTF Model...", ImVec2(-1, 0))) {
+			ImGuiFileDialog::Instance()->OpenDialog(
+				m_fileDialogKey,
+				"Choose GLTF Model",
+				".gltf,.glb",
+				"."
+			);
+		}
+
+		// 파일 다이얼로그 표시 및 결과 처리
+		if (ImGuiFileDialog::Instance()->Display(m_fileDialogKey)) {
+			if (ImGuiFileDialog::Instance()->IsOk()) {
+				std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+
+				if (m_modelLoadCallback) {
+					m_modelLoadCallback(filePathName);
+				}
+			}
+			ImGuiFileDialog::Instance()->Close();
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Models", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (m_loadedModels.empty()) {
+			ImGui::Text("No models loaded yet.");
+		}
+		else {
+			ImGui::BeginChild("ModelsList", ImVec2(0, 200), true);
+			for (int i = 0; i < m_loadedModels.size(); i++) {
+				bool isSelected = (m_selectedModelIndex == i);
+				if (ImGui::Selectable(m_loadedModels[i].c_str(), &isSelected)) {
+					m_selectedModelIndex = i;
+					if (m_modelLoadCallback) {
+						m_modelLoadCallback(m_loadedModels[i]);
+					}
+				}
+			}
+			ImGui::EndChild();
+		}
+	}
+
+	if (m_selectedModelIndex >= 0 && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+		static float position[3] = { 0.0f, 0.0f, 0.0f };
+		static float rotation[3] = { 0.0f, 0.0f, 0.0f };
+		static float scale[3] = { 1.0f, 1.0f, 1.0f };
+
+		ImGui::Text("Position");
+		ImGui::DragFloat3("##Position", position, 0.1f);
+
+		ImGui::Text("Rotation (degrees)");
+		ImGui::DragFloat3("##Rotation", rotation, 1.0f);
+
+		ImGui::Text("Scale");
+		ImGui::DragFloat3("##Scale", scale, 0.1f);
+
+		if (ImGui::Button("Reset Transform", ImVec2(-1, 0))) {
+			position[0] = position[1] = position[2] = 0.0f;
+			rotation[0] = rotation[1] = rotation[2] = 0.0f;
+			scale[0] = scale[1] = scale[2] = 1.0f;
+		}
+	}
+}
+
+void LeftPanelUI::SetModelLoadResult(bool success, const std::string& modelPath) {
+	if (success) {
+		m_state.modelLoaded = true;
+		m_state.lastLoadedModelPath = modelPath;
+
+		auto it = std::find(m_loadedModels.begin(), m_loadedModels.end(), modelPath);
+		if (it == m_loadedModels.end()) {
+			m_loadedModels.push_back(modelPath);
+			m_selectedModelIndex = m_loadedModels.size() - 1;
+		}
+		else {
+			m_selectedModelIndex = std::distance(m_loadedModels.begin(), it);
+		}
+	}
+}
+
+void LeftPanelUI::RenderMaterialTab() {
+	// 재질 탭의 UI 내용을 여기에 구현
+	// 예시:
+	ImGui::Text("Material tab content goes here");
+
+	// 스크롤 영역 구현 예시
+	ImGui::BeginChild("MaterialScrollArea", ImVec2(0, 300), true);
+	for (int i = 0; i < 10; i++) {
+		ImGui::Text("Material property %d", i);
+	}
+	ImGui::EndChild();
+}
+
+RightPanelUI::RightPanelUI() {
+	// 초기화 코드
+}
+
+RightPanelUI::~RightPanelUI() {
+	// 정리 코드
+}
+
+void RightPanelUI::Render(int x, int y, int width, int height, bool enabled) {
+	if (!m_extension) {
+		return; // VulkanTutorialExtension이 설정되지 않았으면 렌더링하지 않음
+	}
+
+	// 윈도우 설정
+	ImGui::SetNextWindowPos(ImVec2(float(x), float(y)));
+	ImGui::SetNextWindowSize(ImVec2(float(width), float(height)));
+
+	ImGuiWindowFlags window_flags =
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoCollapse;
+
+	if (!enabled) {
+		window_flags |= ImGuiWindowFlags_NoInputs;
+	}
+
+	// 패널 시작 (기존 코드의 창 구조 사용)
+	if (ImGui::Begin("##RightPanel", &m_open, window_flags)) {
+		// Most "big" widgets share a common width settings by default.
+		ImGui::PushItemWidth(ImGui::GetFontSize() * -12);
+		ImGui::Spacing();
+
+		// 컨텐츠 렌더링
+		RenderContent();
+
+		ImGui::PopItemWidth();
+	}
+	ImGui::End();
+}
+
+void RightPanelUI::RenderContent() {
+	// 기존 코드에 있던 내용을 여기로 옮김
+
+	// Instancing 섹션
+	if (ImGui::CollapsingHeader("Instancing")) {
+		ImGui::InputInt("Instance Count", &m_extension->instanceCount);
+		m_extension->instanceCount = std::clamp(m_extension->instanceCount, 1, m_extension->maxInstanceCount);
+	}
+
+	// Directional Light 섹션
+	if (ImGui::CollapsingHeader("Directional Light")) {
+		static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
+		const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
+
+		ImGui::Checkbox("Use Directional Light", &m_extension->useDirectionalLight);
+		ImGui::SliderFloat("DirectionalLightIntensity", &m_extension->directionalLightIntensity, 0.0f, 100.0f, "%.1f", flags_for_sliders);
+	}
+
+	// Point Lights 섹션
+	static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
+	const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
+
+	if (ImGui::CollapsingHeader("Point Lights")) {
+		if (ImGui::BeginTable("pointLights", 4)) {
+			for (int i = 0; i < NR_POINT_LIGHTS; i++) {
+				std::stringstream ss;
+				ss << "Point Light " << i;
+				ImGui::TableNextColumn();
+				ImGui::Checkbox(ss.str().c_str(), &m_extension->pointLightsSwitch[i]);
+			}
+			ImGui::EndTable();
+		}
+
+		ImGui::SliderFloat("pointLightlinear", &m_extension->pointLightlinear, 0.0f, 1.0f, "%.3f", flags_for_sliders);
+		ImGui::SliderFloat("pointLightQuadratic", &m_extension->pointLightQuadratic, 0.0f, 1.0f, "%.3f", flags_for_sliders);
+		ImGui::SliderFloat("pointLightIntensity", &m_extension->pointLightIntensity, 0.0f, 100.0f, "%.1f", flags_for_sliders);
+	}
+
+	// DebugGBuffers 섹션
+	if (ImGui::CollapsingHeader("DebugGBuffers")) {
+		ImGui::RadioButton("None", &m_extension->debugDisplayTarget, 0); ImGui::SameLine();
+		ImGui::RadioButton("Position", &m_extension->debugDisplayTarget, 1); ImGui::SameLine();
+		ImGui::RadioButton("Normal", &m_extension->debugDisplayTarget, 2); ImGui::SameLine();
+		ImGui::RadioButton("Albedo", &m_extension->debugDisplayTarget, 3);
+		ImGui::RadioButton("AO", &m_extension->debugDisplayTarget, 4); ImGui::SameLine();
+		ImGui::RadioButton("Roughness", &m_extension->debugDisplayTarget, 5); ImGui::SameLine();
+		ImGui::RadioButton("Metallic", &m_extension->debugDisplayTarget, 6);
+	}
+
+	// Light Components 섹션
+	if (ImGui::CollapsingHeader("Light Components")) {
+		ImGui::RadioButton("NoneNone", &m_extension->debugDisplayTarget, 0); ImGui::SameLine();
+		ImGui::RadioButton("Specular", &m_extension->debugDisplayTarget, 7); ImGui::SameLine();
+		ImGui::RadioButton("Diffuse", &m_extension->debugDisplayTarget, 8);
+	}
+
+	// Post Processing 섹션
+	if (ImGui::CollapsingHeader("Post Processing")) {
+		ImGui::SliderFloat("Exposure", &m_extension->exposure, 0.0f, 10.0f, "%.01f", flags_for_sliders);
+	}
+
+	ImGui::Spacing();
+
+	// 디버그 문자열 출력
+	if (!ImGui::stringToDebug.empty()) {
+		ImGui::Text("%s", ImGui::stringToDebug.c_str());
+		ImGui::Spacing();
+	}
 }

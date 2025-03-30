@@ -56,6 +56,7 @@ std::vector<char> readFile(const std::string& filename)
 
 VulkanTutorial::VulkanTutorial()
 {
+	ProgramName = "Vulkan Tutorial Extension ver 0.2";
 }
 
 	void VulkanTutorial::run()
@@ -73,7 +74,7 @@ VulkanTutorial::VulkanTutorial()
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+		window = glfwCreateWindow(WIDTH, HEIGHT, ProgramName.c_str(), nullptr, nullptr);
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 	}
