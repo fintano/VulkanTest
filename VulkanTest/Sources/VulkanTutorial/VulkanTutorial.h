@@ -96,7 +96,9 @@ public:
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 	}
 	void createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory);
-	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag, const char* name = "texture", int channelNum = 4);
+	AllocatedImage createTexture2D(const char* filePath, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture");
+	AllocatedImage createTexture2D(const std::string& filePath, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture");
+	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture", int channelNum = 4);
 	AllocatedImage createTexture2Df(float* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name, int channelNum);
 	AllocatedImage createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name = "none", uint32_t arrayLayers = 1, VkImageViewCreateFlags flags = 0);
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer = 0, uint32_t baseMipLevel = 0);
@@ -220,9 +222,7 @@ protected:
 	std::vector<VkDescriptorSet> descriptorSets;
 
 	uint32_t mipLevels;
-	VkImage textureImage;
-	VkDeviceMemory textureImageMemory;
-	VkImageView textureImageView;
+	AllocatedImage defaultTexture;
 	VkSampler textureSampler;
 
 	AllocatedImage whiteTexture;

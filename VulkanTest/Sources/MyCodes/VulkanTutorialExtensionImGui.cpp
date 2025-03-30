@@ -117,7 +117,7 @@ void ImGui::ShowVulkanWindow(bool* p_open)
 
 	if (ImGui::CollapsingHeader("Light Components"))
 	{
-		ImGui::RadioButton("None", &VulkanTutorialExtension::debugDisplayTarget, 0); ImGui::SameLine();
+		ImGui::RadioButton("NoneNone", &VulkanTutorialExtension::debugDisplayTarget, 0); ImGui::SameLine();
 		ImGui::RadioButton("Specular", &VulkanTutorialExtension::debugDisplayTarget, 7); ImGui::SameLine();
 		ImGui::RadioButton("Diffuse", &VulkanTutorialExtension::debugDisplayTarget, 8);
 	}

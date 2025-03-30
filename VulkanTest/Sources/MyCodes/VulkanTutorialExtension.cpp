@@ -7,9 +7,11 @@
 #include "vk_descriptor.h"
 #include "IrradianceCubeMap.h"
 #include "Cube.h"
+#include "Sphere.h"
 #include "Skybox.h"
 #include "SimplePipeline.h"
 #include "vk_resource_utils.h"
+#include "MaterialTester.h"
 
 static int UniqueBufferIndex = 0;
 
@@ -171,11 +173,11 @@ void VulkanTutorialExtension::createDescriptorSets()
 	VulkanTutorial::createDescriptorSets();
 
 	{
-		GLTFMetallic_Roughness::MaterialResources materialResources;
+		GLTFMetallic_Roughness::MaterialResources materialResources {};
 		//default the material textures
-		materialResources.colorImage = textureImageView;
+		materialResources.colorImage = defaultTexture;
 		materialResources.colorSampler = textureSampler;
-		materialResources.metalRoughImage = textureImageView;
+		materialResources.metalRoughImage = defaultTexture;
 		materialResources.metalRoughSampler = textureSampler;
 
 		//set the uniform buffer for the material data
@@ -195,8 +197,6 @@ void VulkanTutorialExtension::createDescriptorSets()
 	{
 		createGlobalDescriptorSets();
 	}
-
-	createDescriptorSetsObject(descriptorSetsObject);
 }
 
 void VulkanTutorialExtension::createGlobalDescriptorSets()
@@ -242,43 +242,6 @@ void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Tran
 		std::vector<VkWriteDescriptorSet> descriptorWrites;
 
 		inUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-
-		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-	}
-}
-
-void VulkanTutorialExtension::createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets)
-{
-	std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
-
-	VkDescriptorSetAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
-	allocInfo.pSetLayouts = layouts.data();
-
-	outDescriptorSets.resize(swapChainImages.size());
-	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
-	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate descriptor sets!");
-	}
-
-	// 할당된 DescriptorSet에 유니폼 버퍼/샘플러를 쓴다.
-	// binding 순서대로 index가 부여된다. shader와 일치해야한다.
-	for (size_t i = 0; i < swapChainImages.size(); i++)
-	{
-		std::vector<VkWriteDescriptorSet> descriptorWrites;
-
-		objectTransformUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-
-		VkDescriptorImageInfo ImageInfo = CreateDescriptorImageInfo(textureImageView, textureSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		CreateWriteDescriptorSet(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, outDescriptorSets[i], &ImageInfo, nullptr, descriptorWrites);
-
-		colorUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		materialUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		dirLightUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
-		pointLightsUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
@@ -358,8 +321,9 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	mainDrawContext.OpaqueSurfaces.clear();
 	mainDrawContext.TranslucentSurfaces.clear();
 
-	loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
+	//loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
 	loadedScenes["gizmo"]->Draw(glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)), mainDrawContext);
+	materialTester->draw(mainDrawContext, "gold");
 
 	glm::mat4 viewMat = camera.GetViewMatrix();
 	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
@@ -377,7 +341,7 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	//some default lighting parameters
 	sceneData.ambientColor = glm::vec4(.1f);
 	sceneData.sunlightColor = glm::vec4(1.f);
-	sceneData.sunlightDirection = glm::vec4(0, 1, 0.5, 1.f);
+	sceneData.sunlightDirection = glm::vec4(0, 1, 0.5, 1.f); 
 
 	// Point Lights
 	sceneData.activePointLight.activeLightMask = activePointLightsMask;
@@ -791,7 +755,7 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer, size_t index)
 {	
 	// PBR 디버그 용
-	irradianceCubeMap->draw(commandBuffer, this);
+	//irradianceCubeMap->draw(commandBuffer, this);
 
 	VulkanTutorial::recordCommandBuffer(commandBuffer, index);
 }
@@ -1001,6 +965,17 @@ void VulkanTutorialExtension::onPostInitVulkan()
 	skybox = std::make_shared<Skybox>();
 	skybox->initialize(this);
 
+	materialTester = std::make_shared<MaterialTester>();
+	materialTester->init(this);
+	materialTester->createMaterial(this, 
+		"gold",
+		"textures/pbr/gold/albedo.png",
+		"textures/pbr/gold/normal.png",
+		"textures/pbr/gold/metallic.png",
+		"textures/pbr/gold/roughness.png",
+		"textures/pbr/gold/ao.png"
+	);
+
 	VulkanTutorial::onPostInitVulkan();
 }
 
@@ -1066,7 +1041,7 @@ void VulkanTutorialExtension::cleanUp()
 	loadedScenes.clear();
 	irradianceCubeMap.reset();
 	skybox->cleanup(device);
-
+	materialTester->cleanUp(device);
 	VulkanTutorial::cleanUp();
 }
 

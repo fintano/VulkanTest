@@ -70,7 +70,13 @@
     <None Include="shaders\DiffuseMap.frag">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="shaders\DiffuseMap.vert">
+    <None Include="shaders\SpecularMap.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\BRDFIntegrationMap.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\BRDFIntegrationMap.frag">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
@@ -133,10 +139,16 @@
     <ClCompile Include="Sources\MyCodes\Skybox.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\MyCodes\Cube.cpp">
+    <ClCompile Include="Sources\MyCodes\SimplePipeline.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\MyCodes\SimplePipeline.cpp">
+    <ClCompile Include="Sources\MyCodes\vk_pathes.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MyCodes\vk_resource_utils.cpp">
+      <Filter>MyCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MyCodes\MaterialTester.cpp">
       <Filter>MyCodes</Filter>
     </ClCompile>
   </ItemGroup>
@@ -196,6 +208,21 @@
       <Filter>MyCodes</Filter>
     </ClInclude>
     <ClInclude Include="Sources\MyCodes\SimplePipeline.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\Quad.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\vk_pathes.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\vk_resource_utils.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\Sphere.h">
+      <Filter>MyCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MyCodes\MaterialTester.h">
       <Filter>MyCodes</Filter>
     </ClInclude>
   </ItemGroup>

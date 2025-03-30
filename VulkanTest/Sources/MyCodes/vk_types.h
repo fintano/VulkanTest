@@ -28,7 +28,7 @@ struct MaterialPipeline
 
 struct MaterialInstance
 {
-	MaterialPipeline* pipeline;
+	MaterialPipeline* pipeline; // 소유권 없음
 	std::vector<VkDescriptorSet> materialSet;
 	MaterialPass passType;
 };

@@ -20,17 +20,17 @@ void main()
     
     vec3 N = normalize(fragNormal);
     
-    if (materialData.textureFlags.x > 0.5) {
-        vec3 tangentNormal = texture(normalTex, fragTexCoord).rgb * 2.0 - 1.0;
-        mat3 TBN = mat3(
-            normalize(fragTangent),
-            normalize(fragBitangent),
-            N
-        );
-        N = normalize(TBN * tangentNormal);
-    }
-    outNormal = N;
-    
+    //if (materialData.textureFlags.x > 0.5) {
+     //   vec3 tangentNormal = texture(normalTex, fragTexCoord).rgb * 2.0 - 1.0;
+      //  mat3 TBN = mat3(
+      //      normalize(fragTangent),
+      //      normalize(fragBitangent),
+      //      N
+       // );
+     //   N = normalize(TBN * tangentNormal);
+   // }
+    outNormal = N * 0.5 + 0.5;
+
     outAlbedo = texture(colorTex, fragTexCoord).rgb * materialData.colorFactors.rgb;
     
     float roughness = 0.5;

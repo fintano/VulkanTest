@@ -10,11 +10,36 @@ void main()
 {
     vec3 WorldPos = texture(position, texCoords).rgb;
     vec3 N = texture(normal, texCoords).rgb;
-    vec3 albedo = texture(albedo, texCoords).rgb;
+    N = N * 2.0 - 1.0;
+    vec3 albedo = pow(texture(albedo, texCoords).rgb, vec3(2.2));
 	vec3 arm = texture(arm, texCoords).rgb;
     vec3 ao = vec3(arm.r);
 	float metallic = arm.b;
 	float roughness = arm.g;
+
+    if(sceneData.debugDisplayTarget > 0)
+	{
+		switch (sceneData.debugDisplayTarget) {
+		case 1:
+			FragColor = vec4(WorldPos, 1.0);
+			return;
+		case 2:
+			FragColor = vec4(N, 1.0);
+			return;
+		case 3:
+			FragColor = vec4(texCoords, 1.0 , 1.0);
+			return;
+		case 4:
+			FragColor = vec4(ao, 1.0);
+			return;
+		case 5:
+			FragColor = vec4(roughness, roughness, roughness, 1.0);
+			return;
+		case 6:
+			FragColor = vec4(metallic, metallic, metallic, 1.0);
+			return;
+		}
+	}
 
     // input lighting data
     //vec3 N = getNormalFromMap();
@@ -89,5 +114,5 @@ void main()
     // gamma correct
     color = pow(color, vec3(1.0/2.2)); 
 
-    FragColor = vec4(color , 1.0);
+    FragColor = vec4(N, 1.0);
 }

@@ -200,6 +200,7 @@ CALL compile.bat</Command>
     <ClCompile Include="Sources\MyCodes\Buffer.cpp" />
     <ClCompile Include="Sources\MyCodes\GPUMarker.cpp" />
     <ClCompile Include="Sources\MyCodes\IrradianceCubeMap.cpp" />
+    <ClCompile Include="Sources\MyCodes\MaterialTester.cpp" />
     <ClCompile Include="Sources\MyCodes\SimplePipeline.cpp" />
     <ClCompile Include="Sources\MyCodes\Skybox.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp" />
@@ -219,9 +220,11 @@ CALL compile.bat</Command>
     <ClInclude Include="Sources\MyCodes\Cube.h" />
     <ClInclude Include="Sources\MyCodes\GPUMarker.h" />
     <ClInclude Include="Sources\MyCodes\IrradianceCubeMap.h" />
+    <ClInclude Include="Sources\MyCodes\MaterialTester.h" />
     <ClInclude Include="Sources\MyCodes\Quad.h" />
     <ClInclude Include="Sources\MyCodes\SimplePipeline.h" />
     <ClInclude Include="Sources\MyCodes\Skybox.h" />
+    <ClInclude Include="Sources\MyCodes\Sphere.h" />
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h" />
     <ClInclude Include="Sources\MyCodes\vk_descriptor.h" />
     <ClInclude Include="Sources\MyCodes\vk_engine.h" />

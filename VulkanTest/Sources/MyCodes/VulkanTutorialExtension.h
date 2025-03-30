@@ -5,6 +5,7 @@
 
 class IrradianceCubeMap;
 class Skybox;
+class MaterialTester;
 
 /**
 * https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
@@ -136,7 +137,6 @@ private:
 	// 오브젝트용
 	VkPipeline graphicsPipelineObject;
 	VkPipelineLayout pipelineLayoutObject;
-	std::vector<VkDescriptorSet> descriptorSetsObject;
 
 	Camera camera;
 
@@ -174,6 +174,8 @@ public:
 	UniformBuffer<GPUSceneData> globalSceneData;
 	VkDescriptorSet globalDescriptorSet;
 	VkDescriptorSetLayout globalDescriptorSetLayout;
+
+	std::shared_ptr<MaterialTester> materialTester;
 
 	void init_default_data();
 	void update_scene(uint32_t currentImage);

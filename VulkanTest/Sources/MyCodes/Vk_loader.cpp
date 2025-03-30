@@ -199,7 +199,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     // we can estimate the descriptors we will need accurately
     std::vector<VkDescriptorPoolSize> sizes =
     {
-        vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * gltf.materials.size() * engine->getSwapchainImageNum()),
+        vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 * gltf.materials.size() * engine->getSwapchainImageNum()),
         vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, gltf.materials.size() * engine->getSwapchainImageNum()),
         vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gltf.materials.size())
     };
@@ -281,12 +281,12 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
             passType = MaterialPass::Transparent;
 		}
 
-		GLTFMetallic_Roughness::MaterialResources materialResources;
+		GLTFMetallic_Roughness::MaterialResources materialResources {};
 		// default the material textures
 		AllocatedImage defaultTexture = engine->getDefaultTexture2D();
-		materialResources.colorImage = defaultTexture.imageView;
+		materialResources.colorImage = defaultTexture;
 		materialResources.colorSampler = engine->getDefaultTextureSampler();
-		materialResources.metalRoughImage = defaultTexture.imageView;
+		materialResources.metalRoughImage = defaultTexture;
 		materialResources.metalRoughSampler = engine->getDefaultTextureSampler();
 
         // set the uniform buffer for the material data
@@ -313,14 +313,14 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
 		if (mat.pbrData.baseColorTexture.has_value())
 		{
 			size_t img = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
-			materialResources.colorImage = images[img].imageView;
+			materialResources.colorImage = images[img];
 			materialResources.colorSampler = getSampler(mat.pbrData.baseColorTexture.value().textureIndex);
 		}
 
 		if (mat.pbrData.metallicRoughnessTexture.has_value())
 		{
 			size_t img = gltf.textures[mat.pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.value();
-			materialResources.metalRoughImage = images[img].imageView;
+			materialResources.metalRoughImage = images[img];
 			materialResources.metalRoughSampler = getSampler(mat.pbrData.metallicRoughnessTexture.value().textureIndex);
 		}
 
@@ -412,6 +412,68 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
                         vertices[initial_vtx + index].color = v;
                     });
             }
+    
+            // ÅºÁ¨Æ®/¹ÙÀÌÅºÁ¨Æ® °è»ê
+            for (size_t i = 0; i < newSurface.count; i += 3) {
+                // »ï°¢ÇüÀÇ ¼¼ Á¤Á¡ ÀÎµ¦½º
+                uint32_t idx0 = indices[newSurface.startIndex + i] - initial_vtx;
+                uint32_t idx1 = indices[newSurface.startIndex + i + 1] - initial_vtx;
+                uint32_t idx2 = indices[newSurface.startIndex + i + 2] - initial_vtx;
+
+                // »ï°¢ÇüÀÇ ¼¼ Á¤Á¡
+                Vertex& v0 = vertices[initial_vtx + idx0];
+                Vertex& v1 = vertices[initial_vtx + idx1];
+                Vertex& v2 = vertices[initial_vtx + idx2];
+
+                // ¸ð¼­¸® º¤ÅÍ
+                glm::vec3 edge1 = v1.pos - v0.pos;
+                glm::vec3 edge2 = v2.pos - v0.pos;
+
+                // ÅØ½ºÃ³ ÁÂÇ¥ Â÷ÀÌ
+                glm::vec2 deltaUV1 = v1.texCoord - v0.texCoord;
+                glm::vec2 deltaUV2 = v2.texCoord - v0.texCoord;
+
+                // ºÐ¸ð °ª °è»ê
+                float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+                // ÅºÁ¨Æ® °è»ê
+                glm::vec3 tangent;
+                tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+                tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+                tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+                // ¹ÙÀÌÅºÁ¨Æ® °è»ê
+                glm::vec3 bitangent;
+                bitangent.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+                bitangent.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+                bitangent.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+
+                // »ï°¢ÇüÀÇ ¼¼ Á¤Á¡¿¡ ÅºÁ¨Æ®¿Í ¹ÙÀÌÅºÁ¨Æ® ÇÒ´ç
+                /*v0.tangent += tangent;
+                v0.bitangent += bitangent;
+
+                v1.tangent += tangent;
+                v1.bitangent += bitangent;
+
+                v2.tangent += tangent;
+                v2.bitangent += bitangent;*/
+            }
+
+            // ÅºÁ¨Æ®¿Í ¹ÙÀÌÅºÁ¨Æ® Á¤±ÔÈ­
+            //for (size_t i = 0; i < gltf.accessors[p.findAttribute("POSITION")->accessorIndex].count; i++) {
+            //    Vertex& v = vertices[initial_vtx + i];
+
+            //    // Á¤±ÔÈ­
+            //    v.tangent = glm::normalize(v.tangent);
+            //    v.bitangent = glm::normalize(v.bitangent);
+
+            //    // ¹®¼­ÀÇ ¸¶Áö¸· ºÎºÐ¿¡¼­ ¾ð±ÞµÈ Gram-Schmidt °úÁ¤ Àû¿ë
+            //    // ÅºÁ¨Æ®¸¦ ³ë¸»¿¡ ´ëÇØ Á÷±³È­
+            //    v.tangent = glm::normalize(v.tangent - glm::dot(v.tangent, v.normal) * v.normal);
+
+            //    // ¹ÙÀÌÅºÁ¨Æ® Àç°è»ê
+            //    v.bitangent = glm::cross(v.normal, v.tangent);
+            //}
 
             if (p.materialIndex.has_value()) {
                 newSurface.material = materials[p.materialIndex.value()];

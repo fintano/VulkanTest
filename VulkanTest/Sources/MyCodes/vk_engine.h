@@ -2,6 +2,9 @@
 
 #include "vk_types.h"
 #include "Vertex.h"
+#include "UniformBuffer.h"
+
+#include <unordered_map>
 
 template<typename T>
 struct MeshAsset;
@@ -13,30 +16,39 @@ struct GLTFMetallic_Roughness {
 	VkDescriptorSetLayout materialLayout;
 
 	struct MaterialConstants {
-		glm::vec4 colorFactors;
-		glm::vec4 metal_rough_factors;
+		glm::vec4 colorFactors = glm::vec4(1.f);
+		glm::vec4 metal_rough_factors = glm::vec4(1.f);;
 		glm::vec4 textureFlags; // x=useNormalMap, y=useMetallicMap, z=useRoughnessMap, w=useAOMap
 		//padding, we need it anyway for uniform buffers
 		glm::vec4 extra[13];
 	};
 
 	struct MaterialResources {
-		//AllocatedImage colorImage;
-		VkImageView colorImage;
+		AllocatedImage colorImage;
 		VkSampler colorSampler;
-		//AllocatedImage metalRoughImage;
-		VkImageView metalRoughImage;
+		AllocatedImage metalRoughImage;
 		VkSampler metalRoughSampler;
 		VkBuffer dataBuffer;
 		uint32_t dataBufferOffset;
+
+		AllocatedImage normalImage;
+		AllocatedImage metallicImage;
+		AllocatedImage roughnessImage;
+		AllocatedImage AOImage;
 	};
 
-	//DescriptorWriter writer;
+	struct Material
+	{
+		UniformBuffer<GLTFMetallic_Roughness::MaterialConstants> constants;
+		GLTFMetallic_Roughness::MaterialResources resources;
+		std::shared_ptr<MaterialInstance> materialInstances;
+	};
 
 	void build_pipelines(class VulkanTutorialExtension* engine);
 	void clear_resources(VkDevice device);
 
 	std::shared_ptr<MaterialInstance> write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources, VkDescriptorPool descriptorPool);
+	GLTFMetallic_Roughness::Material create_material_resources(VulkanTutorialExtension* engine, AllocatedImage& color, AllocatedImage& normal, AllocatedImage& metallic, AllocatedImage& roughness, AllocatedImage& AO, glm::vec4 textureFlags);
 };
 
 struct RenderObject {

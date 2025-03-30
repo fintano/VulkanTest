@@ -55,6 +55,8 @@ struct Vertex
 	alignas(16) glm::vec3 color;
 	alignas(16) glm::vec2 texCoord;
 	alignas(16) glm::vec3 normal;
+	alignas(16) glm::vec3 tangent;
+	alignas(16) glm::vec3 bitangent;
 
 	// Bindings: spacing between data and whether the data is per-vertex or
 	// per - instance(see instancing)
@@ -83,11 +85,14 @@ struct Vertex
 		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color) });
 		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, texCoord) });
 		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal) });
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 4, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, tangent) });
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 5, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, bitangent) });
 	}
 
 	bool operator==(const Vertex& other) const
 	{
-		return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
+		return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal &&
+			tangent == other.tangent && bitangent == other.bitangent;
 	}
 };
 
@@ -168,6 +173,8 @@ namespace std {
 			hash_combine(seed, vertex.color);
 			hash_combine(seed, vertex.texCoord);
 			hash_combine(seed, vertex.normal);
+			hash_combine(seed, vertex.tangent);
+			hash_combine(seed, vertex.bitangent);
 			return seed;
 		}
 

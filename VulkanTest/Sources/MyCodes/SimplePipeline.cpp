@@ -129,8 +129,7 @@ void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::functio
     std::vector<VkDescriptorSetLayout> layouts = externalLayouts; // 외부 레이아웃을 먼저 추가
     layouts.push_back(layout); // 자신의 레이아웃을 마지막에 추가
 
-    VkPipelineLayoutCreateInfo mesh_layout_info = vkb::initializers::pipeline_layout_create_info(layouts.size());
-    mesh_layout_info.pSetLayouts = layouts.data();
+    VkPipelineLayoutCreateInfo mesh_layout_info = vkb::initializers::pipeline_layout_create_info(layouts.data(), layouts.size());
     mesh_layout_info.pPushConstantRanges = matrixRanges.data();
     mesh_layout_info.pushConstantRangeCount = matrixRanges.size();
 
