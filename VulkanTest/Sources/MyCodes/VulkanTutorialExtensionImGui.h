@@ -7,6 +7,7 @@
 #include <functional>
 
 class VulkanTutorialExtension;
+class TextureViewer;
 
 namespace ImGui
 {
@@ -128,23 +129,30 @@ namespace ImGui
 	// 오른쪽 패널 UI 관리자
 	class RightPanelUI : public std::enable_shared_from_this<RightPanelUI> {
 	public:
-		RightPanelUI();
+		RightPanelUI(VulkanTutorialExtension* extension);
 		~RightPanelUI();
 
 		// 패널 렌더링 함수
 		void Render(int x, int y, int width, int height, bool enabled = true);
 
 		// VulkanTutorialExtension 참조 설정
-		void SetVulkanExtension(VulkanTutorialExtension* extension) { m_extension = extension; }
+		void SetTextureViewer(const std::shared_ptr<TextureViewer>& textureViewer) { m_textureViewer = textureViewer; }
 
 	private:
 		// 컨텐츠 렌더링 함수
 		void RenderContent();
 
+		// 텍스처 뷰어 섹션 렌더링을 위한 새 메서드
+		void RenderTextureViewer();
+
 		// Vulkan Extension 참조
 		VulkanTutorialExtension* m_extension = nullptr;
+		std::shared_ptr<TextureViewer> m_textureViewer;
 
 		// 창 관련 상태
 		bool m_open = true;
+
+		int m_selectedTextureIndex = -1;
+		bool m_showTextureViewer = true;
 	};
 }

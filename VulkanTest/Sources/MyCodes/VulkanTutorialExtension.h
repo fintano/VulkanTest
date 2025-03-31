@@ -199,5 +199,6 @@ public:
 	std::shared_ptr<MaterialTester> materialTester;
 
 	void init_default_data();
+	void updateDebugDisplayTarget();
 	void update_scene(uint32_t currentImage);
 };

@@ -41,8 +41,23 @@ void TextureViewer::createPipeline(VulkanTutorialExtension* engine)
 void TextureViewer::updateTextureIfNeeded(VulkanTutorialExtension* engine) 
 {
 	// 텍스처 인덱스가 변경된 경우에만 업데이트
-	if (lastUpdatedIndex != targetTextureIndex && !textures.empty() && textures[targetTextureIndex].image) {
-		VkImageView imageView = textures[targetTextureIndex].image->imageView;
+	if (lastUpdatedIndex != targetTextureIndex && !textures.empty() && (textures[targetTextureIndex].image || textures[targetTextureIndex].cubeMap)) 
+	{
+		VkImageView imageView = VK_NULL_HANDLE; 
+		if (textures[targetTextureIndex].image)
+		{
+			imageView = textures[targetTextureIndex].image->imageView;
+		}
+		else if (textures[targetTextureIndex].cubeMap)
+		{
+			imageView = textures[targetTextureIndex].cubeMap->imageViews[selectedMipLevel][selectedCubeMapFace];
+		}
+		else
+		{
+			std::cerr << "Wrong texture viewer input! " << std::endl;
+			return;
+		}
+
 		pipeline->updateTextureDescriptor(engine->getDevice(), 0, 0, imageView, engine->getDefaultTextureSampler());
 		lastUpdatedIndex = targetTextureIndex;
 	}
@@ -85,6 +100,7 @@ void TextureViewer::addTexture(const std::shared_ptr<AllocatedImage>& image, con
 void TextureViewer::selectTexture(int index) {
 	if (index >= 0 && index < textures.size()) {
 		targetTextureIndex = index;
+		changed = true;
 	}
 }
 
@@ -92,7 +108,33 @@ void TextureViewer::selectTexture(const std::string& name) {
 	for (int i = 0; i < textures.size(); i++) {
 		if (textures[i].name == name) {
 			targetTextureIndex = i;
+			changed = true;
 			return;
 		}
+	}
+}
+
+void TextureViewer::selectMipLevel(int mipLevel)
+{
+	selectedMipLevel = mipLevel;
+	changed = true;
+}
+
+void TextureViewer::selectCubeMapFace(int Face)
+{
+	selectedCubeMapFace = Face;
+	changed = true;
+}
+
+bool TextureViewer::IsChanged()
+{
+	if (changed)
+	{
+		changed = false;
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }

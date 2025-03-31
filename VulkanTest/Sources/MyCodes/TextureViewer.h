@@ -23,6 +23,11 @@ public:
 	void addTexture(const std::shared_ptr<AllocatedImage>& image, const std::string& name);
 	void selectTexture(int index);
 	void selectTexture(const std::string& name);
+	void selectMipLevel(int mipLevel);
+	void selectCubeMapFace(int Face);
+	const std::vector<TextureInfo>& getTextures() const { return textures; }
+	int getSelectedTextureIndex() const { return targetTextureIndex; }
+	bool IsChanged();
 
 private:
 	DevicePtr device;
@@ -34,5 +39,8 @@ private:
 	std::shared_ptr<SimplePipelineEmptyInput> pipeline;
 
 	int targetTextureIndex = 0; 
+	int selectedMipLevel = 0;
+	int selectedCubeMapFace = 0;
+	bool changed = false;
 	int lastUpdatedIndex = -1;
 };

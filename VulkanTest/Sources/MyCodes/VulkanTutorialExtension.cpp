@@ -37,7 +37,7 @@ VulkanTutorialExtension::VulkanTutorialExtension()
 {
 	pointLightsSwitch[0] = true;
 	leftPanel = std::make_shared<ImGui::LeftPanelUI>();
-	rightPanel = std::make_shared<ImGui::RightPanelUI>();
+	rightPanel = std::make_shared<ImGui::RightPanelUI>(this);
 
 	for (int i = 0; i < NR_POINT_LIGHTS ; i++)
 	{
@@ -391,6 +391,16 @@ void VulkanTutorialExtension::init_default_data()
 
 	onChangedGltfModelTransform(index, glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)));
 	leftPanel->SetModelTransform(index, glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)));
+}
+
+void VulkanTutorialExtension::updateDebugDisplayTarget()
+{
+	static int preDebugDisplayTarget = 0;
+	if (preDebugDisplayTarget != textureViewer->getSelectedTextureIndex())
+	{
+		preDebugDisplayTarget = textureViewer->getSelectedTextureIndex();
+		markCommandBufferRecreation();
+	}
 }
 
 void VulkanTutorialExtension::update_scene(uint32_t currentImage)
@@ -861,10 +871,11 @@ void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer,
 	/**
 	* DebugPass
 	*/
-	if (debugDisplayTarget > 0)
+	if (textureViewer->getSelectedTextureIndex() > 0)
 	{
 		GPUMarker Marker(commandBuffer, "Debug");
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		textureViewer->selectTexture(textureViewer->getSelectedTextureIndex());
 		textureViewer->draw(commandBuffer, this);
 		vkCmdEndRenderPass(commandBuffer);
 	}
@@ -1028,6 +1039,8 @@ void VulkanTutorialExtension::preDrawFrame(uint32_t imageIndex)
 
 	tryRemoveGltfModels();
 
+	updateDebugDisplayTarget();
+
 	update_scene(imageIndex);
 
 	if (pointLightSwitchChanged(imageIndex))
@@ -1036,8 +1049,6 @@ void VulkanTutorialExtension::preDrawFrame(uint32_t imageIndex)
 		createCommandBuffer(imageIndex);
 		previousActivePointLightsMask[imageIndex] = activePointLightsMask;
 	}
-
-
 
 	tryRecreateCommandBuffer(imageIndex);
 
