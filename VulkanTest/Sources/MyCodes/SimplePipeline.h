@@ -160,6 +160,19 @@ public:
 	std::vector<VkDescriptorSet>& getDescriptorSets() { return descriptorSets; }
 };
 
+class SimplePipelineEmptyInput : public SimplePipeline
+{
+public:
+	SimplePipelineEmptyInput(VkExtent2D viewportExtent, std::string vertShaderPath, std::string fragShaderPath,
+		RenderType renderType, VkDescriptorPool pool, int swapchainImageNum)
+		:SimplePipeline(viewportExtent, vertShaderPath, fragShaderPath, renderType, pool, swapchainImageNum)
+	{
+	}
+
+private:
+	virtual void createVertexInput() override;
+};
+
 class SimplePipelinePosOnly : public SimplePipeline
 {
 public:

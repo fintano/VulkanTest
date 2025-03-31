@@ -47,9 +47,9 @@ VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
     }
 }
 
-std::optional<AllocatedImage> load_image(VulkanTutorialExtension* engine, fastgltf::Asset& asset, fastgltf::Image& image)
+std::optional<std::shared_ptr<AllocatedImage>> load_image(VulkanTutorialExtension* engine, fastgltf::Asset& asset, fastgltf::Image& image)
 {
-    AllocatedImage newImage{};
+    std::shared_ptr<AllocatedImage> newImage = std::make_shared<AllocatedImage>(engine->getDevicePtr());
 
     int width, height, nrChannels;
 
@@ -147,7 +147,7 @@ std::optional<AllocatedImage> load_image(VulkanTutorialExtension* engine, fastgl
 
     // if any of the attempts to load the data failed, we havent written the image
     // so handle is null
-    if (newImage.image == VK_NULL_HANDLE) {
+    if (newImage->image == VK_NULL_HANDLE) {
         return {};
     }
     else {
@@ -218,7 +218,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     };
 
     VkDescriptorPoolCreateInfo poolInfo = vkb::initializers::descriptor_pool_create_info(sizes, gltf.materials.size() * engine->getSwapchainImageNum());
-    VK_CHECK_RESULT(vkCreateDescriptorPool(engine->device, &poolInfo, nullptr, &file.descriptorPool));
+    VK_CHECK_RESULT(vkCreateDescriptorPool(engine->getDevice(), &poolInfo, nullptr, &file.descriptorPool));
 
     // load samplers
     for (fastgltf::Sampler& sampler : gltf.samplers) {
@@ -235,7 +235,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
         sampl.mipmapMode = extract_mipmap_mode(sampler.minFilter.value_or(fastgltf::Filter::Nearest));
 
         VkSampler newSampler;
-        vkCreateSampler(engine->device, &sampl, nullptr, &newSampler);
+        vkCreateSampler(engine->getDevice(), &sampl, nullptr, &newSampler);
 
         file.samplers.push_back(newSampler);
     }
@@ -243,12 +243,12 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     // temporal arrays for all the objects to use while creating the GLTF data
     std::vector<std::shared_ptr<MeshAsset<Vertex>>> meshes;
     std::vector<std::shared_ptr<Node>> nodes;
-    std::vector<AllocatedImage> images;
+    std::vector<std::shared_ptr<AllocatedImage>> images;
     std::vector<std::shared_ptr<GLTFMaterial>> materials;
 
     // load all textures
     for (fastgltf::Image& image : gltf.images) {
-        std::optional<AllocatedImage> img = load_image(engine, gltf, image);
+        std::optional<std::shared_ptr<AllocatedImage>> img = load_image(engine, gltf, image);
 
         if (img.has_value()) {
             images.push_back(*img);
@@ -265,11 +265,11 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     // create buffer to hold the material data
     //file.materialDataBuffer = engine->create_buffer(sizeof(GLTFMetallic_Roughness::MaterialConstants) * gltf.materials.size(),
         //VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    file.materialDataBuffer.createUniformBuffer(1, engine->device, engine->physicalDevice, gltf.materials.size());
+    file.materialDataBuffer->createUniformBuffer(1, engine->getDevicePtr(), engine->physicalDevice, gltf.materials.size());
 
     int data_index = 0;
     //GLTFMetallic_Roughness::MaterialConstants* sceneMaterialConstants = (GLTFMetallic_Roughness::MaterialConstants*)file.materialDataBuffer.info.pMappedData;
-    std::vector<GLTFMetallic_Roughness::MaterialConstants>& sceneMaterialConstants = file.materialDataBuffer.getData();
+    std::vector<GLTFMetallic_Roughness::MaterialConstants>& sceneMaterialConstants = file.materialDataBuffer->getData();
 
     for (fastgltf::Material& mat : gltf.materials) {
         std::shared_ptr<GLTFMaterial> newMat = std::make_shared<GLTFMaterial>();
@@ -296,14 +296,14 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
 
 		GLTFMetallic_Roughness::MaterialResources materialResources {};
 		// default the material textures
-		AllocatedImage defaultTexture = engine->getDefaultTexture2D();
+		std::shared_ptr<AllocatedImage> defaultTexture = engine->getDefaultTexture2D();
 		materialResources.colorImage = defaultTexture;
 		materialResources.colorSampler = engine->getDefaultTextureSampler();
 		materialResources.metalRoughImage = defaultTexture;
 		materialResources.metalRoughSampler = engine->getDefaultTextureSampler();
 
         // set the uniform buffer for the material data
-        materialResources.dataBuffer = file.materialDataBuffer.getUniformBuffer();
+        materialResources.dataBuffer = file.materialDataBuffer->getUniformBuffer();
         materialResources.dataBufferOffset = data_index * sizeof(GLTFMetallic_Roughness::MaterialConstants);
 
         auto getSampler = [&](std::size_t textureIndex) {
@@ -343,7 +343,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
         data_index++;
     }
 
-    file.materialDataBuffer.CopyData();
+    file.materialDataBuffer->CopyData();
 
     // use the same vectors for all meshes so that the memory doesnt reallocate as
     // often
@@ -489,7 +489,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
             //}
 
 
-    // 여기에 감김 방향 분석 코드 추가
+#if DEBUG_MODEL
             {
                 std::cout << "Analyzing winding order for mesh primitive...\n";
                 int ccwCount = 0;
@@ -537,7 +537,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
                     << " (" << (float)max(ccwCount, cwCount) / (ccwCount + cwCount) * 100.0f
                     << "% consistent)\n";
             }
-
+#endif
             if (p.materialIndex.has_value()) {
                 newSurface.material = materials[p.materialIndex.value()];
             }
@@ -622,34 +622,24 @@ void LoadedGLTF::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
 
 void LoadedGLTF::clearAll()
 {
-    vkDestroyDescriptorPool(creator->device, descriptorPool, nullptr);
+    vkDestroyDescriptorPool(creator->getDevice(), descriptorPool, nullptr);
 
-    materialDataBuffer.destroy(0);
+    //materialDataBuffer.destroy(0);
 
     for (std::shared_ptr<MeshAsset<Vertex>> mesh : meshes)
     {
         if (mesh.get())
         {
-            vkDestroyBuffer(creator->device, mesh->meshBuffers.vertexBuffer.Buffer, nullptr);
-            vkFreeMemory(creator->device, mesh->meshBuffers.vertexBuffer.BufferMemory, nullptr);
+            vkDestroyBuffer(creator->getDevice(), mesh->meshBuffers.vertexBuffer.Buffer, nullptr);
+            vkFreeMemory(creator->getDevice(), mesh->meshBuffers.vertexBuffer.BufferMemory, nullptr);
 
-            vkDestroyBuffer(creator->device, mesh->meshBuffers.indexBuffer.Buffer, nullptr);
-            vkFreeMemory(creator->device, mesh->meshBuffers.indexBuffer.BufferMemory, nullptr);
+            vkDestroyBuffer(creator->getDevice(), mesh->meshBuffers.indexBuffer.Buffer, nullptr);
+            vkFreeMemory(creator->getDevice(), mesh->meshBuffers.indexBuffer.BufferMemory, nullptr);
         }
-    }
-
-    //for (auto& [k, v] : images) {
-    for(auto& v : images)
-    {
-        if (v.image == creator->getDefaultTexture2D().image) {
-            //dont destroy the default images
-            continue;
-        }
-        v.Destroy(creator->device);
     }
 
     for (VkSampler sampler : samplers)
     {
-        vkDestroySampler(creator->device, sampler, nullptr);
+        vkDestroySampler(creator->getDevice(), sampler, nullptr);
     }
 }

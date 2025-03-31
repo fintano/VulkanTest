@@ -20,6 +20,7 @@ public:
 	void initialize(VulkanTutorialExtension* engine);
 	void update(uint32_t currentImage);
 	void cleanup(VkDevice device);
+	bool isValid();
 
 	RenderObject& getRenderObject() { return renderObject; }
 
@@ -28,4 +29,5 @@ private:
 	std::shared_ptr<SimplePipelinePosOnly> pipeline;
 	std::shared_ptr<Cube<VertexOnlyPos>> cube;
 	std::shared_ptr<MeshAsset<VertexOnlyPos>> mesh;
+	std::shared_ptr<AllocatedImage> irradianceCubeMap;
 };

@@ -13,6 +13,32 @@
 #include <vector>
 #include <memory>
 
+class DeviceWrapper {
+public:
+	DeviceWrapper(VkDevice device, VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, VkSurfaceKHR surface, GLFWwindow* window) 
+	: device(device) 
+	, instance(instance)
+	, debugMessenger(debugMessenger)
+	, surface(surface)
+	, window(window)
+	{}
+
+	~DeviceWrapper();
+
+	// 핵심: 이 변환 연산자가 VkDevice를 기대하는 모든 곳에서 
+	// DeviceWrapper가 자동으로 VkDevice로 변환되도록 합니다
+	operator VkDevice() const { return device; }
+
+private:
+	VkDevice device;
+	VkInstance instance;
+	VkDebugUtilsMessengerEXT debugMessenger;
+	VkSurfaceKHR surface;
+	GLFWwindow* window;
+};
+
+using DevicePtr = std::shared_ptr<DeviceWrapper>;
+
 enum class MaterialPass : uint8_t
 {
 	MainColor,
@@ -70,19 +96,27 @@ struct GPUDrawPushConstants
 
 struct AllocatedImage
 {
+	AllocatedImage(DevicePtr inDevice);
+	~AllocatedImage();
+
 	VkImage image;
 	VkDeviceMemory imageMemory;
 	VkImageView imageView;
 
-	void Destroy(VkDevice device);
+private:
+	void Destroy();
+	DevicePtr device;
 };
 
 struct CubeMap
 {
-	VkImage image;
-	VkDeviceMemory imageMemory;
-	std::vector<std::vector<VkImageView>> imageViews;
-	VkImageView cubeImageView;
+	CubeMap(DevicePtr inDevice);
+	~CubeMap();
 
-	void Destroy(VkDevice device);
+	std::shared_ptr<AllocatedImage> image;
+	std::vector<std::vector<VkImageView>> imageViews; // MipLevel * CubeFace
+
+private:
+	void Destroy();
+	DevicePtr device;
 };

@@ -30,7 +30,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	vk::desc::createDescriptorSetLayoutBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 	vk::desc::createDescriptorSetLayoutBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
-	materialLayout = vk::desc::createDescriptorSetLayout(extendedEngine->device, bindings);
+	materialLayout = vk::desc::createDescriptorSetLayout(extendedEngine->getDevice(), bindings);
 
 	std::array<VkDescriptorSetLayout, 2> layouts = { extendedEngine->getGlobalDescriptorSetLayout(), materialLayout};
 	VkPipelineLayoutCreateInfo mesh_layout_info = vkinit::pipeline_layout_create_info(layouts.size());
@@ -39,7 +39,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	mesh_layout_info.pushConstantRangeCount = 1;
 
 	VkPipelineLayout newLayout;
-	VK_CHECK_RESULT(vkCreatePipelineLayout(extendedEngine->device, &mesh_layout_info, nullptr, &newLayout));
+	VK_CHECK_RESULT(vkCreatePipelineLayout(extendedEngine->getDevice(), &mesh_layout_info, nullptr, &newLayout));
 
 	opaquePipeline.layout = newLayout;
 	transparentPipeline.layout = newLayout;
@@ -76,8 +76,8 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	VkPipelineColorBlendStateCreateInfo colorBlendState = vkinit::pipeline_color_blend_state_create_info(blendAttachmentStates.size(), blendAttachmentStates.data());
 	pipelineCI.pColorBlendState = &colorBlendState;
 
-	VkShaderModule meshVertexShader = Utils::loadShader("shaders/shadervert.spv", extendedEngine->device);
-	VkShaderModule meshFragShader = Utils::loadShader("shaders/ObjectShaderfrag.spv", extendedEngine->device);
+	VkShaderModule meshVertexShader = Utils::loadShader("shaders/shadervert.spv", extendedEngine->getDevice());
+	VkShaderModule meshFragShader = Utils::loadShader("shaders/ObjectShaderfrag.spv", extendedEngine->getDevice());
 
 	// Shaders
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -115,7 +115,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 			bindings[i].binding, bindings[i].descriptorType, bindings[i].stageFlags);
 	}
 
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(extendedEngine->device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &opaquePipeline.pipeline));
+	VK_CHECK_RESULT(vkCreateGraphicsPipelines(extendedEngine->getDevice(), VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &opaquePipeline.pipeline));
 
 	/** Translucent Pipeline - forward shading */
 
@@ -141,17 +141,17 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanTutorialExtension* extendedEn
 	}
 
 	{
-		vkDestroyShaderModule(extendedEngine->device, meshFragShader, nullptr);
-		meshFragShader = Utils::loadShader("shaders/ForwardPassfrag.spv", extendedEngine->device);
+		vkDestroyShaderModule(extendedEngine->getDevice(), meshFragShader, nullptr);
+		meshFragShader = Utils::loadShader("shaders/ForwardPassfrag.spv", extendedEngine->getDevice());
 		shaderStages[1].module = meshFragShader;
 		pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
 		pipelineCI.pStages = shaderStages.data();
 	}
 
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(extendedEngine->device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &transparentPipeline.pipeline));
+	VK_CHECK_RESULT(vkCreateGraphicsPipelines(extendedEngine->getDevice(), VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &transparentPipeline.pipeline));
 
-	vkDestroyShaderModule(extendedEngine->device, meshFragShader, nullptr);
-	vkDestroyShaderModule(extendedEngine->device, meshVertexShader, nullptr);
+	vkDestroyShaderModule(extendedEngine->getDevice(), meshFragShader, nullptr);
+	vkDestroyShaderModule(extendedEngine->getDevice(), meshVertexShader, nullptr);
 }
 
 void GLTFMetallic_Roughness::clear_resources(VkDevice device)
@@ -180,7 +180,7 @@ std::shared_ptr<MaterialInstance> GLTFMetallic_Roughness::write_material(VulkanT
 	std::vector<VkDescriptorSetLayout> layouts(swapChainImageNum, materialLayout);
 	VkDescriptorSetAllocateInfo allocInfo = vkinit::descriptor_set_allocate_info(descriptorPool, layouts.data(), layouts.size());
 	matData->materialSet.resize(swapChainImageNum);
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(engine->device, &allocInfo, matData->materialSet.data()));
+	VK_CHECK_RESULT(vkAllocateDescriptorSets(engine->getDevice(), &allocInfo, matData->materialSet.data()));
 
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 
@@ -193,37 +193,37 @@ std::shared_ptr<MaterialInstance> GLTFMetallic_Roughness::write_material(VulkanT
 	VkDescriptorImageInfo texDescriptorColor =
 		vkinit::descriptor_image_info(
 			resources.colorSampler,
-			resources.colorImage.imageView,
+			resources.colorImage->imageView,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo texDescriptorMetalRough =
 		vkinit::descriptor_image_info(
 			resources.metalRoughSampler != VK_NULL_HANDLE ? resources.metalRoughSampler : engine->getDefaultTextureSampler(),
-			resources.metalRoughImage.image != VK_NULL_HANDLE ? resources.metalRoughImage.imageView : engine->getDefaultTexture2D().imageView,
+			resources.metalRoughImage ? resources.metalRoughImage->imageView : engine->getDefaultTexture2D()->imageView,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo dummyNormalTexDescriptor =
 		vkinit::descriptor_image_info(
 			engine->getDefaultTextureSampler(),
-			resources.normalImage.image != VK_NULL_HANDLE ? resources.normalImage.imageView : engine->getDefaultTexture2D().imageView ,
+			resources.normalImage ? resources.normalImage->imageView : engine->getDefaultTexture2D()->imageView ,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo dummyMetallicTexDescriptor =
 		vkinit::descriptor_image_info(
 			engine->getDefaultTextureSampler(),
-			resources.metallicImage.image != VK_NULL_HANDLE ? resources.metallicImage.imageView : engine->getDefaultTexture2D().imageView,
+			resources.metallicImage ? resources.metallicImage->imageView : engine->getDefaultTexture2D()->imageView,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo dummyRoughnessTexDescriptor =
 		vkinit::descriptor_image_info(
 			engine->getDefaultTextureSampler(),
-			resources.roughnessImage.image != VK_NULL_HANDLE ? resources.roughnessImage.imageView : engine->getDefaultTexture2D().imageView,
+			resources.roughnessImage ? resources.roughnessImage->imageView : engine->getDefaultTexture2D()->imageView,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorImageInfo dummyAOTexDescriptor =
 		vkinit::descriptor_image_info(
 			engine->getDefaultTextureSampler(),
-			resources.AOImage.image != VK_NULL_HANDLE ? resources.AOImage.imageView : engine->getDefaultTexture2D().imageView,
+			resources.AOImage ? resources.AOImage->imageView : engine->getDefaultTexture2D()->imageView,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	for (size_t i = 0; i < swapChainImageNum; i++)
@@ -238,20 +238,20 @@ std::shared_ptr<MaterialInstance> GLTFMetallic_Roughness::write_material(VulkanT
 			vkinit::write_descriptor_set(matData->materialSet[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, &dummyAOTexDescriptor),
 		};
 
-		vkUpdateDescriptorSets(engine->device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+		vkUpdateDescriptorSets(engine->getDevice(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 	}
 
 	return matData;
 }
 
 GLTFMetallic_Roughness::Material GLTFMetallic_Roughness::create_material_resources(VulkanTutorialExtension* engine,
-	AllocatedImage& color, AllocatedImage& normal, AllocatedImage& metallic, AllocatedImage& roughness, AllocatedImage& AO, glm::vec4 textureFlags)
+	std::shared_ptr<AllocatedImage>& color, std::shared_ptr<AllocatedImage>& normal, std::shared_ptr<AllocatedImage>& metallic, std::shared_ptr<AllocatedImage>& roughness, std::shared_ptr<AllocatedImage>& AO, glm::vec4 textureFlags)
 {
 	GLTFMetallic_Roughness::Material resources {};
-	resources.constants.createUniformBuffer(1, engine->device, engine->physicalDevice);
-	auto& data = resources.constants.clearAndGetFirstInstanceData();
+	resources.constants->createUniformBuffer(1, engine->getDevicePtr(), engine->physicalDevice);
+	auto& data = resources.constants->clearAndGetFirstInstanceData();
 	data.textureFlags = textureFlags;
-	resources.constants.CopyData(0);
+	resources.constants->CopyData(0);
 
 	GLTFMetallic_Roughness::MaterialResources& materialResources = resources.resources;
 	materialResources.colorImage = color;
@@ -260,7 +260,7 @@ GLTFMetallic_Roughness::Material GLTFMetallic_Roughness::create_material_resourc
 	materialResources.roughnessImage = roughness;
 	materialResources.AOImage = AO; 
 	materialResources.colorSampler = engine->getDefaultTextureSampler();
-	materialResources.dataBuffer = resources.constants.getUniformBuffer();
+	materialResources.dataBuffer = resources.constants->getUniformBuffer();
 	materialResources.dataBufferOffset = 0;
 
 	resources.materialInstances = write_material(engine, MaterialPass::MainColor, materialResources, engine->descriptorPool);

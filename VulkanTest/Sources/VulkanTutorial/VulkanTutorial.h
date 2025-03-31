@@ -23,6 +23,10 @@
 #include "vk_engine.h"
 #include "Vk_loader.h"
 
+#ifndef DEBUG_MODEL 
+#define DEBUG_MODEL 0
+#endif
+
 typedef unsigned char stbi_uc;
 
 #ifdef NDEBUG
@@ -56,12 +60,11 @@ public:
 
 	void run();
 
-	VkDevice device;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
 	struct GeometryPass
 	{
-		AllocatedImage position, normal, albedo, arm; // ao, roughness, metallic
+		std::shared_ptr<AllocatedImage> position, normal, albedo, arm; // ao, roughness, metallic
 		VkRenderPass renderPass;
 		VkFramebuffer frameBuffer;
 	} geometry;
@@ -85,28 +88,31 @@ public:
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 		void* data;
-		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+		vkMapMemory(*device, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, vertices.data(), (size_t)bufferSize);
-		vkUnmapMemory(device, stagingBufferMemory);
+		vkUnmapMemory(*device, stagingBufferMemory);
 
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outVertexBuffer, outVertexBufferMemory);
 		copyBuffer(stagingBuffer, outVertexBuffer, bufferSize);
 
-		vkDestroyBuffer(device, stagingBuffer, nullptr);
-		vkFreeMemory(device, stagingBufferMemory, nullptr);
+		vkDestroyBuffer(*device, stagingBuffer, nullptr);
+		vkFreeMemory(*device, stagingBufferMemory, nullptr);
 	}
 	void createIndexBuffer(const std::vector<uint32_t>& indices, VkBuffer& outIndexBuffer, VkDeviceMemory& outIndexBufferMemory);
-	AllocatedImage createTexture2D(const char* filePath, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture");
-	AllocatedImage createTexture2D(const std::string& filePath, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture");
-	AllocatedImage createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture", int channelNum = 4);
-	AllocatedImage createTexture2Df(float* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name, int channelNum);
-	AllocatedImage createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name = "none", uint32_t arrayLayers = 1, VkImageViewCreateFlags flags = 0);
+	std::shared_ptr<AllocatedImage> createTexture2D(const char* filePath, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture");
+	std::shared_ptr<AllocatedImage> createTexture2D(const std::string& filePath, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture");
+	std::shared_ptr<AllocatedImage> createTexture2D(stbi_uc* data, VkExtent3D imageSize, VkFormat format, VkImageUsageFlagBits usageFlag = VK_IMAGE_USAGE_SAMPLED_BIT, const char* name = "texture", int channelNum = 4);
+	std::shared_ptr<AllocatedImage> createTexture2Df(float* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name, int channelNum);
+	std::shared_ptr<AllocatedImage> createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, const char* name = "none", uint32_t arrayLayers = 1, VkImageViewCreateFlags flags = 0);
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer = 0, uint32_t baseMipLevel = 0);
 	VkImageView createImageViewCube(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t baseArrayLayer = 0);
 	VkCommandBuffer beginSingleTimeCommands();
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void generateMipmaps(VkCommandBuffer commandBuffer, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount);
 	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount = 1, uint32_t baseMipLevel = 0);
+	
+	VkDevice getDevice() const { return *device; }
+	DevicePtr getDevicePtr() const { return device; }
 
 protected:
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() { return nullptr; }
@@ -172,6 +178,8 @@ protected:
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 	void createCommandBuffer(int32_t i);
+	void markCommandBufferRecreation();
+	void tryRecreateCommandBuffer(int32_t imageIndex);
 	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
 	VkDescriptorImageInfo CreateDescriptorImageInfo(VkImageView& imageView, VkSampler& sampler, VkImageLayout layout);
 	void CreateWriteDescriptorSet(VkDescriptorType type, VkDescriptorSet& DescriptorSet, VkDescriptorImageInfo* ImageInfo, VkDescriptorBufferInfo* BufferInfo, std::vector<VkWriteDescriptorSet>& descriptorWrites);
@@ -222,10 +230,10 @@ protected:
 	std::vector<VkDescriptorSet> descriptorSets;
 
 	uint32_t mipLevels;
-	AllocatedImage defaultTexture;
+	std::shared_ptr<AllocatedImage> defaultTexture;
 	VkSampler textureSampler;
 
-	AllocatedImage whiteTexture;
+	std::shared_ptr<AllocatedImage> whiteTexture;
 
 	// 라이팅 패스
 	struct LightingPass
@@ -236,9 +244,7 @@ protected:
 		std::vector<VkDescriptorSet> descriptorSets;
 	} lightingPass;
 	
-	VkImage depthImage;
-	VkDeviceMemory depthImageMemory;
-	VkImageView depthImageView;
+	std::shared_ptr<AllocatedImage> depth;
 
 	VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
@@ -254,6 +260,8 @@ protected:
 	// we actually wait for them in our own code instead in vulkan functions like semaphores.
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 	size_t currentFrame = 0;
+	size_t totalFrame = 0;
+	size_t targetFrameForCmdBufRecreation = 0;
 	std::vector<VkSemaphore> imageAvailableSemaphore; // before rendering
 	std::vector<VkSemaphore> renderFinishedSemaphore; // after rendering
 	std::vector<VkFence> inFlightFences;
@@ -273,6 +281,7 @@ protected:
 	};
 
 	std::string ProgramName;
+	DevicePtr device;
 };
 
 extern std::vector<char> readFile(const std::string& filename);

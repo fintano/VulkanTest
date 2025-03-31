@@ -30,7 +30,7 @@ public:
 	void cleanUp(VkDevice device);
 
 private:
-	std::vector<AllocatedImage> images;
+	std::vector<std::shared_ptr<AllocatedImage>> images;
 	std::shared_ptr<Sphere<Vertex>> sphere {};
 	std::shared_ptr<Cube<Vertex>> cube {};
 	std::unordered_map<std::string /* name */, GLTFMetallic_Roughness::Material> materialMap;

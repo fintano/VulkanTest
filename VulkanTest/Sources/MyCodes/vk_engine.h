@@ -24,22 +24,27 @@ struct GLTFMetallic_Roughness {
 	};
 
 	struct MaterialResources {
-		AllocatedImage colorImage;
+		std::shared_ptr<AllocatedImage> colorImage;
 		VkSampler colorSampler;
-		AllocatedImage metalRoughImage;
+		std::shared_ptr<AllocatedImage> metalRoughImage;
 		VkSampler metalRoughSampler;
 		VkBuffer dataBuffer;
 		uint32_t dataBufferOffset;
 
-		AllocatedImage normalImage;
-		AllocatedImage metallicImage;
-		AllocatedImage roughnessImage;
-		AllocatedImage AOImage;
+		std::shared_ptr<AllocatedImage> normalImage;
+		std::shared_ptr<AllocatedImage> metallicImage;
+		std::shared_ptr<AllocatedImage> roughnessImage;
+		std::shared_ptr<AllocatedImage> AOImage;
 	};
 
 	struct Material
 	{
-		UniformBuffer<GLTFMetallic_Roughness::MaterialConstants> constants;
+		Material()
+		{
+			constants = UniformBuffer<GLTFMetallic_Roughness::MaterialConstants>::create();
+			resources = {};
+		}
+		std::shared_ptr<UniformBuffer<GLTFMetallic_Roughness::MaterialConstants>> constants;
 		GLTFMetallic_Roughness::MaterialResources resources;
 		std::shared_ptr<MaterialInstance> materialInstances;
 	};
@@ -48,7 +53,7 @@ struct GLTFMetallic_Roughness {
 	void clear_resources(VkDevice device);
 
 	std::shared_ptr<MaterialInstance> write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources, VkDescriptorPool descriptorPool);
-	GLTFMetallic_Roughness::Material create_material_resources(VulkanTutorialExtension* engine, AllocatedImage& color, AllocatedImage& normal, AllocatedImage& metallic, AllocatedImage& roughness, AllocatedImage& AO, glm::vec4 textureFlags);
+	GLTFMetallic_Roughness::Material create_material_resources(VulkanTutorialExtension* engine, std::shared_ptr<AllocatedImage>& color, std::shared_ptr<AllocatedImage>& normal, std::shared_ptr<AllocatedImage>& metallic, std::shared_ptr<AllocatedImage>& roughness, std::shared_ptr<AllocatedImage>& AO, glm::vec4 textureFlags);
 };
 
 struct RenderObject {

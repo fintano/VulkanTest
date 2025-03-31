@@ -12,6 +12,8 @@
 #include "SimplePipeline.h"
 #include "vk_resource_utils.h"
 #include "MaterialTester.h"
+#include "TextureViewer.h"
+#include "GPUMarker.h"
 
 static int UniqueBufferIndex = 0;
 
@@ -34,7 +36,23 @@ VulkanTutorialExtension::VulkanTutorialExtension()
 	: camera({ 5.f, 5.f, 5.f }, { 0.f,1.f,0.f })
 {
 	pointLightsSwitch[0] = true;
+	leftPanel = std::make_shared<ImGui::LeftPanelUI>();
+	rightPanel = std::make_shared<ImGui::RightPanelUI>();
+
+	for (int i = 0; i < NR_POINT_LIGHTS ; i++)
+	{
+		lightTransformUniformBuffer[i] = UniformBuffer<Transform>::create();
+	}
+	objectTransformUniformBuffer = UniformBuffer<Transform>::create();
+	colorUniformBuffer = UniformBuffer<ColorUBO>::create();
+	materialUniformBuffer = UniformBuffer<Material>::create();
+	dirLightUniformBuffer = UniformBuffer<DirLight>::create();
+	pointLightsUniformBuffer = UniformBuffer<PointLightsUniform>::create();
+	materialConstants = UniformBuffer<GLTFMetallic_Roughness::MaterialConstants>::create();
+	globalSceneData = UniformBuffer<GPUSceneData>::create();
 }
+
+VulkanTutorialExtension::~VulkanTutorialExtension() = default;
 
 void VulkanTutorialExtension::initVulkan()
 {
@@ -146,18 +164,18 @@ void VulkanTutorialExtension::createUniformBuffers()
 	VulkanTutorial::createUniformBuffers();
 
 	{
-		globalSceneData.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-		materialConstants.createUniformBuffer(1, device, physicalDevice);
+		globalSceneData->createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+		materialConstants->createUniformBuffer(1, device, physicalDevice);
 	}
 
-	objectTransformUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-	colorUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-	materialUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-	dirLightUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
-	pointLightsUniformBuffer.createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	objectTransformUniformBuffer->createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	colorUniformBuffer->createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	materialUniformBuffer->createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	dirLightUniformBuffer->createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+	pointLightsUniformBuffer->createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
 	{
-		lightTransformUniformBuffer[lightIndex].createUniformBuffer(swapChainImages.size(), device, physicalDevice);
+		lightTransformUniformBuffer[lightIndex]->createUniformBuffer(swapChainImages.size(), device, physicalDevice);
 	}
 }
 
@@ -183,12 +201,12 @@ void VulkanTutorialExtension::createDescriptorSets()
 		//set the uniform buffer for the material data
 		//AllocatedBuffer materialConstants = create_buffer(sizeof(GLTFMetallic_Roughness::MaterialConstants), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-		GLTFMetallic_Roughness::MaterialConstants& materialData = materialConstants.clearAndGetFirstInstanceData();
+		GLTFMetallic_Roughness::MaterialConstants& materialData = materialConstants->clearAndGetFirstInstanceData();
 		materialData.colorFactors = glm::vec4{ 1,1,1,1 };
 		materialData.metal_rough_factors = glm::vec4{ 1,0.5,0,0 };
-		materialConstants.CopyData(UniqueBufferIndex);
+		materialConstants->CopyData(UniqueBufferIndex);
 
-		materialResources.dataBuffer = materialConstants.getUniformBuffer(UniqueBufferIndex); //materialConstants.buffer;
+		materialResources.dataBuffer = materialConstants->getUniformBuffer(UniqueBufferIndex); //materialConstants.buffer;
 		materialResources.dataBufferOffset = 0;
 
 		defaultData.data = metalRoughMaterial.write_material(this, MaterialPass::MainColor, materialResources, descriptorPool);
@@ -202,13 +220,13 @@ void VulkanTutorialExtension::createDescriptorSets()
 void VulkanTutorialExtension::createGlobalDescriptorSets()
 {
 	VkDescriptorSetAllocateInfo allocInfo = vkb::initializers::descriptor_set_allocate_info(descriptorPool, &globalDescriptorSetLayout, 1);
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &globalDescriptorSet));
+	VK_CHECK_RESULT(vkAllocateDescriptorSets(*device, &allocInfo, &globalDescriptorSet));
 
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 
 	VkDescriptorBufferInfo bufDescriptor =
 		vkb::initializers::descriptor_buffer_info(
-			globalSceneData.getUniformBuffer(UniqueBufferIndex),
+			globalSceneData->getUniformBuffer(UniqueBufferIndex),
 			0,
 			sizeof(GPUSceneData));
 
@@ -216,7 +234,7 @@ void VulkanTutorialExtension::createGlobalDescriptorSets()
 		vkb::initializers::write_descriptor_set(globalDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &bufDescriptor),
 	};
 	
-	vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+	vkUpdateDescriptorSets(*device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
 
 void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets)
@@ -231,7 +249,7 @@ void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Tran
 
 	outDescriptorSets.resize(swapChainImages.size());
 	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
-	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
+	if (vkAllocateDescriptorSets(*device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to allocate descriptor sets!");
 	}
@@ -243,7 +261,7 @@ void VulkanTutorialExtension::createDescriptorSetsPointLights(UniformBuffer<Tran
 
 		inUniformBuffer.createWriteDescriptorSet(i, outDescriptorSets[i], descriptorWrites);
 
-		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		vkUpdateDescriptorSets(*device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
 }
 
@@ -259,7 +277,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 
 	outDescriptorSets.resize(swapChainImages.size());
 	// 각 타입의 여러개 Pool 안에서 레이아웃에 맞춰서 DescriptorSet을 할당한다. 
-	if (vkAllocateDescriptorSets(device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
+	if (vkAllocateDescriptorSets(*device, &allocInfo, outDescriptorSets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to allocate descriptor sets!");
 	}
@@ -267,13 +285,13 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 	// binding 순서대로 index가 부여된다. shader와 일치해야한다.
 	std::vector<VkWriteDescriptorSet> descriptorWrites;
 
-	VkDescriptorImageInfo pos = vkb::initializers::descriptor_image_info(textureSampler, geometry.position.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	VkDescriptorImageInfo normal = vkb::initializers::descriptor_image_info(textureSampler, geometry.normal.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	VkDescriptorImageInfo albedo = vkb::initializers::descriptor_image_info(textureSampler, geometry.albedo.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	VkDescriptorImageInfo arm = vkb::initializers::descriptor_image_info(textureSampler, geometry.arm.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	VkDescriptorImageInfo diffuseMap = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getDiffuseMapImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	VkDescriptorImageInfo specularPrefilterMap = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getSpecularMapImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	VkDescriptorImageInfo specularBRDFLUT = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getSpecularBRDFLUTImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo pos = vkb::initializers::descriptor_image_info(textureSampler, geometry.position->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo normal = vkb::initializers::descriptor_image_info(textureSampler, geometry.normal->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo albedo = vkb::initializers::descriptor_image_info(textureSampler, geometry.albedo->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo arm = vkb::initializers::descriptor_image_info(textureSampler, geometry.arm->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo diffuseMap = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getDiffuseMapImageView()->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo specularPrefilterMap = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getSpecularMapImageView()->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorImageInfo specularBRDFLUT = vkb::initializers::descriptor_image_info(textureSampler, irradianceCubeMap->getSpecularBRDFLUTImageView()->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	auto geometryTextureDescriptor = [&](VkImageView imageView){
 		return vkb::initializers::descriptor_image_info(textureSampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -291,21 +309,88 @@ void VulkanTutorialExtension::createLightingPassDescriptorSets(std::vector<VkDes
 			vkb::initializers::write_descriptor_set(outDescriptorSets[i], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, &specularBRDFLUT)
 		};
 
-		vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		vkUpdateDescriptorSets(*device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
+
+	{
+		textureViewer->addTexture(geometry.position, "Position");
+		textureViewer->addTexture(geometry.normal, "WorldNormal");
+		textureViewer->addTexture(geometry.albedo, "Albedo");
+		textureViewer->addTexture(geometry.arm, "AO,Roughness,Metallic");
+	}
+}
+
+int VulkanTutorialExtension::loadGltfModel(const std::string& modelPath)
+{
+	auto structureFile = loadGltf(this, modelPath);
+	if (!structureFile.has_value())
+	{
+		std::cout << "Can't find model path " << modelPath << std::endl;
+		return -1;
+	}
+
+	std::string fileName = modelPath;
+	size_t lastSlash = fileName.find_last_of("/\\");
+	if (lastSlash != std::string::npos) {
+		fileName = fileName.substr(lastSlash + 1);
+	}
+
+	loadedScenes[fileName] = *structureFile;
+	leftPanel->SetModelLoadResult(true, modelPath);
+	sceneInstances.push_back({ fileName.c_str(), glm::identity<glm::mat4>()});
+	markCommandBufferRecreation();
+
+	return sceneInstances.size() - 1;
+}
+
+void VulkanTutorialExtension::onChangedGltfModelTransform(int modelIndex, const ImGui::ModelTransform& transform)
+{
+	sceneInstances[modelIndex].transform = transform.matrix();
+	markCommandBufferRecreation();
+}
+
+void VulkanTutorialExtension::onChangedGltfModelTransform(int modelIndex, const glm::mat4& transform)
+{
+	sceneInstances[modelIndex].transform = transform;
+	markCommandBufferRecreation();
+}
+
+void VulkanTutorialExtension::removeGltfModelDeferred(const std::string& modelPath)
+{
+	std::string fileName = modelPath;
+	size_t lastSlash = fileName.find_last_of("/\\");
+	if (lastSlash != std::string::npos) {
+		fileName = fileName.substr(lastSlash + 1);
+	}
+
+	std::cout << "Remove gltf instance " << fileName << std::endl;
+
+	sceneInstances.erase(
+		std::remove_if(sceneInstances.begin(), sceneInstances.end(),
+			[&fileName](const LoadedGLTFInstance& instance) { return instance.modelName == fileName; }),
+		sceneInstances.end()
+	);
+
+	ModelsToRemove.emplace(fileName, totalFrame + getSwapchainImageNum());
+	markCommandBufferRecreation();
+}
+
+void VulkanTutorialExtension::removeGltfModel(const std::string& fileName)
+{
+	vkDeviceWaitIdle(*device);
+
+	std::cout << "Remove gltf model " << fileName << std::endl;
+
+	loadedScenes.erase(fileName);
 }
 
 void VulkanTutorialExtension::init_default_data()
 {
-	auto structureFile = loadGltf(this, "models/MetalRoughSpheres.glb");
-	assert(structureFile.has_value());
+	loadGltfModel("models/MetalRoughSpheres.glb");
+	int index = loadGltfModel("models/gizmo.glb");
 
-	loadedScenes["structure"] = *structureFile;
-
-	auto gizmoFile = loadGltf(this, "models/gizmo.glb");
-	assert(gizmoFile.has_value());
-
-	loadedScenes["gizmo"] = *gizmoFile;
+	onChangedGltfModelTransform(index, glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)));
+	leftPanel->SetModelTransform(index, glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)));
 }
 
 void VulkanTutorialExtension::update_scene(uint32_t currentImage)
@@ -321,15 +406,19 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	mainDrawContext.OpaqueSurfaces.clear();
 	mainDrawContext.TranslucentSurfaces.clear();
 
-	loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, mainDrawContext);
-	loadedScenes["gizmo"]->Draw(glm::scale(glm::mat4{ 1.f }, glm::vec3(0.005f)), mainDrawContext);
+	// OpaqueSurfaces에 RenderObject를 넣고 커맨드 버퍼를 만들 준비를 마친다.
+	for (const auto& instance : sceneInstances)
+	{
+		loadedScenes[instance.modelName]->Draw(instance.transform, mainDrawContext);
+	}
+
 	//materialTester->draw(mainDrawContext, "gold");
 
 	glm::mat4 viewMat = camera.GetViewMatrix();
 	glm::mat4 persMat = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)(swapChainExtent.height), 0.1f, 100.f);
 	persMat[1][1] *= -1;
 
-	GPUSceneData& sceneData = globalSceneData.getFirstInstanceData();
+	GPUSceneData& sceneData = globalSceneData->getFirstInstanceData();
 	sceneData = {};
 	sceneData.exposureDisplay.x = exposure;
 	sceneData.exposureDisplay.y = debugDisplayTarget;
@@ -363,7 +452,7 @@ void VulkanTutorialExtension::update_scene(uint32_t currentImage)
 	dirLight.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
 	sceneData.dirLight = std::move(dirLight);
 
-	globalSceneData.CopyData(currentImage);
+	globalSceneData->CopyData(currentImage);
 }
 
 void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
@@ -382,21 +471,21 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	persMat[1][1] *= -1;
 
 	// Object
-	Transform& ubo = objectTransformUniformBuffer.clearAndGetFirstInstanceData();
+	Transform& ubo = objectTransformUniformBuffer->clearAndGetFirstInstanceData();
 	ubo.model = glm::mat4(1.f);
 	ubo.view = viewMat;
 	ubo.proj = persMat;
 
-	objectTransformUniformBuffer.CopyData(currentImage);
+	objectTransformUniformBuffer->CopyData(currentImage);
 
-	ColorUBO& colorUbo = colorUniformBuffer.clearAndGetFirstInstanceData();
+	ColorUBO& colorUbo = colorUniformBuffer->clearAndGetFirstInstanceData();
 	colorUbo.objectColor = glm::vec3(1.0f, 0.0f, 0.0f);
 	colorUbo.lightColor = glm::vec3(0.0f, 0.0f, 0.0f);
 	colorUbo.viewPos = camera.Position;
-	colorUniformBuffer.CopyData(currentImage);
+	colorUniformBuffer->CopyData(currentImage);
 
 	// Material 
-	Material& material = materialUniformBuffer.clearAndGetFirstInstanceData();
+	Material& material = materialUniformBuffer->clearAndGetFirstInstanceData();
 	material.ambient = glm::vec3(1.0f, 0.5f, 0.31f);
 	material.diffuse = glm::vec3(1.0f, 0.5f, 0.31f);
 	material.specular = glm::vec3(1.0f, 0.5f, 0.31f);
@@ -404,7 +493,7 @@ void VulkanTutorialExtension::updateUniformBuffer(uint32_t currentImage)
 	// float을 할거면 vec3/vec4로 해서 컴포넌트로 넘겨주는 것만 작동한다. 
 	material.shininess = glm::vec3(32.0f, 0.5f, 0.31f);
 
-	materialUniformBuffer.CopyData(currentImage);
+	materialUniformBuffer->CopyData(currentImage);
 
 	// Point Lights
 	clearPointLightsSwitch();
@@ -418,17 +507,17 @@ void VulkanTutorialExtension::clearUniformBuffer(uint32_t i)
 {
 	VulkanTutorial::clearUniformBuffer(i);
 
-	objectTransformUniformBuffer.destroy(i);
-	colorUniformBuffer.destroy(i);
-	materialUniformBuffer.destroy(i);
-	dirLightUniformBuffer.destroy(i);
-	pointLightsUniformBuffer.destroy(i);
-	for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
-	{
-		lightTransformUniformBuffer[lightIndex].destroy(i);
-	}
-	materialConstants.destroy(i);
-	globalSceneData.destroy(i);
+	//objectTransformUniformBuffer.destroy(i);
+	//colorUniformBuffer.destroy(i);
+	//materialUniformBuffer.destroy(i);
+	//dirLightUniformBuffer.destroy(i);
+	//pointLightsUniformBuffer.destroy(i);
+	//for (int lightIndex = 0; lightIndex < NR_POINT_LIGHTS; lightIndex++)
+	//{
+	//	lightTransformUniformBuffer[lightIndex].destroy(i);
+	//}
+	//materialConstants.destroy(i);
+	//globalSceneData.destroy(i);
 }
 
 void VulkanTutorialExtension::createDescriptorSetLayouts()
@@ -446,7 +535,7 @@ void VulkanTutorialExtension::createGlobalDescriptorSetLayout()
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	globalDescriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
+	globalDescriptorSetLayout = vk::desc::createDescriptorSetLayout(*device, bindings);
 }
 
 void VulkanTutorialExtension::createDescriptorSetLayoutsForPointLights()
@@ -454,7 +543,7 @@ void VulkanTutorialExtension::createDescriptorSetLayoutsForPointLights()
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	//	Transform
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
-	descriptorSetLayoutPointLights = vk::desc::createDescriptorSetLayout(device, bindings);
+	descriptorSetLayoutPointLights = vk::desc::createDescriptorSetLayout(*device, bindings);
 }
 
 void VulkanTutorialExtension::createDescriptorSetLayoutsForObjects()
@@ -473,7 +562,7 @@ void VulkanTutorialExtension::createDescriptorSetLayoutsForObjects()
 	//	pointLightsUniformBuffer
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
-	descriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
+	descriptorSetLayout = vk::desc::createDescriptorSetLayout(*device, bindings);
 }
 
 void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
@@ -495,7 +584,7 @@ void VulkanTutorialExtension::createLightingPassDescriptorSetLayout()
 	// brdf lut 2d
 	createDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, bindings);
 
-	lightingPass.descriptorSetLayout = vk::desc::createDescriptorSetLayout(device, bindings);
+	lightingPass.descriptorSetLayout = vk::desc::createDescriptorSetLayout(*device, bindings);
 }
 
 void VulkanTutorialExtension::createGraphicsPipelines()
@@ -575,8 +664,8 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.basePipelineIndex = -1;
 
 	// point light objects
-	auto vertShaderModule = Utils::loadShader("shaders/shadervert.spv", device);
-	auto fragShaderModule = Utils::loadShader("shaders/ForwardPassfrag.spv", device);
+	auto vertShaderModule = Utils::loadShader("shaders/shadervert.spv", *device);
+	auto fragShaderModule = Utils::loadShader("shaders/ForwardPassfrag.spv", *device);
 
 	std::vector<VkVertexInputBindingDescription> bindingDescriptions;
 	Vertex::getBindingDescriptions(bindingDescriptions);
@@ -645,13 +734,13 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.pColorBlendState = &colorBlending;
 
 	// vk_engine의 코드로 일단은 갈음한다.
-	//if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &forward.pipeline) != VK_SUCCESS)
+	//if (vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &forward.pipeline) != VK_SUCCESS)
 	//{
 	//	throw std::runtime_error("failed to create graphics pipeline");
 	//}
 
-	vkDestroyShaderModule(device, vertShaderModule, nullptr);
-	vkDestroyShaderModule(device, fragShaderModule, nullptr);
+	vkDestroyShaderModule(*device, vertShaderModule, nullptr);
+	vkDestroyShaderModule(*device, fragShaderModule, nullptr);
 
 	/**
 	* For objects
@@ -660,8 +749,8 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	Instance::getBindingDescriptions(bindingDescriptions);
 	Instance::getAttributeDescriptions(attributeDescriptions);
 
-	vertShaderModule = Utils::loadShader("shaders/ObjectShadervert.spv", device);
-	fragShaderModule = Utils::loadShader("shaders/ObjectShaderfrag.spv", device);
+	vertShaderModule = Utils::loadShader("shaders/ObjectShadervert.spv", *device);
+	fragShaderModule = Utils::loadShader("shaders/ObjectShaderfrag.spv", *device);
 
 	vertShaderStageInfo.module = vertShaderModule;
 	fragShaderStageInfo.module = fragShaderModule;
@@ -693,13 +782,13 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.renderPass = geometry.renderPass;
 	pipelineInfo.pColorBlendState = &colorBlending;
 
-	//if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
+	//if (vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelineObject) != VK_SUCCESS)
 	//{
 	//	throw std::runtime_error("failed to create graphics pipeline");
 	//}
 
-	vkDestroyShaderModule(device, vertShaderModule, nullptr);
-	vkDestroyShaderModule(device, fragShaderModule, nullptr);
+	vkDestroyShaderModule(*device, vertShaderModule, nullptr);
+	vkDestroyShaderModule(*device, fragShaderModule, nullptr);
 
 	/**
 	* For lightpass
@@ -709,10 +798,10 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	VkPipelineLayoutCreateInfo mesh_layout_info = vkb::initializers::pipeline_layout_create_info(layouts.size());
 	mesh_layout_info.pSetLayouts = layouts.data();
 	
-	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &mesh_layout_info, nullptr, &lightingPass.pipelineLayout));
+	VK_CHECK_RESULT(vkCreatePipelineLayout(*device, &mesh_layout_info, nullptr, &lightingPass.pipelineLayout));
 	 
-	vertShaderModule = Utils::loadShader("shaders/LightingPassvert.spv", device);
-	fragShaderModule = Utils::loadShader("shaders/Pbrfrag.spv", device);
+	vertShaderModule = Utils::loadShader("shaders/LightingPassvert.spv", *device);
+	fragShaderModule = Utils::loadShader("shaders/Pbrfrag.spv", *device);
 	
 	vertShaderStageInfo.module = vertShaderModule;
 	fragShaderStageInfo.module = fragShaderModule;
@@ -743,13 +832,13 @@ void VulkanTutorialExtension::createGraphicsPipelines()
 	pipelineInfo.renderPass = renderPass;
 	pipelineInfo.pDepthStencilState = nullptr;
 
-	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &lightingPass.pipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &lightingPass.pipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline");
 	}
 
-	vkDestroyShaderModule(device, vertShaderModule, nullptr);
-	vkDestroyShaderModule(device, fragShaderModule, nullptr);
+	vkDestroyShaderModule(*device, vertShaderModule, nullptr);
+	vkDestroyShaderModule(*device, fragShaderModule, nullptr);
 }
 
 void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer, size_t index)
@@ -758,6 +847,27 @@ void VulkanTutorialExtension::recordCommandBuffer(VkCommandBuffer commandBuffer,
 	//irradianceCubeMap->draw(commandBuffer, this);
 
 	VulkanTutorial::recordCommandBuffer(commandBuffer, index);
+
+	VkRenderPassBeginInfo renderPassInfo = vkb::initializers::render_pass_begin_info();
+	renderPassInfo.renderArea.offset = { 0,0 };
+	renderPassInfo.renderArea.extent = swapChainExtent;
+	renderPassInfo.renderPass = renderPass;
+	renderPassInfo.framebuffer = swapChainFrameBuffers[index];
+	std::array<VkClearValue, 1> ClearValues{};
+	ClearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(ClearValues.size());
+	renderPassInfo.pClearValues = ClearValues.data();
+
+	/**
+	* DebugPass
+	*/
+	if (debugDisplayTarget > 0)
+	{
+		GPUMarker Marker(commandBuffer, "Debug");
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		textureViewer->draw(commandBuffer, this);
+		vkCmdEndRenderPass(commandBuffer);
+	}
 }
 
 void VulkanTutorialExtension::recordRenderPassCommands(VkCommandBuffer commandBuffer, size_t i)
@@ -793,7 +903,10 @@ void VulkanTutorialExtension::recordForwardPassCommands(VkCommandBuffer commandB
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	drawRenderObject(commandBuffer, i, skybox->getRenderObject());
+	if (skybox->isValid())
+	{
+		drawRenderObject(commandBuffer, i, skybox->getRenderObject());
+	}
 
 	for (const RenderObject& r : mainDrawContext.TranslucentSurfaces)
 	{
@@ -805,11 +918,14 @@ void VulkanTutorialExtension::drawRenderObject(VkCommandBuffer commandBuffer, si
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 0, 1, &globalDescriptorSet, 0, nullptr);
+	std::cout << "draw descriptor set " << draw.material->materialSet[i] << std::endl;
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->layout, 1, 1, &draw.material->materialSet[i], 0, nullptr);
 
+	std::cout << "draw vertex buffer " << draw.vertexBuffer << std::endl;
 	VkBuffer vertexBuffers[]{ draw.vertexBuffer };
 	VkDeviceSize offsets[]{ 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+	std::cout << "draw index buffer " << draw.indexBuffer << std::endl;
 	vkCmdBindIndexBuffer(commandBuffer, draw.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 	GPUDrawPushConstants pushConstants;
@@ -827,15 +943,15 @@ void VulkanTutorialExtension::createInstanceBuffer(uint32_t imageIndex)
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 	void* data;
-	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(*device, stagingBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, instances.data(), (size_t)bufferSize);
-	vkUnmapMemory(device, stagingBufferMemory);
+	vkUnmapMemory(*device, stagingBufferMemory);
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceBuffers[imageIndex], instanceBufferMemories[imageIndex]);
 	copyBuffer(stagingBuffer, instanceBuffers[imageIndex], bufferSize);
 
-	vkDestroyBuffer(device, stagingBuffer, nullptr);
-	vkFreeMemory(device, stagingBufferMemory, nullptr);
+	vkDestroyBuffer(*device, stagingBuffer, nullptr);
+	vkFreeMemory(*device, stagingBufferMemory, nullptr);
 }
 
 void VulkanTutorialExtension::setWindowFocused(int inFocused)
@@ -910,22 +1026,45 @@ void VulkanTutorialExtension::preDrawFrame(uint32_t imageIndex)
 {
 	VulkanTutorial::preDrawFrame(imageIndex);
 
+	tryRemoveGltfModels();
+
 	update_scene(imageIndex);
 
 	if (pointLightSwitchChanged(imageIndex))
 	{
-		//vkFreeCommandBuffers(device, commandPool, 1, &commandBuffers[imageIndex]);
+		//vkFreeCommandBuffers(*device, commandPool, 1, &commandBuffers[imageIndex]);
 		createCommandBuffer(imageIndex);
 		previousActivePointLightsMask[imageIndex] = activePointLightsMask;
 	}
 
+
+
+	tryRecreateCommandBuffer(imageIndex);
+
 	drawImGui(imageIndex);
+}
+
+void VulkanTutorialExtension::tryRemoveGltfModels()
+{
+	for (auto it = ModelsToRemove.begin(); it != ModelsToRemove.end(); )
+	{
+		const auto& [fileName, frame] = *it;
+		if (totalFrame > frame)
+		{
+			removeGltfModel(fileName);
+			it = ModelsToRemove.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
 }
 
 void VulkanTutorialExtension::recreateInstanceBuffer(uint32_t imageIndex)
 {
-	vkDestroyBuffer(device, instanceBuffers[imageIndex], nullptr);
-	vkFreeMemory(device, instanceBufferMemories[imageIndex], nullptr);
+	vkDestroyBuffer(*device, instanceBuffers[imageIndex], nullptr);
+	vkFreeMemory(*device, instanceBufferMemories[imageIndex], nullptr);
 
 	createInstanceBuffer(imageIndex);
 }
@@ -957,6 +1096,9 @@ void VulkanTutorialExtension::createCommandPool()
 
 void VulkanTutorialExtension::onPostInitVulkan()
 {
+	textureViewer = std::make_shared<TextureViewer>();
+	textureViewer->initialize(this);
+
 	irradianceCubeMap = std::make_shared<IrradianceCubeMap>(device, descriptorPool);
 	irradianceCubeMap->initialize(this);
 
@@ -1002,10 +1144,10 @@ void VulkanTutorialExtension::createRenderPass()
 }
 void VulkanTutorialExtension::cleanUpSwapchain()
 {
-	vkDestroyPipelineLayout(device, pipelineLayoutObject, nullptr);
-	vkDestroyPipelineLayout(device, pipelineLayoutPointLights, nullptr);
-	vkDestroyPipeline(device, graphicsPipelineObject, nullptr);
-	vkDestroyPipeline(device, graphicsPipelinePointLights, nullptr);
+	vkDestroyPipelineLayout(*device, pipelineLayoutObject, nullptr);
+	vkDestroyPipelineLayout(*device, pipelineLayoutPointLights, nullptr);
+	vkDestroyPipeline(*device, graphicsPipelineObject, nullptr);
+	vkDestroyPipeline(*device, graphicsPipelinePointLights, nullptr);
 
 	cleanUpImGuiSwapchain();
 
@@ -1020,28 +1162,28 @@ void VulkanTutorialExtension::cleanUp()
 
 	for (auto instanceBuffer : instanceBuffers)
 	{
-		vkDestroyBuffer(device, instanceBuffer, nullptr);
+		vkDestroyBuffer(*device, instanceBuffer, nullptr);
 	}
 
 	for (auto instanceBufferMemory : instanceBufferMemories)
 	{
-		vkFreeMemory(device, instanceBufferMemory, nullptr);
+		vkFreeMemory(*device, instanceBufferMemory, nullptr);
 	}
-	vkDestroyDescriptorSetLayout(device, descriptorSetLayoutPointLights, nullptr);
-	vkDestroyDescriptorSetLayout(device, globalDescriptorSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(*device, descriptorSetLayoutPointLights, nullptr);
+	vkDestroyDescriptorSetLayout(*device, globalDescriptorSetLayout, nullptr);
 
-	//vkDestroyPipeline(device, defaultData.data.pipeline->pipeline, nullptr);
-	//vkDestroyPipelineLayout(device, defaultData.data.pipeline->layout, nullptr);
+	//vkDestroyPipeline(*device, defaultData.data.pipeline->pipeline, nullptr);
+	//vkDestroyPipelineLayout(*device, defaultData.data.pipeline->layout, nullptr);
 
-	metalRoughMaterial.clear_resources(device);
+	metalRoughMaterial.clear_resources(*device);
 
 	// make sure the gpu has stopped doing its things
-	vkDeviceWaitIdle(device);
+	vkDeviceWaitIdle(*device);
 
 	loadedScenes.clear();
 	irradianceCubeMap.reset();
-	skybox->cleanup(device);
-	materialTester->cleanUp(device);
+	skybox->cleanup(*device);
+	materialTester->cleanUp(*device);
 	VulkanTutorial::cleanUp();
 }
 

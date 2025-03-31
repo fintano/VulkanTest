@@ -6,6 +6,13 @@
 class IrradianceCubeMap;
 class Skybox;
 class MaterialTester;
+class TextureViewer;
+
+namespace ImGui {
+	class LeftPanelUI;
+	class RightPanelUI;
+	struct ModelTransform;
+}
 
 /**
 * https://vulkan-tutorial.com/ 에서 진행한 튜토리얼 프로젝트는 VulkanTutorial 클래스에 있다. 
@@ -19,6 +26,7 @@ class VulkanTutorialExtension : public VulkanTutorial{
 public:
 
 	VulkanTutorialExtension();
+	~VulkanTutorialExtension();
 
 	static int instanceCount;
 	static int maxInstanceCount;
@@ -65,9 +73,6 @@ private:
 	void cleanUpSwapchain() override;
 	void cleanUp() override;
 	
-	//void createObjectGraphicsPipelines();
-	//void createLightingPassGraphicsPipelines();
-	//void createPointLightsGraphicsPipeline();
 	void createGlobalDescriptorSets();
 	void createDescriptorSetsPointLights(UniformBuffer<Transform>& inUniformBuffer, std::vector<VkDescriptorSet>& outDescriptorSets);
 	void createDescriptorSetsObject(std::vector<VkDescriptorSet>& outDescriptorSets);
@@ -84,6 +89,10 @@ private:
 	void turnPointLightOn(int index);
 	bool isLightOn(int index);
 	bool pointLightSwitchChanged(uint32_t index);
+	void removeGltfModel(const std::string& fileName);
+	void tryRemoveGltfModels();
+	void removeGltfModelDeferred(const std::string& modelPath);
+	void onChangedGltfModelTransform(const Transform& transform, const std::string& fileName);
 
 	static void mouseCallback(GLFWwindow* window, double xpos, double ypos);
 	static void mouseScrollCallback(GLFWwindow* window, double, double yoffset);
@@ -113,12 +122,18 @@ public:
 	std::vector<int> previousActivePointLightsMask;
 	int activePointLightsMask = 0;
 
-	int getSwapchainImageNum() { return static_cast<int>(swapChainImages.size()); }
+	int getSwapchainImageNum() { return static_cast<int>(swapChainFrameBuffers.size()); }
+	int getSwapchainFrameBuffer() { return static_cast<int>(swapChainFrameBuffers.size()); }
 	VkExtent2D getSwapchainExtent() { return swapChainExtent; }
 	virtual VkDescriptorSetLayout getGlobalDescriptorSetLayout() override { return globalDescriptorSetLayout; }
-	AllocatedImage getDefaultTexture2D() { return whiteTexture; }
+	std::shared_ptr<AllocatedImage> getDefaultTexture2D() { return whiteTexture; }
 	VkSampler getDefaultTextureSampler() { return textureSampler; }
+	VkRenderPass getDefaultRenderPass() { return renderPass; }
+	std::shared_ptr<TextureViewer> getTextureViewer() { return textureViewer; }
 	void drawRenderObject(VkCommandBuffer commandBuffer, size_t i, const RenderObject& draw);
+	int loadGltfModel(const std::string& modelPath);
+	void onChangedGltfModelTransform(int modelIndex, const ImGui::ModelTransform& transform);
+	void onChangedGltfModelTransform(int modelIndex, const glm::mat4& transform);
 
 private:
 	std::vector<Instance> instances;
@@ -127,12 +142,12 @@ private:
 	int usingInstanceBufferIndex = 0;
 	int previousInstanceCount = instanceCount;
 
-	std::array<UniformBuffer<Transform>, NR_POINT_LIGHTS> lightTransformUniformBuffer;
-	UniformBuffer<Transform> objectTransformUniformBuffer;
-	UniformBuffer<ColorUBO> colorUniformBuffer;
-	UniformBuffer<Material> materialUniformBuffer;
-	UniformBuffer<DirLight> dirLightUniformBuffer;
-	UniformBuffer<PointLightsUniform> pointLightsUniformBuffer;
+	std::array<std::shared_ptr<UniformBuffer<Transform>>, NR_POINT_LIGHTS> lightTransformUniformBuffer;
+	std::shared_ptr<UniformBuffer<Transform>> objectTransformUniformBuffer;
+	std::shared_ptr<UniformBuffer<ColorUBO>> colorUniformBuffer;
+	std::shared_ptr<UniformBuffer<Material>> materialUniformBuffer;
+	std::shared_ptr<UniformBuffer<DirLight>> dirLightUniformBuffer;
+	std::shared_ptr<UniformBuffer<PointLightsUniform>> pointLightsUniformBuffer;
 
 	// 오브젝트용
 	VkPipeline graphicsPipelineObject;
@@ -148,6 +163,10 @@ private:
 	VkCommandPool imGuiCommandPool;
 	std::vector<VkCommandBuffer> imGuiCommandBuffers;
 	std::vector<VkFramebuffer> imGuiFrameBuffers;
+	// 왼쪽에는 모델과 머티리얼 탭이 있는 패널
+	std::shared_ptr<ImGui::LeftPanelUI> leftPanel;
+	// 오른쪽에는 기존 Vulkan Tutorial Extension 창
+	std::shared_ptr<ImGui::RightPanelUI> rightPanel;
 
 	bool focused;
 
@@ -158,23 +177,25 @@ public:
 	std::shared_ptr<IrradianceCubeMap> irradianceCubeMap;
 	std::shared_ptr<Skybox> skybox;
 	
-	/** material system */
-	//std::vector<std::shared_ptr<struct MeshAsset>> testMeshes;
+	/** Scene */
 	DrawContext mainDrawContext;
-	//std::unordered_map<std::string, std::shared_ptr<Node>> loadedNodes;
 	std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
+	std::vector<LoadedGLTFInstance> sceneInstances;
+	std::unordered_map<std::string, int> ModelsToRemove;
 
 	/** 머터리얼 */
 	GLTFMaterial defaultData;
 	GLTFMetallic_Roughness metalRoughMaterial;
 	// 바뀌지 않으므로 굳이 프레임마다 다른 유니폼 버퍼를 갖고 있을 이유가 없다.
-	UniformBuffer<GLTFMetallic_Roughness::MaterialConstants> materialConstants;
+	std::shared_ptr<UniformBuffer<GLTFMetallic_Roughness::MaterialConstants>> materialConstants;
 
 	/** 글로벌 데이터 */
-	UniformBuffer<GPUSceneData> globalSceneData;
+	std::shared_ptr<UniformBuffer<GPUSceneData>> globalSceneData;
 	VkDescriptorSet globalDescriptorSet;
 	VkDescriptorSetLayout globalDescriptorSetLayout;
 
+	/** 디버그 */
+	std::shared_ptr<TextureViewer> textureViewer;
 	std::shared_ptr<MaterialTester> materialTester;
 
 	void init_default_data();

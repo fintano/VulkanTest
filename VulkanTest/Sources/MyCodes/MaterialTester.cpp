@@ -25,10 +25,10 @@ const char* aoPath
 	glm::vec4 textureFlags(0.f); // x=useNormalMap, y=useMetallicMap, z=useRoughnessMap, w=useAOMap
 
 	assert(albedoPath);
-	AllocatedImage colorImage = engine->createTexture2D(albedoPath, VK_FORMAT_R8G8B8A8_UNORM);
+	std::shared_ptr<AllocatedImage> colorImage = engine->createTexture2D(albedoPath, VK_FORMAT_R8G8B8A8_UNORM);
 	images.push_back(colorImage);
 
-	AllocatedImage normal, metallic, roughness, AO;
+	std::shared_ptr<AllocatedImage> normal, metallic, roughness, AO;
 	if (normalPath)
 	{
 		normal = engine->createTexture2D(normalPath, VK_FORMAT_R8G8B8A8_UNORM);
@@ -83,15 +83,10 @@ void MaterialTester::draw(DrawContext& mainDrawContext, const std::string& name)
 
 void MaterialTester::cleanUp(VkDevice device)
 {
-	for (auto& image : images)
-	{
-		image.Destroy(device);
-	}
-
-	for(auto& [name, material] : materialMap)
-	{
-		material.constants.destroy(0);
-	}
+	//for(auto& [name, material] : materialMap)
+	//{
+	//	material.constants.destroy(0);
+	//}
 
 	sphere->cleanUp(device);
 	cube->cleanUp(device);

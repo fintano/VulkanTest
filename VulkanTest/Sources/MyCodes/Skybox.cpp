@@ -35,9 +35,11 @@ void Skybox::initialize(VulkanTutorialExtension* engine)
 		depthState->depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	});
     
+	irradianceCubeMap = engine->irradianceCubeMap->getCubeImageView();
+
 	for (int i = 0; i < engine->getSwapchainImageNum(); i++)
 	{
-		pipeline->updateTextureDescriptor(engine->device, i, 0, engine->irradianceCubeMap->getCubeImageView(), engine->getDefaultTextureSampler());
+		pipeline->updateTextureDescriptor(engine->getDevice(), i, 0, irradianceCubeMap->imageView, engine->getDefaultTextureSampler());
 	}
 
 	cube = std::make_shared<Cube<VertexOnlyPos>>();
@@ -64,4 +66,9 @@ void Skybox::cleanup(VkDevice device)
 {
 	cube->cleanUp(device);
 	pipeline->cleanup(device);
+}
+
+bool Skybox::isValid()
+{
+	return !!irradianceCubeMap;
 }

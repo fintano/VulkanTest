@@ -220,6 +220,7 @@ struct Sphere
             assert(false);
         }
 
+#if DEBUG_MODEL
         // 삼각형 감김 방향 테스트 코드 추가
         {
             std::cout << "Analyzing winding order for sphere mesh...\n";
@@ -291,7 +292,7 @@ struct Sphere
                 std::cout << "No valid triangles found for winding analysis!\n";
             }
         }
-
+    #endif
         mesh.indexBuffer.indices = triangleListIndices;
 
         engine->createVertexBuffer(mesh.vertexBuffer.vertices, mesh.vertexBuffer.Buffer, mesh.vertexBuffer.BufferMemory);

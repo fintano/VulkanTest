@@ -124,7 +124,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)Libraries\DearImGui;$(ProjectDir)Sources\MyCodes;$(ProjectDir)Sources\VulkanTutorial;$(ProjectDir)Libraries\tinyobjloader-master;$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\include;$(ProjectDir)Libraries\stb-master;$(ProjectDir)Libraries\glm-master;$(VULKAN_SDK)\Include;$(ProjectDir)Libraries\fastgltf\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Libraries\DearImGui;$(ProjectDir)Sources\MyCodes;$(ProjectDir)Sources\VulkanTutorial;$(ProjectDir)Libraries\tinyobjloader-master;$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\include;$(ProjectDir)Libraries\stb-master;$(ProjectDir)Libraries\glm-master;$(VULKAN_SDK)\Include;$(ProjectDir)Libraries\fastgltf\include;$(ProjectDir)Libraries\dirent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -187,6 +187,7 @@ CALL compile.bat</Command>
     <None Include="shaders\Skybox.frag" />
     <None Include="shaders\Skybox.vert" />
     <None Include="shaders\SpecularMap.frag" />
+    <None Include="shaders\TextureViewer.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Libraries\DearImGui\imgui.cpp" />
@@ -204,6 +205,7 @@ CALL compile.bat</Command>
     <ClCompile Include="Sources\MyCodes\MaterialTester.cpp" />
     <ClCompile Include="Sources\MyCodes\SimplePipeline.cpp" />
     <ClCompile Include="Sources\MyCodes\Skybox.cpp" />
+    <ClCompile Include="Sources\MyCodes\TextureViewer.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_engine.cpp" />
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
@@ -228,6 +230,7 @@ CALL compile.bat</Command>
     <ClInclude Include="Sources\MyCodes\SimplePipeline.h" />
     <ClInclude Include="Sources\MyCodes\Skybox.h" />
     <ClInclude Include="Sources\MyCodes\Sphere.h" />
+    <ClInclude Include="Sources\MyCodes\TextureViewer.h" />
     <ClInclude Include="Sources\MyCodes\UniformBufferTypes.h" />
     <ClInclude Include="Sources\MyCodes\vk_descriptor.h" />
     <ClInclude Include="Sources\MyCodes\vk_engine.h" />

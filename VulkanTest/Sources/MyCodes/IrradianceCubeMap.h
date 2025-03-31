@@ -20,7 +20,7 @@ using CubeFrameBuffer = std::vector<std::vector<VkFramebuffer>>;
 class IrradianceCubeMap
 {
 public:
-	IrradianceCubeMap(VkDevice inDevice, VkDescriptorPool inDescriptorPool);
+	IrradianceCubeMap(DevicePtr inDevice, VkDescriptorPool inDescriptorPool);
 	~IrradianceCubeMap() 
 	{
 		clear();
@@ -28,10 +28,10 @@ public:
 
 	void initialize(VulkanTutorialExtension* engine);
 
-	VkImageView getCubeImageView() { return envCubeMap.cubeImageView; }
-	VkImageView getDiffuseMapImageView() { return diffuseMap.cubeImageView; }
-	VkImageView getSpecularMapImageView() { return specularPrefilteredMap.cubeImageView; }
-	VkImageView getSpecularBRDFLUTImageView() { return specularBRDFLUT.imageView; }
+	std::shared_ptr<AllocatedImage> getCubeImageView() { return envCubeMap->image; }
+	std::shared_ptr<AllocatedImage> getDiffuseMapImageView() { return diffuseMap->image; }
+	std::shared_ptr<AllocatedImage> getSpecularMapImageView() { return specularPrefilteredMap->image; }
+	std::shared_ptr<AllocatedImage> getSpecularBRDFLUTImageView() { return specularBRDFLUT; }
 
 	void draw(VkCommandBuffer commandBuffer, VulkanTutorialExtension* engine);
 private:
@@ -41,16 +41,16 @@ private:
 	void buildPipeline(VulkanTutorialExtension* engine);
 	void clear();
 
-	CubeMap createCubeImage(VulkanTutorial* engine, uint32_t mipLevels, VkExtent2D extent, VkFormat format, const std::string& debugName);
-	AllocatedImage create2DImage(VulkanTutorial* engine, uint32_t mipLevels, VkExtent2D extent, VkFormat format, const std::string& debugName);
+	std::shared_ptr<CubeMap> createCubeImage(VulkanTutorial* engine, uint32_t mipLevels, VkExtent2D extent, VkFormat format, const std::string& debugName);
+	std::shared_ptr<AllocatedImage> create2DImage(VulkanTutorial* engine, uint32_t mipLevels, VkExtent2D extent, VkFormat format, const std::string& debugName);
 	void createFrameBuffer(CubeFrameBuffer& frameBuffers, uint32_t mipLevels, const CubeMap& cubeMap, VkExtent2D extent, VkRenderPass renderPass = VK_NULL_HANDLE);
-	VkFramebuffer createFrameBuffer2D(const AllocatedImage& image, VkExtent2D extent, VkRenderPass renderPass = VK_NULL_HANDLE);
+	VkFramebuffer createFrameBuffer2D(const std::shared_ptr<AllocatedImage>& image, VkExtent2D extent, VkRenderPass renderPass = VK_NULL_HANDLE);
 
 	std::string equirectangularPath = "textures/newport_loft.hdr";
 
 	VkFormat HDRFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 
-	VkDevice device;
+	DevicePtr device;
 	VkDescriptorPool descriptorPool;
 
 	VkDescriptorSetLayout layout;
@@ -58,25 +58,25 @@ private:
 	CubeFrameBuffer frameBuffers;
 
 	VkSampler defaultSampler;
-	AllocatedImage equirectangularTexture;
-	CubeMap envCubeMap;
+	std::shared_ptr<AllocatedImage> equirectangularTexture;
+	std::shared_ptr<CubeMap> envCubeMap;
 	std::shared_ptr<SimplePipelinePosOnly> envMapPipeline;
 	VkExtent2D Res = { 512, 512 };
 	VkRenderPass envCubeRenderPass;
 
 	// indirect diffuse map
-	CubeMap diffuseMap;
+	std::shared_ptr<CubeMap> diffuseMap;
 	CubeFrameBuffer diffuseFrameBuffers;
 	std::shared_ptr<SimplePipelinePosOnly> diffuseMapPipeline;
 	VkExtent2D DiffuseMapRes = { 32, 32 };
 
 	// indirect specular map
-	CubeMap specularPrefilteredMap;
+	std::shared_ptr<CubeMap> specularPrefilteredMap;
 	CubeFrameBuffer specularFrameBuffers;
 	std::shared_ptr<SimplePipelinePosOnly> specularMapPipeline;
 	VkExtent2D SpecularMapRes = { 128, 128 };
 
-	AllocatedImage specularBRDFLUT;
+	std::shared_ptr<AllocatedImage> specularBRDFLUT;
 	VkFramebuffer integrationFrameBuffers;
 	std::shared_ptr<SimplePipelinePosTex> integrationMapPipeline;
 	VkExtent2D IntegraionMapRes = { 512, 512 };

@@ -122,7 +122,7 @@ void SimplePipeline::allocateDescriptorSet(VkDevice device) {
 }
 
 void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::function<void(VkGraphicsPipelineCreateInfo&)> modifyFunc) {
-    VkDevice device = engine->device;
+    VkDevice device = engine->getDevice();
 
     createDescriptorSetLayout(device);
 
@@ -157,7 +157,7 @@ void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::functio
     pipelineCI.pViewportState = &viewportState;
     pipelineCI.pDepthStencilState = &depthStencilState;
     pipelineCI.pDynamicState = &dynamicState;
-
+    
     // Viewport
     VkViewport viewport = vkb::initializers::viewport((float)viewportExtent.width, (float)viewportExtent.height, 0.f, 1.f);
     VkRect2D scissor = vkb::initializers::rect2D(viewportExtent.width, viewportExtent.height, 0, 0);
@@ -350,6 +350,10 @@ void SimplePipeline::cleanup(VkDevice device) {
         vkDestroyDescriptorSetLayout(device, layout, nullptr);
         layout = VK_NULL_HANDLE;
     }
+}
+
+void SimplePipelineEmptyInput::createVertexInput()
+{
 }
 
 void SimplePipelinePosOnly::createVertexInput()

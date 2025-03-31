@@ -1,12 +1,34 @@
 #pragma once
 
+#include "vk_types.h"
+
 #include <stdexcept>
 #include <iostream>
 
-template<typename T> 
-struct UniformBuffer
+template<typename T>
+struct UniformBuffer : public std::enable_shared_from_this<UniformBuffer<T>>
 {
-	void createUniformBuffer(size_t inSize, VkDevice& inDevice, VkPhysicalDevice& inPhysicalDevice, int inBufferCount = 1)
+private:
+	// Private constructor to prevent direct instantiation
+	UniformBuffer() = default;
+
+public:
+	// Factory method to create instances
+	static std::shared_ptr<UniformBuffer<T>> create() {
+		return std::shared_ptr<UniformBuffer<T>>(new UniformBuffer<T>());
+	}
+
+	// Method to get shared_ptr to this instance
+	std::shared_ptr<UniformBuffer<T>> getShared() {
+		return this->shared_from_this();
+	}
+
+	~UniformBuffer()
+	{
+		destroy();
+	}
+
+	void createUniformBuffer(size_t inSize, DevicePtr inDevice, VkPhysicalDevice& inPhysicalDevice, int inBufferCount = 1)
 	{
 		size = inSize;
 		device = inDevice;
@@ -56,23 +78,23 @@ struct UniformBuffer
 		{
 			void* virtualAddress;
 
-			vkMapMemory(device, uniformBufferMemory[currentImage], i * getSize(), getSize(), 0, &virtualAddress);
+			vkMapMemory(*device, uniformBufferMemory[currentImage], i * getSize(), getSize(), 0, &virtualAddress);
 			memcpy(virtualAddress, &data[i], getSize());
-			vkUnmapMemory(device, uniformBufferMemory[currentImage]);
-		}
-	}
-
-	void destroy(size_t index)
-	{
-		if (size != 1 || (size == 1 && index == 0))
-		{
-			vkDestroyBuffer(device, uniformBuffers[index], nullptr);
-			vkFreeMemory(device, uniformBufferMemory[index], nullptr);
-			uniformBufferInfo.clear();
+			vkUnmapMemory(*device, uniformBufferMemory[currentImage]);
 		}
 	}
 
 private:
+	void destroy()
+	{
+		for (int i = 0; i < size; i++)
+		{
+			vkDestroyBuffer(*device, uniformBuffers[i], nullptr);
+			vkFreeMemory(*device, uniformBufferMemory[i], nullptr);
+			uniformBufferInfo.clear();
+		}
+	}
+
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
 	{
 		VkBufferCreateInfo bufferInfo{};
@@ -80,7 +102,7 @@ private:
 		bufferInfo.size = size;
 		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+		if (vkCreateBuffer(*device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create vertex buffer!");
 		}
@@ -90,16 +112,16 @@ private:
 		}
 
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+		vkGetBufferMemoryRequirements(*device, buffer, &memRequirements);
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-		if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+		if (vkAllocateMemory(*device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to allocate vertex buffer memory!");
 		}
-		vkBindBufferMemory(device, buffer, bufferMemory, 0);
+		vkBindBufferMemory(*device, buffer, bufferMemory, 0);
 	}
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
@@ -159,7 +181,7 @@ public:
 	}
 
 private:
-	VkDevice device;
+	DevicePtr device;
 	VkPhysicalDevice physicalDevice;
 	VkDescriptorType type;
 

@@ -1,5 +1,12 @@
 #include "vk_types.h"
 
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+	if (func != nullptr) {
+		func(instance, debugMessenger, pAllocator);
+	}
+}
+
 void Node::refreshTransform(const glm::mat4& parentMatrix)
 {
 	worldTransform = parentMatrix * localTransform;
@@ -8,23 +15,75 @@ void Node::refreshTransform(const glm::mat4& parentMatrix)
 	}
 }
 
-void AllocatedImage::Destroy(VkDevice device)
+AllocatedImage::AllocatedImage(DevicePtr inDevice)
+	: image(VK_NULL_HANDLE)
+	, imageView(VK_NULL_HANDLE)
+	, imageMemory(VK_NULL_HANDLE)
 {
-	vkDestroyImage(device, image, nullptr);
-	vkDestroyImageView(device, imageView, nullptr);
-	vkFreeMemory(device, imageMemory, nullptr);
+	device = inDevice;
 }
 
-void CubeMap::Destroy(VkDevice device)
+AllocatedImage::~AllocatedImage()
 {
-	vkDestroyImage(device, image, nullptr);
+	Destroy();
+}
+
+void AllocatedImage::Destroy()
+{
+	if (image != VK_NULL_HANDLE)
+	{
+		vkDestroyImage(*device, image, nullptr);
+	}
+
+	if (imageView != VK_NULL_HANDLE)
+	{
+		vkDestroyImageView(*device, imageView, nullptr);
+	}
+
+	if (imageMemory != VK_NULL_HANDLE)
+	{
+		vkFreeMemory(*device, imageMemory, nullptr);
+	}
+}
+
+CubeMap::CubeMap(DevicePtr inDevice)
+{
+	device = inDevice;
+}
+
+CubeMap::~CubeMap()
+{
+	Destroy();
+}
+
+void CubeMap::Destroy()
+{
 	for (int i = 0; i < imageViews.size(); i++)
 	{
 		for (int j = 0; j < imageViews[i].size(); j++)
 		{
-			vkDestroyImageView(device, imageViews[i][j], nullptr);
+			if (imageViews[i][j] != VK_NULL_HANDLE)
+			{
+				vkDestroyImageView(*device, imageViews[i][j], nullptr);
+			}
 		}
 	}
-	vkDestroyImageView(device, cubeImageView, nullptr);
-	vkFreeMemory(device, imageMemory, nullptr);
+}
+
+DeviceWrapper::~DeviceWrapper()
+{
+	if (device != VK_NULL_HANDLE) {
+		vkDestroyDevice(device, nullptr);
+
+		if (debugMessenger != VK_NULL_HANDLE) {
+			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+		}
+
+		vkDestroySurfaceKHR(instance, surface, nullptr);
+		vkDestroyInstance(instance, nullptr);
+
+		glfwDestroyWindow(window);
+
+		glfwTerminate();
+	}
 }
