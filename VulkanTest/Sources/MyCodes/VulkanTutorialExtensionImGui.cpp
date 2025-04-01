@@ -130,10 +130,7 @@ void VulkanTutorialExtension::drawImGui(uint32_t imageIndex)
 
 	static bool rightPanelinitialized = false;
 
-	if (!rightPanelinitialized) {
-		rightPanel->SetTextureViewer(textureViewer);
-		rightPanelinitialized = true;
-	}
+	rightPanel->SetTextureViewer(textureViewer);
 
 	// 오른쪽 패널 렌더링
 	rightPanel->Render(rightPanelX, 0, PanelWidth, windowHeight);

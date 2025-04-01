@@ -188,7 +188,13 @@ namespace ImGui
 		void Render(int x, int y, int width, int height, bool enabled = true);
 
 		// VulkanTutorialExtension ÂüÁ¶ ¼³Á¤
-		void SetTextureViewer(const std::shared_ptr<TextureViewer>& textureViewer) { m_textureViewer = textureViewer; }
+		void SetTextureViewer(const std::shared_ptr<TextureViewer>& textureViewer)
+		{
+			if (m_textureViewer != textureViewer)
+			{
+				m_textureViewer = textureViewer;
+			}
+		}
 
 	private:
 		// ÄÁÅÙÃ÷ ·»´õ¸µ ÇÔ¼ö
