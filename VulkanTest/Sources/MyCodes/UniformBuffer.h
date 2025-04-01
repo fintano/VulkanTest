@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vk_types.h"
+#include "vk_log.h"
 
 #include <stdexcept>
 #include <iostream>
@@ -108,7 +109,7 @@ private:
 		}
 		else
 		{
-			std::cout << "Uniform Buffer VkBuffer " << buffer << " " << std::endl;
+			LOG(Log, "Uniform Buffer VkBuffer {}", buffer);
 		}
 
 		VkMemoryRequirements memRequirements;

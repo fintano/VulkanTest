@@ -64,7 +64,7 @@ public:
 
 	struct GeometryPass
 	{
-		std::shared_ptr<AllocatedImage> position, normal, albedo, arm; // ao, roughness, metallic
+		std::shared_ptr<AllocatedImage> position, normal, albedo, arm /* ao, roughness, metallic */ , emissive;
 		VkRenderPass renderPass;
 		VkFramebuffer frameBuffer;
 	} geometry;
@@ -110,7 +110,8 @@ public:
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void generateMipmaps(VkCommandBuffer commandBuffer, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount);
 	void transitionImageLayout(VkCommandBuffer CommandBuffer, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount = 1, uint32_t baseMipLevel = 0);
-	
+	void markCommandBufferRecreation();
+
 	VkDevice getDevice() const { return *device; }
 	DevicePtr getDevicePtr() const { return device; }
 
@@ -178,7 +179,6 @@ protected:
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void loadModel(const std::string& modelPath, std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices);
 	void createCommandBuffer(int32_t i);
-	void markCommandBufferRecreation();
 	void tryRecreateCommandBuffer(int32_t imageIndex);
 	VkDescriptorBufferInfo createDescriptorBufferInfo(VkBuffer& buffer, VkDeviceSize bufferSize);
 	VkDescriptorImageInfo CreateDescriptorImageInfo(VkImageView& imageView, VkSampler& sampler, VkImageLayout layout);

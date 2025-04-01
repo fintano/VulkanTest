@@ -49,7 +49,7 @@ std::vector<char> readFile(const std::string& filename)
 
 VulkanTutorial::VulkanTutorial()
 {
-	ProgramName = "Vulkan Tutorial Extension ver 0.2";
+	ProgramName = "Vulkan Tutorial Extension (ver 0.2)";
 }
 
 	void VulkanTutorial::run()
@@ -96,7 +96,7 @@ VulkanTutorial::VulkanTutorial()
 		createUniformBuffers();
 		createDescriptorPool();
 		createDescriptorSets();
-		onPostInitVulkan();
+		//onPostInitVulkan();
 		createCommandBuffers();
 		createSyncObjects();
 	}
@@ -772,7 +772,7 @@ VulkanTutorial::VulkanTutorial()
 		 */ 
 
 		// pos, normal, albedo, arm
-		std::array<VkAttachmentDescription, 4> colorAttachments = {};
+		std::array<VkAttachmentDescription, 5> colorAttachments = {};
 		for (VkAttachmentDescription& colorAttachment : colorAttachments)
 		{
 			colorAttachment.samples = msaaSamples;
@@ -788,12 +788,14 @@ VulkanTutorial::VulkanTutorial()
 		colorAttachments[1].format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		colorAttachments[2].format = VK_FORMAT_R8G8B8A8_UNORM;
 		colorAttachments[3].format = VK_FORMAT_R8G8B8A8_UNORM;
+		colorAttachments[4].format = VK_FORMAT_R8G8B8A8_UNORM;
 
-		std::array<VkAttachmentReference, 4> colorAttachmentRefs = { {
+		std::array<VkAttachmentReference, 5> colorAttachmentRefs = { {
 			{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
 			{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-			{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+			{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+			{4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
 		} };
 
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -806,8 +808,8 @@ VulkanTutorial::VulkanTutorial()
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 		subpass.pResolveAttachments = nullptr;
 
-		std::array<VkAttachmentDescription, 5> DeferredAttachments =
-		{ colorAttachments[0], colorAttachments[1], colorAttachments[2], colorAttachments[3], depthAttachment };
+		std::array<VkAttachmentDescription, 6> DeferredAttachments =
+		{ colorAttachments[0], colorAttachments[1], colorAttachments[2], colorAttachments[3], colorAttachments[4], depthAttachment };
 
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(DeferredAttachments.size());
 		renderPassInfo.pAttachments = DeferredAttachments.data();
@@ -911,8 +913,8 @@ VulkanTutorial::VulkanTutorial()
 		* For GeometryPass
 		*/
 
-		std::array<VkImageView, 5> attachments = 
-		{ geometry.position->imageView, geometry.normal->imageView, geometry.albedo->imageView, geometry.arm->imageView, depth->imageView };
+		std::array<VkImageView, 6> attachments = 
+		{ geometry.position->imageView, geometry.normal->imageView, geometry.albedo->imageView, geometry.arm->imageView, geometry.emissive->imageView, depth->imageView };
 
 		framebufferInfo.renderPass = geometry.renderPass;
 		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -977,6 +979,9 @@ VulkanTutorial::VulkanTutorial()
 
 		geometry.arm = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "Gbuffer_ARM");
 		geometry.arm->imageView = createImageView(geometry.arm->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+		geometry.emissive = createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, "Gbuffer_Emissive");
+		geometry.emissive->imageView = createImageView(geometry.emissive->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
 	void VulkanTutorial::createDepthResources()
@@ -1088,7 +1093,11 @@ VulkanTutorial::VulkanTutorial()
 
 	std::shared_ptr<AllocatedImage> VulkanTutorial::createTexture2D(stbi_uc* inData, VkExtent3D inImageSize, VkFormat inFormat, VkImageUsageFlagBits inUsageFlag, const char* name, int channelNum)
 	{
-		assert(inData);
+		if (!inData)
+		{
+			return nullptr;
+		}
+
 		// Sampler의 maxLOD는 텍스쳐의 mipLevels와 관련있다. 
 
 		const int bytesPerChennel = inFormat == VK_FORMAT_R32G32B32A32_SFLOAT ? sizeof(float) : 1;
@@ -1433,7 +1442,7 @@ VulkanTutorial::VulkanTutorial()
 		}
 		else
 		{
-			std::cout << "VkImage " << image->image << " " << name << std::endl;
+			LOG(Log,"VkImage {}", image->image);
 		}
 
 		VkMemoryRequirements memRequirements;
@@ -1543,13 +1552,13 @@ VulkanTutorial::VulkanTutorial()
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size()) * 20;
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages.size()) * 40;
+		poolSizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages.size()) * 100;
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		poolInfo.pPoolSizes = poolSizes.data();
-		poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size()) * 10;
+		poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size()) * 100;
 
 		if (vkCreateDescriptorPool(*device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
 		{
@@ -1615,7 +1624,7 @@ VulkanTutorial::VulkanTutorial()
 		}
 		else
 		{
-			std::cout << "VkBuffer " << buffer << " " << std::endl;
+			LOG(Log, "VkBuffer {}", buffer);
 		}
 
 		VkMemoryRequirements memRequirements;
@@ -1717,7 +1726,7 @@ VulkanTutorial::VulkanTutorial()
 
 	void VulkanTutorial::createCommandBuffer(int32_t i)
 	{
-		std::cout << "creating command buffer... " << i << std::endl;
+		LOG(Log, "creating command buffer... {} ", i);
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1736,7 +1745,7 @@ VulkanTutorial::VulkanTutorial()
 			throw std::runtime_error("failed to record command buffer!");
 		}
 
-		std::cout << "created command buffer " << i << std::endl;
+		LOG(Log, "created command buffer... {} ", i);
 	}
 
 	void VulkanTutorial::markCommandBufferRecreation()
@@ -1766,12 +1775,13 @@ VulkanTutorial::VulkanTutorial()
 		renderPassInfo.renderArea.extent = swapChainExtent;
 
 		// define the clear values for vk_attachment_load_op_clear.
-		std::array<VkClearValue, 5> clearValues{};
+		std::array<VkClearValue, 6> clearValues{};
 		clearValues[0].color = { { 0.f, 0.f, 0.f, 0.f } };
 		clearValues[1].color = { { 0.f, 0.f, 0.f, 0.f } };
 		clearValues[2].color = { { 0.f, 0.f, 0.f, 0.f } };
 		clearValues[3].color = { { 0.f, 0.f, 0.f, 0.f } };
-		clearValues[4].depthStencil = { 1.f, 0 };
+		clearValues[4].color = { { 0.f, 0.f, 0.f, 0.f } };
+		clearValues[5].depthStencil = { 1.f, 0 };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
@@ -1786,6 +1796,7 @@ VulkanTutorial::VulkanTutorial()
 		transitionImageLayout(commandBuffer, geometry.normal->image, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 		transitionImageLayout(commandBuffer, geometry.albedo->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 		transitionImageLayout(commandBuffer, geometry.arm->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		transitionImageLayout(commandBuffer, geometry.emissive->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
 		/**
 		* LightingPass

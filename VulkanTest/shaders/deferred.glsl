@@ -7,3 +7,4 @@ layout(set = 1, binding = 3) uniform sampler2D arm;
 layout(set = 1, binding = 4) uniform samplerCube diffuseMap;
 layout(set = 1, binding = 5) uniform samplerCube prefilterMap;
 layout(set = 1, binding = 6) uniform sampler2D brdfLUT;
+layout(set = 1, binding = 7) uniform sampler2D emissive;

@@ -7,6 +7,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "ImGuiFileDialog.h"
+#include "MaterialTester.h"
 
 static void check_vk_result(VkResult err)
 {
@@ -97,13 +98,13 @@ void VulkanTutorialExtension::drawImGui(uint32_t imageIndex)
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
 	const float windowWidth = viewport->Size.x;
 	const float windowHeight = viewport->Size.y;
-	const float PanelWidth = windowWidth * 0.15f;
+	const float PanelWidth = windowWidth * 0.2f;
 	const float rightPanelX = windowWidth - PanelWidth;
 
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 
 	static bool leftPanelInitialized = false;
 
@@ -116,6 +117,12 @@ void VulkanTutorialExtension::drawImGui(uint32_t imageIndex)
 			});
 		leftPanel->SetModelTransformChangeCallback([this](int modelIndex, const ImGui::ModelTransform& transform) {
 			onChangedGltfModelTransform(modelIndex, transform);
+			});
+		leftPanel->SetCreateMaterialCallback([this](const std::string& name, const std::string& albedo, const std::string& normal, const std::string& metallic, const std::string& roughness, const std::string& ao) {
+			materialTester->createMaterial(this, name, albedo.c_str(), normal.c_str(), metallic.c_str(), roughness.c_str(), ao.c_str());
+			});
+		leftPanel->SetMaterialModelChangeCallback([this](int model) {
+			materialTester->selectModel(static_cast<MaterialTester::Model>(model));
 			});
 		leftPanelInitialized = true;
 	}
@@ -383,7 +390,35 @@ namespace ImGui
 	}
 
 	void LeftPanelUI::RenderModelTab() {
-		if (ImGui::CollapsingHeader("Load Model", ImGuiTreeNodeFlags_DefaultOpen)) {
+		// 헤더 렌더링 함수 - 위아래 구분선 추가
+		auto renderHeaderWithLines = [](const char* label) {
+			// 상단 구분선 추가
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			// 헤더 텍스트 색상 변경
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.95f, 1.0f, 1.0f)); // 더 밝은 흰색 계열
+
+			// 헤더 렌더링
+			bool isOpen = ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen);
+
+			// 텍스트 색상 복원
+			ImGui::PopStyleColor();
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			return isOpen;
+			};
+
+		// 전체 헤더에 대한 기본 스타일 정의 (더 짙고 선명한 파란색 계열)
+		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.35f, 0.4f, 0.8f));         // 약간 더 밝은 청록색
+		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.3f, 0.45f, 0.55f, 0.8f));
+		ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.35f, 0.5f, 0.65f, 0.8f));
+
+		if (renderHeaderWithLines("Load Model")) {
 			ImGui::Text("Load a 3D model in GLTF format");
 
 			if (ImGui::Button("Browse GLTF Model...", ImVec2(-1, 0))) {
@@ -403,8 +438,7 @@ namespace ImGui
 			ImVec2 maxSize = ImGui::GetMainViewport()->Size;
 			maxSize.x *= 0.4f;
 			maxSize.y *= 0.4f;
-
-			ImVec2 minSize(maxSize.x * 0.4f, maxSize.y * 0.4f);  // 최소 크기도 설정
+			ImVec2 minSize = maxSize;
 
 			// 파일 다이얼로그 표시 및 결과 처리
 			if (ImGuiFileDialog::Instance()->Display(m_fileDialogKey, ImGuiWindowFlags_NoCollapse, minSize, maxSize)) {
@@ -419,11 +453,16 @@ namespace ImGui
 			}
 		}
 
-		if (ImGui::CollapsingHeader("Models", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (renderHeaderWithLines("Models")) {
 			if (m_loadedModels.empty()) {
 				ImGui::Text("No models loaded yet.");
+				// 기본 스타일 복구
+				ImGui::PopStyleColor(3);
 			}
 			else {
+				// 기본 스타일 복구
+				ImGui::PopStyleColor(3);
+
 				ImGui::BeginChild("ModelsList", ImVec2(0, 200), true);
 
 				// 삭제할 모델 인덱스 저장 변수
@@ -493,16 +532,112 @@ namespace ImGui
 	}
 
 	void LeftPanelUI::RenderMaterialTab() {
-		// 재질 탭의 UI 내용을 여기에 구현
-		// 예시:
-		ImGui::Text("Material tab content goes here");
-
-		// 스크롤 영역 구현 예시
-		ImGui::BeginChild("MaterialScrollArea", ImVec2(0, 300), true);
-		for (int i = 0; i < 10; i++) {
-			ImGui::Text("Material property %d", i);
+		// 프리뷰 모델 선택 (Box/Sphere) - 라디오 버튼
+		ImGui::Text("Preview Model:");
+		if (ImGui::RadioButton("Box", &m_useBoxModel, 0)) {
+			if (m_materialModelChangeCallback)
+			{
+				m_materialModelChangeCallback(0);
+			}
 		}
-		ImGui::EndChild();
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Sphere", &m_useBoxModel, 1)) {
+			if (m_materialModelChangeCallback)
+			{
+				m_materialModelChangeCallback(1);
+			}
+		}
+
+		ImGui::Separator();
+
+		// PBR 텍스처 선택 UI
+		ImGui::Text("Material Textures:");
+
+		// Albedo 텍스처 (필수)
+		DisplayTextureLoadUI("Albedo", m_albedoPath, [this](const std::string& path) { m_albedoPath = path; });
+
+		// Normal 텍스처 (선택)
+		DisplayTextureLoadUI("Normal", m_normalPath, [this](const std::string& path) { m_normalPath = path; });
+
+		// Metallic 텍스처 (선택)
+		DisplayTextureLoadUI("Metallic", m_metallicPath, [this](const std::string& path) { m_metallicPath = path; });
+
+		// Roughness 텍스처 (선택)
+		DisplayTextureLoadUI("Roughness", m_roughnessPath, [this](const std::string& path) { m_roughnessPath = path; });
+
+		// AO 텍스처 (선택)
+		DisplayTextureLoadUI("AO", m_aoPath, [this](const std::string& path) { m_aoPath = path; });
+
+		ImGui::Separator();
+
+		// 재질 생성 버튼
+		bool canCreateMaterial = !m_albedoPath.empty(); // Albedo는 필수
+		if (!canCreateMaterial) {
+			ImGui::BeginDisabled();
+		}
+
+		if (ImGui::Button("Create Material", ImVec2(-1, 0))) {
+			if (m_createMaterialCallback) {
+				m_createMaterialCallback(
+					m_materialName,
+					m_albedoPath,
+					m_normalPath,
+					m_metallicPath,
+					m_roughnessPath,
+					m_aoPath
+				);
+			}
+		}
+
+		if (!canCreateMaterial) {
+			ImGui::EndDisabled();
+		}
+
+		// 파일 다이얼로그 표시 및 결과 처리
+		HandleTextureFileBrowser();
+	}
+
+	void LeftPanelUI::DisplayTextureLoadUI(const char* labelName, std::string& texturePath, std::function<void(const std::string&)> onTextureSelected) {
+		ImGui::Text("%s:", labelName);
+		ImGui::SameLine(120); // 고정된 위치에 텍스처 이름 시작
+
+		std::string displayName = texturePath.empty() ? "None" : getFileName(texturePath);
+		ImGui::Text("%s", displayName.c_str());
+		ImGui::SameLine();
+
+		// 로드 버튼
+		std::string buttonLabel = "Load##" + std::string(labelName);
+		if (ImGui::Button(buttonLabel.c_str())) {
+			m_currentSelectingTexturePath = texturePath;
+			m_currentSelectingTextureCallback = onTextureSelected;
+
+			// 파일 다이얼로그 열기
+			IGFD::FileDialogConfig config;
+			if (!m_lastBrowsedDirectory.empty()) {
+				config.path = m_lastBrowsedDirectory;
+			}
+			else {
+				config.path = ".";
+			}
+			config.flags = ImGuiFileDialogFlags_Modal;
+
+			std::string dialogId = m_fileDialogKeyMaterial + std::string(labelName);
+
+			ImGuiFileDialog::Instance()->OpenDialog(
+				dialogId,
+				"Choose Texture",
+				"Image files (*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.hdr){.png,.jpg,.jpeg,.tga,.bmp,.hdr}",
+				config);
+		}
+
+		// 현재 선택된 텍스처가 있으면 Clear 버튼 추가
+		if (!texturePath.empty()) {
+			ImGui::SameLine();
+			std::string clearLabel = "Clear##" + std::string(labelName);
+			if (ImGui::Button(clearLabel.c_str())) {
+				texturePath.clear();
+			}
+		}
 	}
 
 	void LeftPanelUI::SetModelTransform(int modelIndex, const glm::mat4& mat) {
@@ -522,6 +657,77 @@ namespace ImGui
 
 		// Transform 값 설정
 		m_modelTransformEditors[modelIndex].SetTransform(transform);
+	}
+
+	std::string LeftPanelUI::GetTextureTypeName(TextureType type) {
+		switch (type) {
+		case TextureType::Albedo: return "Albedo";
+		case TextureType::Normal: return "Normal";
+		case TextureType::Metallic: return "Metallic";
+		case TextureType::Roughness: return "Roughness";
+		case TextureType::AO: return "AO";
+		default: return "Unknown";
+		}
+	}
+
+	void LeftPanelUI::OpenTextureFileBrowser(TextureType type) {
+		// 현재 선택된 텍스처 타입 저장
+		m_currentSelectingTextureType = type;
+
+		IGFD::FileDialogConfig config;
+		// 이전에 선택한 디렉토리가 있으면 해당 위치에서 시작
+		if (!m_lastBrowsedDirectory.empty()) {
+			config.path = m_lastBrowsedDirectory;
+		}
+		else {
+			config.path = ".";
+		}
+		config.flags = ImGuiFileDialogFlags_Modal;
+
+		std::string dialogId = m_fileDialogKeyMaterial + std::to_string(static_cast<int>(type));
+
+		ImGuiFileDialog::Instance()->OpenDialog(
+			dialogId,
+			"Choose Texture",
+			"Image files (*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.hdr){.png,.jpg,.jpeg,.tga,.bmp,.hdr}",
+			config);
+	}
+
+	void LeftPanelUI::HandleTextureFileBrowser() {
+		// 모델 탭과 동일한 크기 설정 사용
+		ImVec2 maxSize = ImGui::GetMainViewport()->Size;
+		maxSize.x *= 0.4f;
+		maxSize.y *= 0.4f;
+		ImVec2 minSize = maxSize;
+
+		// 각 텍스처 타입에 대한 다이얼로그 확인
+		const char* textureTypes[] = { "Albedo", "Normal", "Metallic", "Roughness", "AO" };
+
+		for (const char* type : textureTypes) {
+			std::string dialogId = m_fileDialogKeyMaterial + std::string(type);
+
+			if (ImGuiFileDialog::Instance()->Display(dialogId, ImGuiWindowFlags_NoCollapse, minSize, maxSize)) {
+				if (ImGuiFileDialog::Instance()->IsOk()) {
+					std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+					std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+					m_lastBrowsedDirectory = filePath;
+					m_currentSelectingTexturePath = filePathName;
+
+					if (m_currentSelectingTextureCallback) {
+						m_currentSelectingTextureCallback(filePathName);
+					}
+				}
+
+				ImGuiFileDialog::Instance()->Close();
+			}
+		}
+	}
+
+	void LeftPanelUI::LoadCustomTexture(const std::string& path, TextureType type) {
+		// 파일 이름 추출
+		std::string fileName = getFileName(path);
+
+		std::cout << "load texture " << path << std::endl;
 	}
 
 	RightPanelUI::RightPanelUI(VulkanTutorialExtension* extension) : m_extension(extension){
@@ -562,28 +768,49 @@ namespace ImGui
 	}
 
 	void RightPanelUI::RenderContent() {
-		// 기존 코드에 있던 내용을 여기로 옮김
+		// 헤더 렌더링 함수 - 위아래 구분선 추가
+		auto renderHeaderWithLines = [](const char* label) {
+			// 상단 구분선 추가
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
 
-		// Instancing 섹션
-		if (ImGui::CollapsingHeader("Instancing")) {
-			ImGui::InputInt("Instance Count", &m_extension->instanceCount);
-			m_extension->instanceCount = std::clamp(m_extension->instanceCount, 1, m_extension->maxInstanceCount);
-		}
+			// 헤더 텍스트 색상 변경
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.95f, 1.0f, 1.0f)); // 더 밝은 흰색 계열
+
+			// 헤더 렌더링
+			bool isOpen = ImGui::CollapsingHeader(label);
+
+			// 텍스트 색상 복원
+			ImGui::PopStyleColor();
+
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			return isOpen;
+			};
+
+		// 전체 헤더에 대한 기본 스타일 정의 (더 짙고 선명한 파란색 계열)
+		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.35f, 0.4f, 0.8f));         // 약간 더 밝은 청록색
+		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.3f, 0.45f, 0.55f, 0.8f));
+		ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.35f, 0.5f, 0.65f, 0.8f));
 
 		// Directional Light 섹션
-		if (ImGui::CollapsingHeader("Directional Light")) {
+		if (renderHeaderWithLines("Directional Light"), ImGuiTreeNodeFlags_DefaultOpen) {
 			static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
 			const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
 
 			ImGui::Checkbox("Use Directional Light", &m_extension->useDirectionalLight);
 			ImGui::SliderFloat("DirectionalLightIntensity", &m_extension->directionalLightIntensity, 0.0f, 100.0f, "%.1f", flags_for_sliders);
+			ImGui::Spacing();
 		}
 
 		// Point Lights 섹션
 		static ImGuiSliderFlags flags = ImGuiSliderFlags_None;
 		const ImGuiSliderFlags flags_for_sliders = flags & ~ImGuiSliderFlags_WrapAround;
 
-		if (ImGui::CollapsingHeader("Point Lights")) {
+		if (renderHeaderWithLines("Point Lights"), ImGuiTreeNodeFlags_DefaultOpen) {
 			if (ImGui::BeginTable("pointLights", 4)) {
 				for (int i = 0; i < NR_POINT_LIGHTS; i++) {
 					std::stringstream ss;
@@ -597,34 +824,27 @@ namespace ImGui
 			ImGui::SliderFloat("pointLightlinear", &m_extension->pointLightlinear, 0.0f, 1.0f, "%.3f", flags_for_sliders);
 			ImGui::SliderFloat("pointLightQuadratic", &m_extension->pointLightQuadratic, 0.0f, 1.0f, "%.3f", flags_for_sliders);
 			ImGui::SliderFloat("pointLightIntensity", &m_extension->pointLightIntensity, 0.0f, 100.0f, "%.1f", flags_for_sliders);
+			ImGui::Spacing();
 		}
 
-		// DebugGBuffers 섹션
-		/*if (ImGui::CollapsingHeader("DebugGBuffers")) {
-			ImGui::RadioButton("None", &m_extension->debugDisplayTarget, 0); ImGui::SameLine();
-			ImGui::RadioButton("Position", &m_extension->debugDisplayTarget, 1); ImGui::SameLine();
-			ImGui::RadioButton("Normal", &m_extension->debugDisplayTarget, 2); ImGui::SameLine();
-			ImGui::RadioButton("Albedo", &m_extension->debugDisplayTarget, 3);
-			ImGui::RadioButton("AO", &m_extension->debugDisplayTarget, 4); ImGui::SameLine();
-			ImGui::RadioButton("Roughness", &m_extension->debugDisplayTarget, 5); ImGui::SameLine();
-			ImGui::RadioButton("Metallic", &m_extension->debugDisplayTarget, 6);
-		}*/
-
+		// Texture Viewer
 		RenderTextureViewer();
 
-		// Light Components 섹션
-		if (ImGui::CollapsingHeader("Light Components")) {
-			ImGui::RadioButton("NoneNone", &m_extension->debugDisplayTarget, 0); ImGui::SameLine();
+		if (renderHeaderWithLines("Light Components"), ImGuiTreeNodeFlags_DefaultOpen) {
+			ImGui::RadioButton("None", &m_extension->debugDisplayTarget, 0); ImGui::SameLine();
 			ImGui::RadioButton("Specular", &m_extension->debugDisplayTarget, 7); ImGui::SameLine();
 			ImGui::RadioButton("Diffuse", &m_extension->debugDisplayTarget, 8);
+			ImGui::Spacing();
 		}
 
 		// Post Processing 섹션
-		if (ImGui::CollapsingHeader("Post Processing")) {
+		if (renderHeaderWithLines("Post Processing"), ImGuiTreeNodeFlags_DefaultOpen) {
 			ImGui::SliderFloat("Exposure", &m_extension->exposure, 0.0f, 10.0f, "%.01f", flags_for_sliders);
+			ImGui::Spacing();
 		}
 
-		ImGui::Spacing();
+		// 기본 스타일 복구
+		ImGui::PopStyleColor(3);
 
 		// 디버그 문자열 출력
 		if (!ImGui::stringToDebug.empty()) {
@@ -638,99 +858,122 @@ namespace ImGui
 			return;
 		}
 
-		if (ImGui::CollapsingHeader("Texture Viewer", ImGuiTreeNodeFlags_DefaultOpen)) {
-			const auto& textures = m_textureViewer->getTextures();
+		// 상단 구분선 추가
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
 
-			// 선택된 텍스처 정보
-			bool hasSelectedTexture = (m_selectedTextureIndex >= 0 && m_selectedTextureIndex < textures.size());
-			bool isCubemap = hasSelectedTexture && textures[m_selectedTextureIndex].cubeMap != nullptr;
-			bool hasImage = hasSelectedTexture && textures[m_selectedTextureIndex].image != nullptr;
+		// 텍스처 뷰어 헤더 (색상만 변경)
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.95f, 1.0f, 1.0f)); // 더 밝은 흰색 계열
 
-			// MIP 레벨 선택 (텍스처 목록 위에 배치)
-			static int mipLevel = 0;
-			int maxMipLevels = isCubemap ? textures[m_selectedTextureIndex].cubeMap->imageViews.size() : 1;
+		bool isOpen = ImGui::CollapsingHeader("Texture Viewer", ImGuiTreeNodeFlags_DefaultOpen);
 
-			if (hasImage) {
-				// 실제 이미지의 MIP 레벨 수 가져오기 (아직 구현되지 않음)
-				// maxMipLevels = textures[m_selectedTextureIndex].image->mipLevels;
-			}
+		// 색상 복원
+		ImGui::PopStyleColor();
 
-			ImGui::BeginDisabled(maxMipLevels <= 1);
-			if (ImGui::SliderInt("Mip Level", &mipLevel, 0, maxMipLevels - 1)) {
-				if (m_textureViewer) {
-					m_textureViewer->selectMipLevel(mipLevel);
-				}
-			}
-			ImGui::EndDisabled();
+		// 헤더가 접혀있을 때는 하단 구분선 추가
+		if (!isOpen) {
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+			return;
+		}
 
-			// Cubemap Face 선택 (텍스처 목록 위에 배치)
-			static const char* cubemapFaces[] = {
-				"Right (+X)", "Left (-X)",
-				"Up (+Y)", "Down (-Y)",
-				"Forward (+Z)", "Rear (-Z)"
-			};
-			static int cubemapFace = 0;
+		ImGui::Spacing();
 
-			ImGui::BeginDisabled(!isCubemap);
-			if (ImGui::Combo("Cubemap Face", &cubemapFace, cubemapFaces, IM_ARRAYSIZE(cubemapFaces))) {
-				if (m_textureViewer) {
-					m_textureViewer->selectCubeMapFace(cubemapFace);
-				}
-			}
-			ImGui::EndDisabled();
+		const auto& textures = m_textureViewer->getTextures();
 
-			// 텍스처 목록을 스크롤 가능한 영역에 표시
-			ImGui::Text("Available Textures:");
-			ImGui::BeginChild("TextureList", ImVec2(0, 150), true);
+		// 선택된 텍스처 정보
+		bool hasSelectedTexture = (m_selectedTextureIndex >= 0 && m_selectedTextureIndex < textures.size());
+		bool isCubemap = hasSelectedTexture && textures[m_selectedTextureIndex].cubeMap != nullptr;
+		bool hasImage = hasSelectedTexture && textures[m_selectedTextureIndex].image != nullptr;
 
-			for (int i = 0; i < textures.size(); i++) {
-				const bool isSelected = (i == m_selectedTextureIndex);
-				if (ImGui::Selectable(textures[i].name.c_str(), isSelected)) {
-					m_selectedTextureIndex = i;
-					m_textureViewer->selectTexture(i);
+		// MIP 레벨 선택
+		static int mipLevel = 0;
+		int maxMipLevels = isCubemap ? textures[m_selectedTextureIndex].cubeMap->imageViews.size() : 1;
 
-					// 새 텍스처 선택 시 MIP/Face 관련 상태 초기화
-					if (textures[i].cubeMap) {
-						cubemapFace = 0;
-						m_textureViewer->selectCubeMapFace(cubemapFace);
-					}
-					mipLevel = 0;
-					m_textureViewer->selectMipLevel(mipLevel);
-				}
+		if (hasImage) {
+			// 실제 이미지의 MIP 레벨 수 가져오기 (아직 구현되지 않음)
+			// maxMipLevels = textures[m_selectedTextureIndex].image->mipLevels;
+		}
 
-				// 선택된 항목 강조
-				if (isSelected) {
-					ImGui::SetItemDefaultFocus();
-				}
-			}
-
-			if (textures.empty()) {
-				ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "텍스처가 없습니다");
-			}
-
-			ImGui::EndChild();
-
-			// 선택된 텍스처에 대한 정보 표시
-			if (hasSelectedTexture) {
-				const auto& selectedTexture = textures[m_selectedTextureIndex];
-				ImGui::Separator();
-				ImGui::Text("Selected Texture: %s", selectedTexture.name.c_str());
-
-				// 텍스처 타입 표시
-				const char* textureType = "Unknown";
-				if (selectedTexture.cubeMap) textureType = "Cubemap";
-				else if (selectedTexture.image) textureType = "2D Texture";
-
-				ImGui::Text("Texture Type: %s", textureType);
-
-				// 줌 컨트롤
-				static float zoomLevel = 1.0f;
-				if (ImGui::SliderFloat("Zoom In/Out", &zoomLevel, 0.1f, 5.0f, "%.1f")) {
-					// 줌 레벨 적용 (향후 구현 예정)
-					// m_textureViewer->setZoomLevel(zoomLevel);
-				}
+		ImGui::BeginDisabled(maxMipLevels <= 1);
+		if (ImGui::SliderInt("Mip Level", &mipLevel, 0, maxMipLevels - 1)) {
+			if (m_textureViewer) {
+				m_textureViewer->selectMipLevel(mipLevel);
 			}
 		}
+		ImGui::EndDisabled();
+
+		// Cubemap Face 선택
+		static const char* cubemapFaces[] = {
+			"Right (+X)", "Left (-X)",
+			"Up (+Y)", "Down (-Y)",
+			"Forward (+Z)", "Rear (-Z)"
+		};
+		static int cubemapFace = 0;
+
+		ImGui::BeginDisabled(!isCubemap);
+		if (ImGui::Combo("Cubemap Face", &cubemapFace, cubemapFaces, IM_ARRAYSIZE(cubemapFaces))) {
+			if (m_textureViewer) {
+				m_textureViewer->selectCubeMapFace(cubemapFace);
+			}
+		}
+		ImGui::EndDisabled();
+
+		// 서브헤더
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.85f, 1.0f, 1.0f)); // 연한 파란색 계열
+		ImGui::Text("Available Textures:");
+		ImGui::PopStyleColor();
+
+		ImGui::BeginChild("TextureList", ImVec2(0, 150), true);
+
+		for (int i = 0; i < textures.size(); i++) {
+			const bool isSelected = (i == m_selectedTextureIndex);
+			if (ImGui::Selectable(textures[i].name.c_str(), isSelected)) {
+				m_selectedTextureIndex = i;
+				m_textureViewer->selectTexture(i);
+
+				// 새 텍스처 선택 시 MIP/Face 관련 상태 초기화
+				if (textures[i].cubeMap) {
+					cubemapFace = 0;
+					m_textureViewer->selectCubeMapFace(cubemapFace);
+				}
+				mipLevel = 0;
+				m_textureViewer->selectMipLevel(mipLevel);
+			}
+
+			// 선택된 항목 강조
+			if (isSelected) {
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+
+		if (textures.empty()) {
+			ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "텍스처가 없습니다");
+		}
+
+		ImGui::EndChild();
+
+		// 선택된 텍스처에 대한 정보 표시
+		if (hasSelectedTexture) {
+			const auto& selectedTexture = textures[m_selectedTextureIndex];
+			ImGui::Separator();
+
+			// 서브헤더 스타일
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.85f, 1.0f, 1.0f));
+			ImGui::Text("Selected Texture: %s", selectedTexture.name.c_str());
+			ImGui::PopStyleColor();
+
+			// 텍스처 타입 표시
+			const char* textureType = "Unknown";
+			if (selectedTexture.cubeMap) textureType = "Cubemap";
+			else if (selectedTexture.image) textureType = "2D Texture";
+
+			ImGui::Text("Texture Type: %s", textureType);
+		}
+
+		ImGui::Spacing();
 	}
 
 	bool TransformEditor::Render(int selectedIndex, const char* label) {

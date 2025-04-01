@@ -17,24 +17,28 @@ struct GLTFMetallic_Roughness {
 
 	struct MaterialConstants {
 		glm::vec4 colorFactors = glm::vec4(1.f);
-		glm::vec4 metal_rough_factors = glm::vec4(1.f);;
+		glm::vec4 metal_rough_factors = glm::vec4(1.f); // x=metallicFactor, y=roughnessFactor, z= normalScale, a=occulusionStrength
 		glm::vec4 textureFlags; // x=useNormalMap, y=useMetallicMap, z=useRoughnessMap, w=useAOMap
+		glm::vec4 emissiveFactors = glm::vec4(0.f);
 		//padding, we need it anyway for uniform buffers
-		glm::vec4 extra[13];
+		glm::vec4 extra[12];
 	};
 
+
+	// 소유권 없음
 	struct MaterialResources {
 		std::shared_ptr<AllocatedImage> colorImage;
-		VkSampler colorSampler;
 		std::shared_ptr<AllocatedImage> metalRoughImage;
-		VkSampler metalRoughSampler;
-		VkBuffer dataBuffer;
-		uint32_t dataBufferOffset;
-
 		std::shared_ptr<AllocatedImage> normalImage;
 		std::shared_ptr<AllocatedImage> metallicImage;
 		std::shared_ptr<AllocatedImage> roughnessImage;
 		std::shared_ptr<AllocatedImage> AOImage;
+		std::shared_ptr<AllocatedImage> emissiveImage;
+
+		VkSampler colorSampler;
+		VkSampler metalRoughSampler;
+		VkBuffer dataBuffer;
+		uint32_t dataBufferOffset;
 	};
 
 	struct Material
@@ -53,7 +57,7 @@ struct GLTFMetallic_Roughness {
 	void clear_resources(VkDevice device);
 
 	std::shared_ptr<MaterialInstance> write_material(VulkanTutorialExtension* engine, MaterialPass pass, const MaterialResources& resources, VkDescriptorPool descriptorPool);
-	GLTFMetallic_Roughness::Material create_material_resources(VulkanTutorialExtension* engine, std::shared_ptr<AllocatedImage>& color, std::shared_ptr<AllocatedImage>& normal, std::shared_ptr<AllocatedImage>& metallic, std::shared_ptr<AllocatedImage>& roughness, std::shared_ptr<AllocatedImage>& AO, glm::vec4 textureFlags);
+	std::shared_ptr<GLTFMetallic_Roughness::Material> create_material_resources(VulkanTutorialExtension* engine, std::shared_ptr<AllocatedImage>& color, std::shared_ptr<AllocatedImage>& normal, std::shared_ptr<AllocatedImage>& metallic, std::shared_ptr<AllocatedImage>& roughness, std::shared_ptr<AllocatedImage>& AO, glm::vec4 textureFlags);
 };
 
 struct RenderObject {

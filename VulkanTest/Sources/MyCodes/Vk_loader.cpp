@@ -71,7 +71,7 @@ std::optional<std::shared_ptr<AllocatedImage>> load_image(VulkanTutorialExtensio
                     imagesize.height = height;
                     imagesize.depth = 1;
 
-                    newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+                    newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT);
 
                     //stbi_image_free(data);
                 }
@@ -87,7 +87,7 @@ std::optional<std::shared_ptr<AllocatedImage>> load_image(VulkanTutorialExtensio
                     imagesize.height = height;
                     imagesize.depth = 1;
 
-                    newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+                    newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT);
 
                     //stbi_image_free(data);
                 }
@@ -121,7 +121,7 @@ std::optional<std::shared_ptr<AllocatedImage>> load_image(VulkanTutorialExtensio
                                 imagesize.height = height;
                                 imagesize.depth = 1;
 
-                                newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+                                newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT);
 
                                 //stbi_image_free(data);
                             }
@@ -137,7 +137,7 @@ std::optional<std::shared_ptr<AllocatedImage>> load_image(VulkanTutorialExtensio
                                 imagesize.width = width;
                                 imagesize.height = height;
                                 imagesize.depth = 1;
-                                newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+                                newImage = engine->createTexture2D(data, imagesize, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT);
                                 //stbi_image_free(data);
                             }
                         }
@@ -212,7 +212,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     // we can estimate the descriptors we will need accurately
     std::vector<VkDescriptorPoolSize> sizes =
     {
-        vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 * gltf.materials.size() * engine->getSwapchainImageNum()),
+        vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 7 * gltf.materials.size() * engine->getSwapchainImageNum()),
         vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, gltf.materials.size() * engine->getSwapchainImageNum()),
         vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, gltf.materials.size())
     };
@@ -263,12 +263,9 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     }
 
     // create buffer to hold the material data
-    //file.materialDataBuffer = engine->create_buffer(sizeof(GLTFMetallic_Roughness::MaterialConstants) * gltf.materials.size(),
-        //VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     file.materialDataBuffer->createUniformBuffer(1, engine->getDevicePtr(), engine->physicalDevice, gltf.materials.size());
 
     int data_index = 0;
-    //GLTFMetallic_Roughness::MaterialConstants* sceneMaterialConstants = (GLTFMetallic_Roughness::MaterialConstants*)file.materialDataBuffer.info.pMappedData;
     std::vector<GLTFMetallic_Roughness::MaterialConstants>& sceneMaterialConstants = file.materialDataBuffer->getData();
 
     for (fastgltf::Material& mat : gltf.materials) {
@@ -286,8 +283,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
         constants.metal_rough_factors.y = mat.pbrData.roughnessFactor;
 
         constants.textureFlags = glm::vec4(0.f);
-        // write material parameters to buffer
-        sceneMaterialConstants[data_index] = constants;
 
         MaterialPass passType = MaterialPass::MainColor;
         if (mat.alphaMode == fastgltf::AlphaMode::Blend) {
@@ -336,6 +331,32 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
 			materialResources.metalRoughImage = images[img];
 			materialResources.metalRoughSampler = getSampler(mat.pbrData.metallicRoughnessTexture.value().textureIndex);
 		}
+
+		if (mat.normalTexture.has_value())
+		{
+			size_t img = gltf.textures[mat.normalTexture.value().textureIndex].imageIndex.value();
+			materialResources.normalImage = images[img];
+            constants.metal_rough_factors.b = mat.normalTexture.value().scale;
+		}
+
+		if (mat.occlusionTexture.has_value())
+		{
+			size_t img = gltf.textures[mat.occlusionTexture.value().textureIndex].imageIndex.value();
+			materialResources.AOImage = images[img];
+            constants.metal_rough_factors.a = mat.occlusionTexture.value().strength;
+		}
+
+        if (mat.emissiveTexture.has_value())
+        {
+            size_t img = gltf.textures[mat.emissiveTexture.value().textureIndex].imageIndex.value();
+            materialResources.emissiveImage = images[img];
+            constants.emissiveFactors.x = mat.emissiveFactor[0];
+            constants.emissiveFactors.y = mat.emissiveFactor[1];
+            constants.emissiveFactors.z = mat.emissiveFactor[2];
+        }
+
+        // write material parameters to buffer
+        sceneMaterialConstants[data_index] = constants;
 
         // build material
         newMat->data = engine->metalRoughMaterial.write_material(engine, passType, materialResources, file.descriptorPool);

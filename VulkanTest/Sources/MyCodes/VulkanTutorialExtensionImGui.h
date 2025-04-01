@@ -82,6 +82,23 @@ namespace ImGui
 		ModelTransform m_transform;
 	};
 
+	// TextureType 열거형 정의
+	enum class TextureType {
+		Albedo = 0,
+		Normal = 1,
+		Metallic = 2,
+		Roughness = 3,
+		AO = 4
+	};
+
+	// 재질 텍스처 정보 구조체
+	struct MaterialTextureInfo {
+		std::string path;          // 텍스처 파일 경로
+		std::string displayName;   // UI에 표시할 이름
+		TextureType type;          // 텍스처 타입
+		int viewerIndex;           // TextureViewer에서의 인덱스
+	};
+
 	// 왼쪽 패널 UI 관리자
 	class LeftPanelUI : public std::enable_shared_from_this<LeftPanelUI> {
 	public:
@@ -99,6 +116,7 @@ namespace ImGui
 		using ModelLoadCallback = std::function<void(const std::string&)>;
 		using ModelTransformChangeCallback = std::function<void(int modelIndex, const ImGui::ModelTransform& transform)>;
 
+		/** related to Model Tabl*/
 		void SetModelLoadCallback(ModelLoadCallback callback) { m_modelLoadCallback = callback; }
 		void SetModelRemoveCallback(ModelLoadCallback callback) { m_modelRemoveCallback = callback; }
 		void SetModelTransformChangeCallback(ModelTransformChangeCallback callback) { m_modelTransformChangeCallback = callback; }
@@ -108,11 +126,27 @@ namespace ImGui
 		void SetModelTransform(int modelIndex, const ImGui::ModelTransform& transform);
 		void SetModelTransform(int modelIndex, const glm::mat4& mat);
 
+		/** related to Material Tab*/
+		void SetExtension(VulkanTutorialExtension* extension) { m_extension = extension; }
+		using MaterialTextureSelectCallback = std::function<void(const std::string&, TextureType)>;
+		void SetMaterialTextureSelectCallback(MaterialTextureSelectCallback callback) { m_materialTextureSelectCallback = callback; }
+		using PreviewModelChangeCallback = std::function<void(int)>;
+		void SetPreviewModelChangeCallback(PreviewModelChangeCallback callback) { m_previewModelChangeCallback = callback; }
+		using CreateMaterialCallback = std::function<void(const std::string&, const std::string&, const std::string&, const std::string&, const std::string&, const std::string&)>;
+		void SetCreateMaterialCallback(CreateMaterialCallback callback) { m_createMaterialCallback = callback; }
+		using MaterialModelChangeCallback = std::function<void(int)>;
+		void SetMaterialModelChangeCallback(MaterialModelChangeCallback callback) { m_materialModelChangeCallback = callback; }
+
 	private:
 		// 탭 컨텐츠 렌더링 함수 (구현은 cpp 파일에서)
 		void RenderModelTab();
 		void RenderMaterialTab();
-
+		void DisplayTextureLoadUI(const char* labelName, std::string& texturePath, std::function<void(const std::string&)> onTextureSelected);
+		void RenderMaterialTextureSelectionUI();
+		std::string GetTextureTypeName(TextureType type);
+		void OpenTextureFileBrowser(TextureType type);
+		void HandleTextureFileBrowser();
+		void LoadCustomTexture(const std::string& path, TextureType type);
 
 		// 상태 정보
 		LeftPanelState m_state;
@@ -124,6 +158,34 @@ namespace ImGui
 		std::unordered_map<int, TransformEditor> m_modelTransformEditors;
 		int m_selectedModelIndex = -1;
 		const char* m_fileDialogKey = "ChooseGLTFModelDlgKey";
+		TextureType m_currentSelectingTextureType = TextureType::Albedo;
+
+		// Material 탭 멤버 변수들
+		std::shared_ptr<class MaterialTester> m_materialTester;
+		VulkanTutorialExtension* m_extension = nullptr;
+		std::vector<MaterialTextureInfo> m_materialTextures;
+		int m_selectedTextureIndex = -1;
+		std::string m_fileDialogKeyMaterial = "MaterialTextureDialog";
+		MaterialTextureSelectCallback m_materialTextureSelectCallback;
+		PreviewModelChangeCallback m_previewModelChangeCallback;
+
+		std::string m_albedoPath = "";
+		std::string m_normalPath = "";
+		std::string m_metallicPath = "";
+		std::string m_roughnessPath = "";
+		std::string m_aoPath = "";
+		std::string m_materialName = "viewer";
+
+		// 재질 생성 콜백
+		CreateMaterialCallback m_createMaterialCallback = nullptr;
+		MaterialModelChangeCallback m_materialModelChangeCallback = nullptr;
+		// 모델 선택 관련 변수
+		int m_useBoxModel = 1; // 0 = Box, 1 = Sphere
+
+		using TextureSelectedCallback = std::function<void(const std::string&)>;
+		TextureSelectedCallback m_currentSelectingTextureCallback = nullptr;
+		std::string m_lastBrowsedDirectory = "";
+		std::string m_currentSelectingTexturePath = "";
 	};
 
 	// 오른쪽 패널 UI 관리자

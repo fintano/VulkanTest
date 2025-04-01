@@ -18,7 +18,7 @@ public:
 	};
 
 	void initialize(VulkanTutorialExtension* engine);
-	void draw(VkCommandBuffer commandBuffer, VulkanTutorialExtension* engine);
+	void draw(VkCommandBuffer commandBuffer, VulkanTutorialExtension* engine, size_t index);
 	void addTexture(const std::shared_ptr<CubeMap>& cubeMap, const std::string& name);
 	void addTexture(const std::shared_ptr<AllocatedImage>& image, const std::string& name);
 	void selectTexture(int index);
@@ -28,12 +28,13 @@ public:
 	const std::vector<TextureInfo>& getTextures() const { return textures; }
 	int getSelectedTextureIndex() const { return targetTextureIndex; }
 	bool IsChanged();
+	void ResetChanged();
 
 private:
 	DevicePtr device;
 
 	void createPipeline(VulkanTutorialExtension* engine);
-	void updateTextureIfNeeded(VulkanTutorialExtension* engine);
+	void updateTextureIfNeeded(VulkanTutorialExtension* engine, size_t index);
 
 	std::vector<TextureInfo> textures;
 	std::shared_ptr<SimplePipelineEmptyInput> pipeline;
@@ -42,5 +43,7 @@ private:
 	int selectedMipLevel = 0;
 	int selectedCubeMapFace = 0;
 	bool changed = false;
-	int lastUpdatedIndex = -1;
+	std::vector<int> lastUpdatedIndex;
+	std::vector<int> lastUpdatedMipLevel;
+	std::vector<int> lastUpdatedCubeMapFace;
 };

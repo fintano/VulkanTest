@@ -13,6 +13,7 @@ layout(location = 0) out vec3 outPosition;
 layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec3 outAlbedo;
 layout(location = 3) out vec4 outARM;
+layout(location = 4) out vec4 outEmissive;
 
 void main()
 {
@@ -59,4 +60,7 @@ void main()
     }
     
     outARM = vec4(ao, roughness, metallic, 1.0);
+
+    vec3 emissive = texture(emissiveTex, fragTexCoord).rgb * materialData.emissiveFactors.rgb;
+    outEmissive = vec4(emissive, 1.0);
 }

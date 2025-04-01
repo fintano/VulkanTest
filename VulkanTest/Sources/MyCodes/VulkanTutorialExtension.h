@@ -90,7 +90,6 @@ private:
 	bool isLightOn(int index);
 	bool pointLightSwitchChanged(uint32_t index);
 	void removeGltfModel(const std::string& fileName);
-	void tryRemoveGltfModels();
 	void removeGltfModelDeferred(const std::string& modelPath);
 	void onChangedGltfModelTransform(const Transform& transform, const std::string& fileName);
 
@@ -181,7 +180,6 @@ public:
 	DrawContext mainDrawContext;
 	std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> loadedScenes;
 	std::vector<LoadedGLTFInstance> sceneInstances;
-	std::unordered_map<std::string, int> ModelsToRemove;
 
 	/** 머터리얼 */
 	GLTFMaterial defaultData;

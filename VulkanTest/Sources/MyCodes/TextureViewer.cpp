@@ -11,6 +11,9 @@ TextureViewer::~TextureViewer()
 void TextureViewer::initialize(VulkanTutorialExtension* engine)
 {
 	device = engine->getDevicePtr();
+	lastUpdatedIndex.resize(engine->getSwapchainImageNum(), -1);
+	lastUpdatedMipLevel.resize(engine->getSwapchainImageNum(), 0);
+	lastUpdatedCubeMapFace.resize(engine->getSwapchainImageNum(), 0);
 	createPipeline(engine);
 }
 
@@ -22,7 +25,7 @@ void TextureViewer::createPipeline(VulkanTutorialExtension* engine)
 		"shaders/TextureViewerfrag.spv",
 		SimplePipeline::RenderType::forward,
 		engine->descriptorPool,
-		1
+		engine->getSwapchainImageNum()
 	);
 	pipeline->getDescriptorBuilder().addTexture(VK_SHADER_STAGE_FRAGMENT_BIT);
 	pipeline->buildPipeline(engine, [renderPass = engine->getDefaultRenderPass()](VkGraphicsPipelineCreateInfo& pipelineCI) {
@@ -35,13 +38,14 @@ void TextureViewer::createPipeline(VulkanTutorialExtension* engine)
 		rasterizer->cullMode = VK_CULL_MODE_FRONT_BIT;
 		});
 
-	addTexture(engine->getDefaultTexture2D(), "");
+	addTexture(engine->getDefaultTexture2D(), "Color BackBuffer");
 }
 
-void TextureViewer::updateTextureIfNeeded(VulkanTutorialExtension* engine) 
+void TextureViewer::updateTextureIfNeeded(VulkanTutorialExtension* engine, size_t index) 
 {
 	// 텍스처 인덱스가 변경된 경우에만 업데이트
-	if (lastUpdatedIndex != targetTextureIndex && !textures.empty() && (textures[targetTextureIndex].image || textures[targetTextureIndex].cubeMap)) 
+	if (((lastUpdatedIndex[index] != targetTextureIndex) || (lastUpdatedMipLevel[index] != selectedMipLevel) || (lastUpdatedCubeMapFace[index] != selectedCubeMapFace))
+	&& !textures.empty() && (textures[targetTextureIndex].image || textures[targetTextureIndex].cubeMap)) 
 	{
 		VkImageView imageView = VK_NULL_HANDLE; 
 		if (textures[targetTextureIndex].image)
@@ -58,13 +62,15 @@ void TextureViewer::updateTextureIfNeeded(VulkanTutorialExtension* engine)
 			return;
 		}
 
-		pipeline->updateTextureDescriptor(engine->getDevice(), 0, 0, imageView, engine->getDefaultTextureSampler());
-		lastUpdatedIndex = targetTextureIndex;
+		pipeline->updateTextureDescriptor(engine->getDevice(), index, 0, imageView, engine->getDefaultTextureSampler());
+		lastUpdatedIndex[index] = targetTextureIndex;
+		lastUpdatedMipLevel[index] = selectedMipLevel;
+		lastUpdatedCubeMapFace[index] = selectedCubeMapFace;
 	}
 }
-void TextureViewer::draw(VkCommandBuffer commandBuffer, VulkanTutorialExtension* engine)
+void TextureViewer::draw(VkCommandBuffer commandBuffer, VulkanTutorialExtension* engine, size_t index)
 {
-	updateTextureIfNeeded(engine);
+	updateTextureIfNeeded(engine, index);
 
 	VkExtent2D Res = engine->getSwapchainExtent();
 
@@ -72,7 +78,7 @@ void TextureViewer::draw(VkCommandBuffer commandBuffer, VulkanTutorialExtension*
 	VkRect2D scissor = vkb::initializers::rect2D(Res.width, Res.height, 0, 0);
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline().pipeline);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline().layout, 0, 1, &pipeline->getDescriptorSets()[0], 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->getPipeline().layout, 0, 1, &pipeline->getDescriptorSets()[index], 0, nullptr);
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	
@@ -128,13 +134,10 @@ void TextureViewer::selectCubeMapFace(int Face)
 
 bool TextureViewer::IsChanged()
 {
-	if (changed)
-	{
-		changed = false;
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	return changed;
+}
+
+void TextureViewer::ResetChanged()
+{
+	changed = false;
 }

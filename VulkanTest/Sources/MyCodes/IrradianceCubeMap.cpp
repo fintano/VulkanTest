@@ -53,13 +53,12 @@ void IrradianceCubeMap::initialize(VulkanTutorialExtension* engine)
 	draw(singleCommandBuffer, engine);
 	engine->endSingleTimeCommands(singleCommandBuffer);
 
-	{
-		std::shared_ptr<TextureViewer> textureViewer = engine->getTextureViewer();
-		textureViewer->addTexture(envCubeMap, "EnvironmentMap");
-		textureViewer->addTexture(diffuseMap, "DiffuseMap");
-		textureViewer->addTexture(specularPrefilteredMap, "SpecularPrefilteredMap");
-		textureViewer->addTexture(specularBRDFLUT, "SpecularBRDFLUT");
-	}
+	// for debugging
+	std::shared_ptr<TextureViewer> textureViewer = engine->getTextureViewer();
+	textureViewer->addTexture(envCubeMap, "EnvironmentMap");
+	textureViewer->addTexture(diffuseMap, "DiffuseMap");
+	textureViewer->addTexture(specularPrefilteredMap, "SpecularPrefilteredMap");
+	textureViewer->addTexture(specularBRDFLUT, "SpecularBRDFLUT");
 }
 
 void IrradianceCubeMap::loadEquirectangular(VulkanTutorial* engine, const std::string& path)

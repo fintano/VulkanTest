@@ -7,5 +7,5 @@ layout(binding = 0) uniform sampler2D targetTex;
 
 void main()
 {
-	outColor = vec4(texture(targetTex, fragTexCoord));
+	outColor = vec4(texture(targetTex, fragTexCoord).rgb, 1.0);
 }

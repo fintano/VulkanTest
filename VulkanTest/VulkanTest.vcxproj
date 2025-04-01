@@ -200,6 +200,7 @@ CALL compile.bat</Command>
     <ClCompile Include="Libraries\DearImGui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MyCodes\Buffer.cpp" />
+    <ClCompile Include="Sources\MyCodes\DeferredDeletionQueue.cpp" />
     <ClCompile Include="Sources\MyCodes\GPUMarker.cpp" />
     <ClCompile Include="Sources\MyCodes\IrradianceCubeMap.cpp" />
     <ClCompile Include="Sources\MyCodes\MaterialTester.cpp" />
@@ -209,6 +210,7 @@ CALL compile.bat</Command>
     <ClCompile Include="Sources\MyCodes\vk_descriptor.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_engine.cpp" />
     <ClCompile Include="Sources\MyCodes\Vk_loader.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_log.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_pathes.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_resource_utils.cpp" />
     <ClCompile Include="Sources\MyCodes\vk_types.cpp" />
@@ -223,8 +225,10 @@ CALL compile.bat</Command>
     <ClInclude Include="Sources\MyCodes\Buffer.h" />
     <ClInclude Include="Sources\MyCodes\Camera.h" />
     <ClInclude Include="Sources\MyCodes\Cube.h" />
+    <ClInclude Include="Sources\MyCodes\DeferredDeletionQueue.h" />
     <ClInclude Include="Sources\MyCodes\GPUMarker.h" />
     <ClInclude Include="Sources\MyCodes\IrradianceCubeMap.h" />
+    <ClInclude Include="Sources\MyCodes\vk_log.h" />
     <ClInclude Include="Sources\MyCodes\MaterialTester.h" />
     <ClInclude Include="Sources\MyCodes\Quad.h" />
     <ClInclude Include="Sources\MyCodes\SimplePipeline.h" />

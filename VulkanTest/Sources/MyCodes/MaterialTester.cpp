@@ -15,67 +15,77 @@ void MaterialTester::init(VulkanTutorialExtension* engine)
 
 void MaterialTester::createMaterial(VulkanTutorialExtension* engine,
 const std::string& name,
-const char* albedoPath,
-const char* normalPath,
-const char* metallicPath,
-const char* roughnessPath,
-const char* aoPath
+const std::string& albedoPath,
+const std::string& normalPath,
+const std::string& metallicPath,
+const std::string& roughnessPath,
+const std::string& aoPath
 )
 {
+	auto contains = [&](const std::string& path) {
+			return images.find(path) != images.end();
+		};
 	glm::vec4 textureFlags(0.f); // x=useNormalMap, y=useMetallicMap, z=useRoughnessMap, w=useAOMap
 
-	assert(albedoPath);
+	assert(!albedoPath.empty());
 	std::shared_ptr<AllocatedImage> colorImage = engine->createTexture2D(albedoPath, VK_FORMAT_R8G8B8A8_UNORM);
-	images.push_back(colorImage);
+	images[albedoPath] = colorImage;
 
 	std::shared_ptr<AllocatedImage> normal, metallic, roughness, AO;
-	if (normalPath)
+	if (!normalPath.empty())
 	{
-		normal = engine->createTexture2D(normalPath, VK_FORMAT_R8G8B8A8_UNORM);
+		normal = contains(normalPath) ? images[normalPath] : engine->createTexture2D(normalPath, VK_FORMAT_R8G8B8A8_UNORM);
 		textureFlags.x = 1.f;
-		images.push_back(normal);
+		images[normalPath] = normal;
 	}
 
-	if (metallicPath)
+	if (!metallicPath.empty())
 	{
-		metallic = engine->createTexture2D(metallicPath, VK_FORMAT_R8G8B8A8_UNORM);
+		metallic = contains(metallicPath) ? images[metallicPath] : engine->createTexture2D(metallicPath, VK_FORMAT_R8G8B8A8_UNORM);
 		textureFlags.y = 1.f;
-		images.push_back(metallic);
+		images[metallicPath] = metallic;
 	}
 
-	if (roughnessPath)
+	if (!roughnessPath.empty())
 	{
-		roughness = engine->createTexture2D(roughnessPath, VK_FORMAT_R8G8B8A8_UNORM);
+		roughness = contains(roughnessPath) ? images[roughnessPath] : engine->createTexture2D(roughnessPath, VK_FORMAT_R8G8B8A8_UNORM);
 		textureFlags.z = 1.f;
-		images.push_back(roughness);
+		images[roughnessPath] = roughness;
 	}
 
-	if (aoPath)
+	if (!aoPath.empty())
 	{
-		AO = engine->createTexture2D(aoPath, VK_FORMAT_R8G8B8A8_UNORM);
+		AO = contains(aoPath) ? images[aoPath] : engine->createTexture2D(aoPath, VK_FORMAT_R8G8B8A8_UNORM);
 		textureFlags.a = 1.f;
-		images.push_back(AO);
+		images[aoPath] = AO;
 	}
 
-	GLTFMetallic_Roughness::Material material = engine->metalRoughMaterial.create_material_resources(engine, colorImage, normal, metallic, roughness, AO, textureFlags);
+	std::shared_ptr<GLTFMetallic_Roughness::Material> material = engine->metalRoughMaterial.create_material_resources(engine, colorImage, normal, metallic, roughness, AO, textureFlags);
 
-	materialMap.emplace(name, std::move(material));
+	DeferredDeletionQueue::get().pushResource(materialMap[name]);
+	materialMap[name] = std::move(material);
+
+	engine->markCommandBufferRecreation();
+}
+
+void MaterialTester::selectModel(MaterialTester::Model inModel)
+{
+	model = inModel;
 }
 
 void MaterialTester::draw(DrawContext& mainDrawContext, const std::string& name)
 {
 	if (materialMap.find(name) == materialMap.end())
 	{
-		std::cout << "No material " << name << std::endl;
 		return;
 	}
 
 	RenderObject renderObject;
-	renderObject.material = materialMap[name].materialInstances;
-	renderObject.vertexBuffer = sphere->mesh.vertexBuffer.Buffer;
-	renderObject.indexBuffer = sphere->mesh.indexBuffer.Buffer;
+	renderObject.material = materialMap[name]->materialInstances;
+	renderObject.vertexBuffer = model == Model::Sphere ? sphere->mesh.vertexBuffer.Buffer : cube->mesh.vertexBuffer.Buffer;
+	renderObject.indexBuffer = model == Model::Sphere ? sphere->mesh.indexBuffer.Buffer : cube->mesh.indexBuffer.Buffer;
 	renderObject.firstIndex = 0;
-	renderObject.indexCount = sphere->mesh.indexBuffer.indices.size();
+	renderObject.indexCount = model == Model::Sphere ? sphere->mesh.indexBuffer.indices.size() : cube->mesh.indexBuffer.indices.size();
 	renderObject.transform = glm::identity<glm::mat4>();
 
 	mainDrawContext.OpaqueSurfaces.push_back(std::move(renderObject));
@@ -83,11 +93,6 @@ void MaterialTester::draw(DrawContext& mainDrawContext, const std::string& name)
 
 void MaterialTester::cleanUp(VkDevice device)
 {
-	//for(auto& [name, material] : materialMap)
-	//{
-	//	material.constants.destroy(0);
-	//}
-
 	sphere->cleanUp(device);
 	cube->cleanUp(device);
 }

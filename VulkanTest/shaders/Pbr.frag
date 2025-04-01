@@ -14,40 +14,23 @@ void main()
     vec3 albedo = pow(texture(albedo, texCoords).rgb, vec3(2.2));
 	vec3 arm = texture(arm, texCoords).rgb;
     vec3 ao = vec3(arm.r);
+    vec3 emissive = texture(emissive, texCoords).rgb;
 	float metallic = arm.b;
 	float roughness = arm.g;
 
-    float diffuseFactor = 1.0;
-    float specularFactor = 1.0;
+    float diffuseEnable = 1.0;
+    float specularEnable = 1.0;
 
     int DebugDisplay = int(sceneData.exposureDisplay.y);
 
     if(DebugDisplay > 0)
 	{
 		switch (DebugDisplay) {
-		case 1:
-			FragColor = vec4(WorldPos, 1.0);
-			return;
-		case 2:
-			FragColor = vec4(N, 1.0);
-			return;
-		case 3:
-			FragColor = vec4(albedo, 1.0);
-			return;
-		case 4:
-			FragColor = vec4(ao, 1.0);
-			return;
-		case 5:
-			FragColor = vec4(roughness, roughness, roughness, 1.0);
-			return;
-		case 6:
-			FragColor = vec4(metallic, metallic, metallic, 1.0);
-			return;
         case 7:
-            diffuseFactor = 0.0;
+            diffuseEnable = 0.0;
             break;
         case 8:
-            specularFactor= 0.0;
+            specularEnable= 0.0;
             break;
 		}
 	}
@@ -100,12 +83,12 @@ void main()
             float NdotL = max(dot(N, L), 0.0);        
 
             // add to outgoing radiance Lo
-            Lo += (kD * albedo / PI * diffuseFactor + specular * specularFactor) * radiance * NdotL; // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
+            Lo += (kD * albedo / PI * diffuseEnable + specular * specularEnable) * radiance * NdotL; // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
         }
     }   
     
     {
- 		Lo += CalcDirLight(sceneData.dirLight, N, V, albedo, roughness, metallic, diffuseFactor, specularFactor);
+ 		Lo += CalcDirLight(sceneData.dirLight, N, V, albedo, roughness, metallic, diffuseEnable, specularEnable);
  	}
 
     // ambient lighting (we now use IBL as the ambient term)
@@ -124,9 +107,12 @@ void main()
     vec2 brdf  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
     vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
 
-    vec3 ambient = (kD * diffuse * diffuseFactor + specular * specularFactor) * ao;
+    vec3 ambient = (kD * diffuse * diffuseEnable + specular * specularEnable) * ao;
     
     vec3 color = ambient + Lo;
+    
+    // emissive
+    color.rgb += emissive;
 
     // HDR tonemapping
     color = color / (color + vec3(1.0));
