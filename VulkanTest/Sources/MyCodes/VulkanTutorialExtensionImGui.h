@@ -128,10 +128,6 @@ namespace ImGui
 
 		/** related to Material Tab*/
 		void SetExtension(VulkanTutorialExtension* extension) { m_extension = extension; }
-		using MaterialTextureSelectCallback = std::function<void(const std::string&, TextureType)>;
-		void SetMaterialTextureSelectCallback(MaterialTextureSelectCallback callback) { m_materialTextureSelectCallback = callback; }
-		using PreviewModelChangeCallback = std::function<void(int)>;
-		void SetPreviewModelChangeCallback(PreviewModelChangeCallback callback) { m_previewModelChangeCallback = callback; }
 		using CreateMaterialCallback = std::function<void(const std::string&, const std::string&, const std::string&, const std::string&, const std::string&, const std::string&)>;
 		void SetCreateMaterialCallback(CreateMaterialCallback callback) { m_createMaterialCallback = callback; }
 		using MaterialModelChangeCallback = std::function<void(int)>;
@@ -142,7 +138,6 @@ namespace ImGui
 		void RenderModelTab();
 		void RenderMaterialTab();
 		void DisplayTextureLoadUI(const char* labelName, std::string& texturePath, std::function<void(const std::string&)> onTextureSelected);
-		void RenderMaterialTextureSelectionUI();
 		std::string GetTextureTypeName(TextureType type);
 		void OpenTextureFileBrowser(TextureType type);
 		void HandleTextureFileBrowser();
@@ -161,13 +156,8 @@ namespace ImGui
 		TextureType m_currentSelectingTextureType = TextureType::Albedo;
 
 		// Material ÅÇ ¸â¹ö º¯¼öµé
-		std::shared_ptr<class MaterialTester> m_materialTester;
 		VulkanTutorialExtension* m_extension = nullptr;
-		std::vector<MaterialTextureInfo> m_materialTextures;
-		int m_selectedTextureIndex = -1;
 		std::string m_fileDialogKeyMaterial = "MaterialTextureDialog";
-		MaterialTextureSelectCallback m_materialTextureSelectCallback;
-		PreviewModelChangeCallback m_previewModelChangeCallback;
 
 		std::string m_albedoPath = "";
 		std::string m_normalPath = "";
@@ -215,6 +205,5 @@ namespace ImGui
 		bool m_open = true;
 
 		int m_selectedTextureIndex = -1;
-		bool m_showTextureViewer = true;
 	};
 }

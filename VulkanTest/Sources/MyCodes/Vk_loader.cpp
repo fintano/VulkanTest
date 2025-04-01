@@ -183,6 +183,11 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanTutorialExtension* eng
     fastgltf::Asset gltf;
     std::filesystem::path path = Utils::GetProjectRoot() / filePath;
 
+	if (data.error() == fastgltf::Error::InvalidPath)
+	{
+		return std::nullopt;
+	}
+
     auto type = fastgltf::determineGltfFileType(data.get());
     if (type == fastgltf::GltfType::glTF) {
         auto load = parser.loadGltf(data.get(), path.parent_path(), gltfOptions);
