@@ -164,33 +164,29 @@ void SimplePipeline::buildPipeline(VulkanTutorialExtension* engine, std::functio
     viewportState.pViewports = &viewport;
     viewportState.pScissors = &scissor;
 
-	// ColorBlending
-	if (renderType == RenderType::deferred)
-	{
-        std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates =
-        {
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
+    VkPipelineColorBlendStateCreateInfo colorBlendState;
+
+    if (renderType == RenderType::deferred) {
+        blendAttachmentStates = {
             vkb::initializers::pipeline_color_blend_attachment_state(0xf, VK_FALSE),
             vkb::initializers::pipeline_color_blend_attachment_state(0xf, VK_FALSE),
             vkb::initializers::pipeline_color_blend_attachment_state(0xf, VK_FALSE),
             vkb::initializers::pipeline_color_blend_attachment_state(0xf, VK_FALSE)
-        }; 
-        
-        VkPipelineColorBlendStateCreateInfo colorBlendState = vkb::initializers::pipeline_color_blend_state_create_info(blendAttachmentStates.size(), blendAttachmentStates.data());
-		pipelineCI.pColorBlendState = &colorBlendState;
-	}
-    else
-    {
-        VkPipelineColorBlendAttachmentState blendAttachmentState = vkb::initializers::pipeline_color_blend_attachment_state(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT, VK_TRUE);
-        blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;  // ¼Ò½º »ö»ó ºí·»µù ÆÑÅÍ
-        blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;  // ´ë»ó »ö»ó ºí·»µù ÆÑÅÍ
-        blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;  // »ö»ó ºí·»µù ¿¬»ê
-        blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;  // ¼Ò½º ¾ËÆÄ ºí·»µù ÆÑÅÍ
-        blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // ´ë»ó ¾ËÆÄ ºí·»µù ÆÑÅÍ
-        blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;  // ¾ËÆÄ ºí·»µù ¿¬»ê
-
-        VkPipelineColorBlendStateCreateInfo colorBlendState = vkb::initializers::pipeline_color_blend_state_create_info(1, &blendAttachmentState);
-        pipelineCI.pColorBlendState = &colorBlendState;
+        };
     }
+    else {
+        blendAttachmentStates = { vkb::initializers::pipeline_color_blend_attachment_state(0xf, VK_TRUE) };
+        blendAttachmentStates[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        blendAttachmentStates[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        blendAttachmentStates[0].colorBlendOp = VK_BLEND_OP_ADD;
+        blendAttachmentStates[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        blendAttachmentStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        blendAttachmentStates[0].alphaBlendOp = VK_BLEND_OP_ADD;
+    }
+
+    colorBlendState = vkb::initializers::pipeline_color_blend_state_create_info(blendAttachmentStates.size(), blendAttachmentStates.data());
+    pipelineCI.pColorBlendState = &colorBlendState;
 
     // Shaders
     VkShaderModule meshVertexShader = Utils::loadShader(vertShaderPath.c_str(), device);

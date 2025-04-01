@@ -79,6 +79,7 @@
     <None Include="shaders\BRDFIntegrationMap.frag">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\TextureViewer.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Sources\VulkanTutorial\VulkanTutorial.cpp">
@@ -154,6 +155,9 @@
     <ClCompile Include="Libraries\DearImGui\ImGuiFileDialog.cpp">
       <Filter>MyCodes\ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\MyCodes\DeferredDeletionQueue.cpp" />
+    <ClCompile Include="Sources\MyCodes\TextureViewer.cpp" />
+    <ClCompile Include="Sources\MyCodes\vk_log.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\VulkanTutorial\VulkanTutorial.h">
@@ -234,5 +238,8 @@
     <ClInclude Include="Libraries\DearImGui\ImGuiFileDialogConfig.h">
       <Filter>MyCodes\ImGui</Filter>
     </ClInclude>
+    <ClInclude Include="Sources\MyCodes\DeferredDeletionQueue.h" />
+    <ClInclude Include="Sources\MyCodes\vk_log.h" />
+    <ClInclude Include="Sources\MyCodes\TextureViewer.h" />
   </ItemGroup>
 </Project>

@@ -150,7 +150,7 @@ CALL Compile.bat</Command>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)Libraries\DearImGui;$(ProjectDir)Sources\MyCodes;$(ProjectDir)Sources\VulkanTutorial;$(ProjectDir)Libraries\tinyobjloader-master;$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\include;$(ProjectDir)Libraries\stb-master;$(ProjectDir)Libraries\glm-master;$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)Libraries\DearImGui;$(ProjectDir)Sources\MyCodes;$(ProjectDir)Sources\VulkanTutorial;$(ProjectDir)Libraries\tinyobjloader-master;$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\include;$(ProjectDir)Libraries\stb-master;$(ProjectDir)Libraries\glm-master;$(VULKAN_SDK)\Include;$(ProjectDir)Libraries\fastgltf\include;$(ProjectDir)Libraries\dirent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -158,7 +158,7 @@ CALL Compile.bat</Command>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\lib-vc2019;$(VULKAN_SDK)\Lib;$(ProjectDir)Libraries\fastgltf-main\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)Libraries\glfw-3.3.4.bin.WIN64\lib-vc2019;$(VULKAN_SDK)\Lib;$(ProjectDir)Libraries\fastgltf\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;fastgltf.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>

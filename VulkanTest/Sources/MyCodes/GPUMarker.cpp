@@ -6,16 +6,18 @@ PFN_vkCmdInsertDebugUtilsLabelEXT GPUMarker::vkCmdInsertDebugUtilsLabelEXT = nul
 
 void GPUMarker::setup(VkInstance instance)
 {
+#ifndef NDEBUG
 	// Vulkan은 Extensions를 이렇게 Dynamically 로딩을 해야한다. 
 	vkCmdBeginDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdBeginDebugUtilsLabelEXT"));
 	vkCmdEndDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdEndDebugUtilsLabelEXT"));
 	vkCmdInsertDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(vkGetInstanceProcAddr(instance, "vkCmdInsertDebugUtilsLabelEXT"));
+#endif
 }
 
 GPUMarker::GPUMarker(VkCommandBuffer inCommandBuffer, const char* label)
 {
 	commandBuffer = inCommandBuffer;
-
+#ifndef NDEBUG
 	VkDebugUtilsLabelEXT debugLabel{};
 	debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
 	debugLabel.pLabelName = label;
@@ -25,9 +27,12 @@ GPUMarker::GPUMarker(VkCommandBuffer inCommandBuffer, const char* label)
 	debugLabel.color[3] = 1.0f;
 
 	vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &debugLabel);
+#endif
 }
 
 GPUMarker::~GPUMarker()
 {
+#ifndef NDEBUG
 	vkCmdEndDebugUtilsLabelEXT(commandBuffer);
+#endif
 }
