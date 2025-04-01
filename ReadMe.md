@@ -2,8 +2,15 @@
 
 ## How to Run
 
+### Option 1: Build from source 
 - Ensure Vulkan SDK is installed ([Download Vulkan SDK](https://vulkan.lunarg.com/sdk/home)).
-- Build the provided source code and execute the resulting binary.
+- Build the source code using Visual Studio or your preferred compiler
+- Run the compiled executable
+
+### Option 2: Pre-built release
+- Download the latest release from the Releases page
+- Extract the ZIP file and go x64/Release
+- Run VulkanTest.exe
 
 ## ver 0.2 PBR
 
