@@ -1,6 +1,4 @@
-# VulkanTutorialExtension
-
-**VulkanTutorialExtension** is a simple and ongoing sample project extending the Vulkan-Tutorial codebase, designed to add custom features to the Vulkan rendering environment for experimental purposes.
+**VulkanTest** is a simple and ongoing sample project extending the Vulkan-Tutorial codebase, designed to add custom features to the Vulkan rendering environment for experimental purposes.
 
 ## How to Run
 
