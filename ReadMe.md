@@ -28,11 +28,11 @@
 *Environment map for PBR lighting and skybox*
 
 #### Diffuse Map
-![diffMap](Images/PrefilterMap_ver0.2.png)
+![diffMap](Images/DiffuseMap_ver0.2.png)
 *Diffuse map for Indirect Diffuse PBR lighting*
 
 #### Prefiltered Map
-![specPrefilterMap](Images/DiffuseMap_ver0.2.png)
+![specPrefilterMap](Images/PrefilterMap_ver0.2.png)
 *Prefiltered map for Indirect Specular PBR lighting*
 
 ## ver 0.1
