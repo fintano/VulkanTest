@@ -1,4 +1,4 @@
-**VulkanTest** is a simple and ongoing sample project extending the Vulkan-Tutorial codebase, designed to add custom features to the Vulkan rendering environment for experimental purposes.
+**VulkanTest** is an experimental rendering project that extends the Vulkan-Tutorial codebase. It implements various graphics features including PBR (Physically Based Rendering), deferred lighting, and interactive camera controls. The latest version (v0.2) offers glTF model loading and PBR material testing capabilities, while the previous version (v0.1) established advanced lighting systems, camera controls, and a GUI interface for real-time adjustments.
 
 ## How to Run
 
